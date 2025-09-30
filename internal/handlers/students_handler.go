@@ -3,11 +3,16 @@ package handlers
 
 import (
 	"appfitness/internal/middleware"
+	"appfitness/internal/types" // ALTERAÇÃO: Importa o pacote de tipos
 	"database/sql"
 	"encoding/json"
 	"log"
 	"net/http"
+	"os"
+	"strings"
+	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -18,17 +23,17 @@ func RegisterStudentsRoutes(mux *http.ServeMux, db *sql.DB) {
 
 	createStudentHandler := http.HandlerFunc(h.handleCreateStudent)
 	listStudentsHandler := http.HandlerFunc(h.handleListStudents)
-	getStudentHandler := http.HandlerFunc(h.handleGetStudent)       // MODIFICAÇÃO
-	updateStudentHandler := http.HandlerFunc(h.handleUpdateStudent) // MODIFICAÇÃO
-	deleteStudentHandler := http.HandlerFunc(h.handleDeleteStudent) // MODIFICAÇÃO
+	getStudentHandler := http.HandlerFunc(h.handleGetStudent)
+	updateStudentHandler := http.HandlerFunc(h.handleUpdateStudent)
+	deleteStudentHandler := http.HandlerFunc(h.handleDeleteStudent)
+	loginStudentHandler := http.HandlerFunc(h.handleStudentLogin)
 
 	mux.Handle("POST /api/students", middleware.AuthMiddleware(createStudentHandler))
 	mux.Handle("GET /api/students", middleware.AuthMiddleware(listStudentsHandler))
-
-	// MODIFICAÇÃO: Novas rotas para um aluno específico, usando o ID na URL.
 	mux.Handle("GET /api/students/{id}", middleware.AuthMiddleware(getStudentHandler))
 	mux.Handle("PUT /api/students/{id}", middleware.AuthMiddleware(updateStudentHandler))
 	mux.Handle("DELETE /api/students/{id}", middleware.AuthMiddleware(deleteStudentHandler))
+	mux.HandleFunc("POST /api/students/login", loginStudentHandler)
 }
 
 type studentsHandler struct {
@@ -46,19 +51,63 @@ type StudentResponse struct {
 	Name  string `json:"name"`
 	Email string `json:"email"`
 }
-
-// MODIFICAÇÃO: Nova struct para a requisição de atualização de aluno.
 type UpdateStudentRequest struct {
 	Name  *string `json:"name"`
 	Email *string `json:"email"`
 }
 
+// ALTERAÇÃO: Removidas LoginRequest e LoginResponse. Agora estão no pacote /types.
+
 // --- Handlers ---
-// MODIFICAÇÃO: Nova função para buscar um aluno específico.
+
+func (h *studentsHandler) handleStudentLogin(w http.ResponseWriter, r *http.Request) {
+	// ALTERAÇÃO: Usa o tipo do pacote 'types'
+	var req types.LoginRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Corpo da requisição inválido", http.StatusBadRequest)
+		return
+	}
+
+	var studentID, hashedPassword string
+	query := `SELECT id, password_hash FROM students WHERE email = $1`
+	err := h.db.QueryRowContext(r.Context(), query, req.Email).Scan(&studentID, &hashedPassword)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "Email ou senha inválidos", http.StatusUnauthorized)
+			return
+		}
+		log.Printf("Erro ao buscar aluno: %v", err)
+		http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
+		return
+	}
+
+	err = bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(req.Password))
+	if err != nil {
+		http.Error(w, "Email ou senha inválidos", http.StatusUnauthorized)
+		return
+	}
+
+	claims := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"sub": studentID,
+		"exp": time.Now().Add(time.Hour * 8).Unix(),
+	})
+
+	jwtSecret := os.Getenv("JWT_SECRET")
+	tokenString, err := claims.SignedString([]byte(jwtSecret))
+	if err != nil {
+		log.Printf("Erro ao gerar token JWT para aluno: %v", err)
+		http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	// ALTERAÇÃO: Usa o tipo do pacote 'types'
+	json.NewEncoder(w).Encode(types.LoginResponse{Token: tokenString})
+}
+
 func (h *studentsHandler) handleGetStudent(w http.ResponseWriter, r *http.Request) {
 	trainerID := r.Context().Value(middleware.TrainerIDKey).(string)
-	studentID := r.PathValue("id") // Pega o {id} da URL
-
+	studentID := r.PathValue("id")
 	var student StudentResponse
 	query := `SELECT id, name, email FROM students WHERE id = $1 AND trainer_id = $2`
 	err := h.db.QueryRowContext(r.Context(), query, studentID, trainerID).Scan(&student.ID, &student.Name, &student.Email)
@@ -71,23 +120,18 @@ func (h *studentsHandler) handleGetStudent(w http.ResponseWriter, r *http.Reques
 		http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
 		return
 	}
-
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(student)
 }
 
-// MODIFICAÇÃO: Nova função para atualizar um aluno.
 func (h *studentsHandler) handleUpdateStudent(w http.ResponseWriter, r *http.Request) {
 	trainerID := r.Context().Value(middleware.TrainerIDKey).(string)
 	studentID := r.PathValue("id")
-
 	var req UpdateStudentRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Corpo da requisição inválido", http.StatusBadRequest)
 		return
 	}
-
-	// Aqui poderíamos adicionar uma lógica mais complexa para updates parciais, mas por simplicidade vamos atualizar tudo.
 	query := `UPDATE students SET name = $1, email = $2 WHERE id = $3 AND trainer_id = $4`
 	result, err := h.db.ExecContext(r.Context(), query, req.Name, req.Email, studentID, trainerID)
 	if err != nil {
@@ -95,22 +139,18 @@ func (h *studentsHandler) handleUpdateStudent(w http.ResponseWriter, r *http.Req
 		http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
 		return
 	}
-
 	rowsAffected, _ := result.RowsAffected()
 	if rowsAffected == 0 {
 		http.Error(w, "Aluno não encontrado ou não pertence a este trainer", http.StatusNotFound)
 		return
 	}
-
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("Aluno atualizado com sucesso"))
 }
 
-// MODIFICAÇÃO: Nova função para deletar um aluno.
 func (h *studentsHandler) handleDeleteStudent(w http.ResponseWriter, r *http.Request) {
 	trainerID := r.Context().Value(middleware.TrainerIDKey).(string)
 	studentID := r.PathValue("id")
-
 	query := `DELETE FROM students WHERE id = $1 AND trainer_id = $2`
 	result, err := h.db.ExecContext(r.Context(), query, studentID, trainerID)
 	if err != nil {
@@ -118,17 +158,14 @@ func (h *studentsHandler) handleDeleteStudent(w http.ResponseWriter, r *http.Req
 		http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
 		return
 	}
-
 	rowsAffected, _ := result.RowsAffected()
 	if rowsAffected == 0 {
 		http.Error(w, "Aluno não encontrado ou não pertence a este trainer", http.StatusNotFound)
 		return
 	}
-
-	w.WriteHeader(http.StatusNoContent) // 204 No Content é a resposta padrão para um DELETE bem-sucedido.
+	w.WriteHeader(http.StatusNoContent)
 }
 
-// As funções handleListStudents e handleCreateStudent permanecem as mesmas
 func (h *studentsHandler) handleListStudents(w http.ResponseWriter, r *http.Request) {
 	trainerID, ok := r.Context().Value(middleware.TrainerIDKey).(string)
 	if !ok {
@@ -164,6 +201,7 @@ func (h *studentsHandler) handleListStudents(w http.ResponseWriter, r *http.Requ
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(students)
 }
+
 func (h *studentsHandler) handleCreateStudent(w http.ResponseWriter, r *http.Request) {
 	trainerID, ok := r.Context().Value(middleware.TrainerIDKey).(string)
 	if !ok {
@@ -189,6 +227,14 @@ func (h *studentsHandler) handleCreateStudent(w http.ResponseWriter, r *http.Req
 	`
 	err = h.db.QueryRowContext(r.Context(), query, req.Name, req.Email, string(hashedPassword), trainerID).Scan(&newStudent.ID, &newStudent.Name, &newStudent.Email)
 	if err != nil {
+		// --- ALTERAÇÃO AQUI ---
+		// Verificamos se o erro é de violação de chave única.
+		if strings.Contains(err.Error(), "violates unique constraint") {
+			http.Error(w, "O email fornecido já está em uso.", http.StatusConflict) // 409 Conflict
+			return
+		}
+		// --- FIM DA ALTERAÇÃO ---
+
 		log.Printf("Erro ao inserir aluno no banco de dados: %v", err)
 		http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
 		return

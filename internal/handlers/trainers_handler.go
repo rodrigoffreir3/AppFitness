@@ -3,6 +3,7 @@ package handlers
 
 import (
 	"appfitness/internal/middleware"
+	"appfitness/internal/types" // ALTERAÇÃO: Importa o pacote de tipos
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -27,7 +28,6 @@ func RegisterTrainersRoutes(mux *http.ServeMux, db *sql.DB) {
 	getTrainerMeHandler := http.HandlerFunc(h.handleGetTrainerMe)
 	mux.Handle("GET /api/trainers/me", middleware.AuthMiddleware(getTrainerMeHandler))
 
-	// MODIFICAÇÃO: Nova rota protegida para atualizar o perfil do trainer.
 	updateTrainerMeHandler := http.HandlerFunc(h.handleUpdateTrainerMe)
 	mux.Handle("PUT /api/trainers/me", middleware.AuthMiddleware(updateTrainerMeHandler))
 }
@@ -44,14 +44,7 @@ type CreateTrainerRequest struct {
 	Password string `json:"password"`
 }
 
-type LoginRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
-}
-
-type LoginResponse struct {
-	Token string `json:"token"`
-}
+// ALTERAÇÃO: Removidas LoginRequest e LoginResponse. Agora estão no pacote /types.
 
 type TrainerProfileResponse struct {
 	ID                string `json:"id"`
@@ -61,8 +54,6 @@ type TrainerProfileResponse struct {
 	BrandPrimaryColor string `json:"brand_primary_color,omitempty"`
 }
 
-// MODIFICAÇÃO: Nova struct para a requisição de atualização.
-// Usamos ponteiros para que possamos diferenciar um valor não enviado de um valor vazio.
 type UpdateTrainerRequest struct {
 	Name              *string `json:"name"`
 	BrandLogoURL      *string `json:"brand_logo_url"`
@@ -71,8 +62,6 @@ type UpdateTrainerRequest struct {
 
 // --- Handlers ---
 
-// handleUpdateTrainerMe atualiza os dados do personal trainer autenticado.
-// MODIFICAÇÃO: Nova função handler.
 func (h *trainersHandler) handleUpdateTrainerMe(w http.ResponseWriter, r *http.Request) {
 	trainerID, ok := r.Context().Value(middleware.TrainerIDKey).(string)
 	if !ok {
@@ -86,7 +75,6 @@ func (h *trainersHandler) handleUpdateTrainerMe(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	// Lógica para construir a query de UPDATE dinamicamente
 	queryParts := []string{}
 	args := []interface{}{}
 	argID := 1
@@ -126,7 +114,6 @@ func (h *trainersHandler) handleUpdateTrainerMe(w http.ResponseWriter, r *http.R
 	w.Write([]byte("Perfil atualizado com sucesso!"))
 }
 
-// As funções handleCreateTrainer, handleLogin e handleGetTrainerMe permanecem as mesmas
 func (h *trainersHandler) handleGetTrainerMe(w http.ResponseWriter, r *http.Request) {
 	trainerID, ok := r.Context().Value(middleware.TrainerIDKey).(string)
 	if !ok {
@@ -148,6 +135,7 @@ func (h *trainersHandler) handleGetTrainerMe(w http.ResponseWriter, r *http.Requ
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
 }
+
 func (h *trainersHandler) handleCreateTrainer(w http.ResponseWriter, r *http.Request) {
 	var req CreateTrainerRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -177,8 +165,10 @@ func (h *trainersHandler) handleCreateTrainer(w http.ResponseWriter, r *http.Req
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(map[string]string{"id": newTrainerID})
 }
+
 func (h *trainersHandler) handleLogin(w http.ResponseWriter, r *http.Request) {
-	var req LoginRequest
+	// ALTERAÇÃO: Usa o tipo do pacote 'types'
+	var req types.LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Corpo da requisição inválido", http.StatusBadRequest)
 		return
@@ -212,5 +202,6 @@ func (h *trainersHandler) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(LoginResponse{Token: tokenString})
+	// ALTERAÇÃO: Usa o tipo do pacote 'types'
+	json.NewEncoder(w).Encode(types.LoginResponse{Token: tokenString})
 }

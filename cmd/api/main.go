@@ -19,7 +19,7 @@ func main() {
 
 	// --- Lógica do Chat ---
 	// 1. Criamos uma nova instância do nosso Hub de chat.
-	hub := chat.NewHub()
+	hub := chat.NewHub(db)
 	// 2. Iniciamos o Hub numa goroutine separada.
 	//    Ele vai correr em segundo plano para sempre, a gerir os clientes e as mensagens.
 	go hub.Run()

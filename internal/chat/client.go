@@ -2,6 +2,7 @@
 package chat
 
 import (
+	"encoding/json"
 	"log"
 	"net/http"
 	"time"
@@ -65,7 +66,15 @@ func (c *Client) readPump() {
 			break
 		}
 		// Envia a mensagem lida para o canal de broadcast do hub.
-		c.hub.broadcast <- message
+		// Adiciona o sender_id à mensagem antes de enviá-la ao hub.
+		var msg Message
+		if err := json.Unmarshal(message, &msg); err == nil {
+			msg.SenderID = c.userID
+			modifiedMessage, _ := json.Marshal(msg)
+			c.hub.broadcast <- modifiedMessage
+		} else {
+			log.Printf("Erro ao decodificar mensagem do cliente %s: %v", c.userID, err)
+		}
 	}
 }
 
