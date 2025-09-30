@@ -2,6 +2,7 @@
 package main
 
 import (
+	"appfitness/internal/chat" // <-- IMPORTAMOS O PACOTE DE CHAT
 	"appfitness/internal/database"
 	"appfitness/internal/handlers"
 	"log"
@@ -16,22 +17,24 @@ func main() {
 	defer db.Close()
 	log.Println("Conexão com o banco de dados estabelecida com sucesso!")
 
+	// --- Lógica do Chat ---
+	// 1. Criamos uma nova instância do nosso Hub de chat.
+	hub := chat.NewHub()
+	// 2. Iniciamos o Hub numa goroutine separada.
+	//    Ele vai correr em segundo plano para sempre, a gerir os clientes e as mensagens.
+	go hub.Run()
+
 	port := "8080"
 	mux := http.NewServeMux()
 
-	// Registramos as rotas de trainers, passando o mux e a conexão com o banco.
+	// --- Registo das Rotas ---
 	handlers.RegisterTrainersRoutes(mux, db)
-
-	// Registra as novas rotas de alunos
 	handlers.RegisterStudentsRoutes(mux, db)
-
-	// Registra as novas rotas de treinos.
 	handlers.RegisterWorkoutsRoutes(mux, db)
-
-	// Registra as rotas para os exercícios do treino
 	handlers.RegisterWorkoutExercisesRoutes(mux, db)
+	// 3. Registamos as rotas de chat, passando o nosso hub para o handler.
+	handlers.RegisterChatRoutes(mux, hub)
 
-	// Podemos manter uma rota raiz para verificar se a API está no ar.
 	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("API do App Fitness está no ar!"))
 	})

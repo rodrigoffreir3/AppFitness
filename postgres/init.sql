@@ -133,3 +133,16 @@ INSERT INTO exercises (name, muscle_group, equipment) VALUES
 ('Abdominal Infra (Elevação de Pernas)', 'Abdômen', 'Peso Corporal'),
 ('Prancha Abdominal', 'Abdômen', 'Peso Corporal'),
 ('Abdominal Oblíquo (Bicicleta)', 'Abdômen', 'Peso Corporal');
+
+-- Tabela: chat_messages (Histórico do Chat Privado)
+CREATE TABLE chat_messages (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    sender_id UUID NOT NULL, -- Pode ser um trainer ou um student
+    receiver_id UUID NOT NULL, -- Pode ser um trainer ou um student
+    content TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Índices para otimizar a busca de conversas
+CREATE INDEX ON chat_messages (sender_id, receiver_id);
+CREATE INDEX ON chat_messages (created_at DESC);
