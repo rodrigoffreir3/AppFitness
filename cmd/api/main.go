@@ -34,6 +34,7 @@ func main() {
 	handlers.RegisterWorkoutExercisesRoutes(mux, db)
 	// 3. Registamos as rotas de chat, passando o nosso hub para o handler.
 	handlers.RegisterChatRoutes(mux, hub)
+	handlers.RegisterAnnouncementsRoutes(mux, db)
 
 	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("API do App Fitness está no ar!"))
