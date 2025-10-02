@@ -146,3 +146,15 @@ CREATE TABLE chat_messages (
 -- Índices para otimizar a busca de conversas
 CREATE INDEX ON chat_messages (sender_id, receiver_id);
 CREATE INDEX ON chat_messages (created_at DESC);
+
+-- Tabela: announcements (Mural de Avisos)
+CREATE TABLE announcements (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    trainer_id UUID NOT NULL REFERENCES trainers(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    content TEXT,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Índice para otimizar a busca de avisos por trainer
+CREATE INDEX ON announcements (trainer_id);
