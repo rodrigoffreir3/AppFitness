@@ -15,9 +15,15 @@ func RegisterAnnouncementsRoutes(mux *http.ServeMux, db *sql.DB) {
 
 	createHandler := http.HandlerFunc(h.handleCreateAnnouncement)
 	listHandler := http.HandlerFunc(h.handleListAnnouncements)
+	// MODIFICAÇÃO: Adicionamos os handlers de update e delete.
+	updateHandler := http.HandlerFunc(h.handleUpdateAnnouncement)
+	deleteHandler := http.HandlerFunc(h.handleDeleteAnnouncement)
 
 	mux.Handle("POST /api/announcements", middleware.AuthMiddleware(createHandler))
 	mux.Handle("GET /api/announcements", middleware.AuthMiddleware(listHandler))
+	// MODIFICAÇÃO: Novas rotas para um aviso específico.
+	mux.Handle("PUT /api/announcements/{id}", middleware.AuthMiddleware(updateHandler))
+	mux.Handle("DELETE /api/announcements/{id}", middleware.AuthMiddleware(deleteHandler))
 }
 
 type announcementsHandler struct {
@@ -36,7 +42,58 @@ type AnnouncementResponse struct {
 	CreatedAt string `json:"created_at"`
 }
 
-// handleCreateAnnouncement cria um novo aviso.
+// MODIFICAÇÃO: Nova função para atualizar um aviso.
+func (h *announcementsHandler) handleUpdateAnnouncement(w http.ResponseWriter, r *http.Request) {
+	trainerID := r.Context().Value(middleware.TrainerIDKey).(string)
+	announcementID := r.PathValue("id")
+
+	var req AnnouncementRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Corpo da requisição inválido", http.StatusBadRequest)
+		return
+	}
+
+	query := `UPDATE announcements SET title = $1, content = $2 WHERE id = $3 AND trainer_id = $4`
+	result, err := h.db.ExecContext(r.Context(), query, req.Title, req.Content, announcementID, trainerID)
+	if err != nil {
+		log.Printf("Erro ao atualizar aviso: %v", err)
+		http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
+		return
+	}
+
+	rowsAffected, _ := result.RowsAffected()
+	if rowsAffected == 0 {
+		http.Error(w, "Aviso não encontrado ou não pertence a este trainer", http.StatusNotFound)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Aviso atualizado com sucesso"))
+}
+
+// MODIFICAÇÃO: Nova função para deletar um aviso.
+func (h *announcementsHandler) handleDeleteAnnouncement(w http.ResponseWriter, r *http.Request) {
+	trainerID := r.Context().Value(middleware.TrainerIDKey).(string)
+	announcementID := r.PathValue("id")
+
+	query := `DELETE FROM announcements WHERE id = $1 AND trainer_id = $2`
+	result, err := h.db.ExecContext(r.Context(), query, announcementID, trainerID)
+	if err != nil {
+		log.Printf("Erro ao deletar aviso: %v", err)
+		http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
+		return
+	}
+
+	rowsAffected, _ := result.RowsAffected()
+	if rowsAffected == 0 {
+		http.Error(w, "Aviso não encontrado ou não pertence a este trainer", http.StatusNotFound)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// As funções handleCreateAnnouncement e handleListAnnouncements permanecem as mesmas
 func (h *announcementsHandler) handleCreateAnnouncement(w http.ResponseWriter, r *http.Request) {
 	trainerID := r.Context().Value(middleware.TrainerIDKey).(string)
 
@@ -64,7 +121,6 @@ func (h *announcementsHandler) handleCreateAnnouncement(w http.ResponseWriter, r
 	json.NewEncoder(w).Encode(newAnnouncement)
 }
 
-// handleListAnnouncements lista todos os avisos de um trainer.
 func (h *announcementsHandler) handleListAnnouncements(w http.ResponseWriter, r *http.Request) {
 	trainerID := r.Context().Value(middleware.TrainerIDKey).(string)
 

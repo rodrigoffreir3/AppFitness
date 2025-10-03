@@ -1,0 +1,17 @@
+# Arquivos de Sistema
+.DS_Store
+*.log
+
+# Pasta de dados do Banco de Dados
+# NUNCA fazer commit dos dados vivos de um banco.
+postgres/data/
+
+# Dependências do Frontend
+# A pasta node_modules pode ter milhares de arquivos e é recriada com 'npm install'.
+frontend/node_modules/
+frontend/dist/
+
+# Arquivos de Build/Executáveis do Go
+# Estes são gerados a partir do código-fonte.
+appfitness
+appfitness.exe
