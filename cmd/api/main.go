@@ -2,11 +2,13 @@
 package main
 
 import (
-	"appfitness/internal/chat" // <-- IMPORTAMOS O PACOTE DE CHAT
+	"appfitness/internal/chat"
 	"appfitness/internal/database"
 	"appfitness/internal/handlers"
 	"log"
 	"net/http"
+
+	"github.com/rs/cors" // <-- Importa o pacote de CORS
 )
 
 func main() {
@@ -17,22 +19,16 @@ func main() {
 	defer db.Close()
 	log.Println("Conexão com o banco de dados estabelecida com sucesso!")
 
-	// --- Lógica do Chat ---
-	// 1. Criamos uma nova instância do nosso Hub de chat.
 	hub := chat.NewHub(db)
-	// 2. Iniciamos o Hub numa goroutine separada.
-	//    Ele vai correr em segundo plano para sempre, a gerir os clientes e as mensagens.
 	go hub.Run()
 
 	port := "8080"
 	mux := http.NewServeMux()
 
-	// --- Registo das Rotas ---
 	handlers.RegisterTrainersRoutes(mux, db)
 	handlers.RegisterStudentsRoutes(mux, db)
 	handlers.RegisterWorkoutsRoutes(mux, db)
 	handlers.RegisterWorkoutExercisesRoutes(mux, db)
-	// 3. Registamos as rotas de chat, passando o nosso hub para o handler.
 	handlers.RegisterChatRoutes(mux, hub)
 	handlers.RegisterAnnouncementsRoutes(mux, db)
 
@@ -40,8 +36,19 @@ func main() {
 		w.Write([]byte("API do App Fitness está no ar!"))
 	})
 
+	// --- CONFIGURAÇÃO DO CORS ---
+	// Permite que o nosso frontend em localhost:5173 se comunique com a API.
+	c := cors.New(cors.Options{
+		AllowedOrigins:   []string{"http://localhost:5173"},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Authorization", "Content-Type"},
+		AllowCredentials: true,
+	})
+	handler := c.Handler(mux) // "Embrulha" o nosso router com o middleware de CORS.
+
 	log.Printf("Servidor iniciado na porta %s", port)
-	err = http.ListenAndServe(":"+port, mux)
+	// Usamos o 'handler' com CORS em vez do 'mux' diretamente.
+	err = http.ListenAndServe(":"+port, handler)
 	if err != nil {
 		log.Fatalf("Erro ao iniciar o servidor: %v", err)
 	}

@@ -8,22 +8,22 @@ import './index.css'
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 
 // Vamos criar estas páginas a seguir
-// import LoginPage from './pages/LoginPage.jsx';
-// import RegisterPage from './pages/RegisterPage.jsx';
+   import LoginPage from './pages/LoginPage.jsx';
+   import RegisterPage from './pages/RegisterPage.jsx';
 
 const router = createBrowserRouter([
   {
     path: "/",
     element: <App />, // A nossa página principal/dashboard no futuro
   },
-  // {
-  //   path: "/login",
-  //   element: <LoginPage />,
-  // },
-  // {
-  //   path: "/register",
-  //   element: <RegisterPage />,
-  // },
+     {
+       path: "/login",
+       element: <LoginPage />,
+     },
+ {
+       path: "/register",
+       element: <RegisterPage />,
+  },
 ]);
 
 ReactDOM.createRoot(document.getElementById('root')).render(
