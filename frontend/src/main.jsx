@@ -4,25 +4,33 @@ import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
 import './index.css'
 
-// Importações do React Router
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 
-// Vamos criar estas páginas a seguir
-   import LoginPage from './pages/LoginPage.jsx';
-   import RegisterPage from './pages/RegisterPage.jsx';
+// Nossas páginas e componentes
+import RegisterPage from './pages/RegisterPage.jsx';
+import LoginPage from './pages/LoginPage.jsx';
+import DashboardPage from './pages/DashboardPage.jsx';
+import ProtectedRoute from './components/ProtectedRoute.jsx';
 
 const router = createBrowserRouter([
   {
     path: "/",
-    element: <App />, // A nossa página principal/dashboard no futuro
+    element: <ProtectedRoute />, // A rota raiz agora é protegida
+    children: [
+      {
+        path: "/",
+        element: <DashboardPage />, // Se estiver protegido, mostra o Dashboard
+      },
+      // Outras rotas protegidas (ex: /students, /profile) virão aqui dentro
+    ]
   },
-     {
-       path: "/login",
-       element: <LoginPage />,
-     },
- {
-       path: "/register",
-       element: <RegisterPage />,
+  {
+    path: "/login",
+    element: <LoginPage />,
+  },
+  {
+    path: "/register",
+    element: <RegisterPage />,
   },
 ]);
 
