@@ -11,6 +11,7 @@ import RegisterPage from './pages/RegisterPage.jsx';
 import LoginPage from './pages/LoginPage.jsx';
 import DashboardPage from './pages/DashboardPage.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
+import StudentDetailPage from './pages/StudentDetailPage.jsx'; // <-- ALTERAÇÃO: Importa a nova página
 
 const router = createBrowserRouter([
   {
@@ -21,7 +22,12 @@ const router = createBrowserRouter([
         path: "/",
         element: <DashboardPage />, // Se estiver protegido, mostra o Dashboard
       },
-      // Outras rotas protegidas (ex: /students, /profile) virão aqui dentro
+      // --- ALTERAÇÃO: Nova rota para os detalhes do aluno ---
+      {
+        path: "/students/:studentId", // O ':studentId' é um parâmetro dinâmico
+        element: <StudentDetailPage />,
+      },
+      // --- FIM DA NOVA ROTA ---
     ]
   },
   {
