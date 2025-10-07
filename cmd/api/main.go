@@ -31,6 +31,7 @@ func main() {
 	handlers.RegisterWorkoutExercisesRoutes(mux, db)
 	handlers.RegisterChatRoutes(mux, hub)
 	handlers.RegisterAnnouncementsRoutes(mux, db)
+	handlers.RegisterExercisesRoutes(mux, db)
 
 	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("API do App Fitness está no ar!"))
