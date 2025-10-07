@@ -11,23 +11,28 @@ import RegisterPage from './pages/RegisterPage.jsx';
 import LoginPage from './pages/LoginPage.jsx';
 import DashboardPage from './pages/DashboardPage.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
-import StudentDetailPage from './pages/StudentDetailPage.jsx'; // <-- ALTERAÇÃO: Importa a nova página
+import StudentDetailPage from './pages/StudentDetailPage.jsx';
+import WorkoutDetailPage from './pages/WorkoutDetailPage.jsx';
 
 const router = createBrowserRouter([
   {
     path: "/",
-    element: <ProtectedRoute />, // A rota raiz agora é protegida
+    element: <ProtectedRoute />,
     children: [
       {
         path: "/",
-        element: <DashboardPage />, // Se estiver protegido, mostra o Dashboard
+        element: <DashboardPage />,
       },
-      // --- ALTERAÇÃO: Nova rota para os detalhes do aluno ---
+      
       {
-        path: "/students/:studentId", // O ':studentId' é um parâmetro dinâmico
+        path: "/students/:studentId",
         element: <StudentDetailPage />,
       },
-      // --- FIM DA NOVA ROTA ---
+      
+      {
+        path: "/workouts/:workoutId",
+        element: <WorkoutDetailPage />,
+      },
     ]
   },
   {
