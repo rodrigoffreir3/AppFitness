@@ -3,7 +3,7 @@ package handlers
 
 import (
 	"appfitness/internal/middleware"
-	"appfitness/internal/types" // ALTERAÇÃO: Importa o pacote de tipos
+	"appfitness/internal/types"
 	"database/sql"
 	"encoding/json"
 	"log"
@@ -27,6 +27,7 @@ func RegisterStudentsRoutes(mux *http.ServeMux, db *sql.DB) {
 	updateStudentHandler := http.HandlerFunc(h.handleUpdateStudent)
 	deleteStudentHandler := http.HandlerFunc(h.handleDeleteStudent)
 	loginStudentHandler := http.HandlerFunc(h.handleStudentLogin)
+	getMyWorkoutsHandler := http.HandlerFunc(h.handleGetMyWorkouts)
 
 	mux.Handle("POST /api/students", middleware.AuthMiddleware(createStudentHandler))
 	mux.Handle("GET /api/students", middleware.AuthMiddleware(listStudentsHandler))
@@ -34,6 +35,9 @@ func RegisterStudentsRoutes(mux *http.ServeMux, db *sql.DB) {
 	mux.Handle("PUT /api/students/{id}", middleware.AuthMiddleware(updateStudentHandler))
 	mux.Handle("DELETE /api/students/{id}", middleware.AuthMiddleware(deleteStudentHandler))
 	mux.HandleFunc("POST /api/students/login", loginStudentHandler)
+
+	// Rota protegida para o aluno ver seus treinos
+	mux.Handle("GET /api/students/me/workouts", middleware.AuthMiddleware(getMyWorkoutsHandler))
 }
 
 type studentsHandler struct {
@@ -56,12 +60,50 @@ type UpdateStudentRequest struct {
 	Email *string `json:"email"`
 }
 
-// ALTERAÇÃO: Removidas LoginRequest e LoginResponse. Agora estão no pacote /types.
-
 // --- Handlers ---
 
+func (h *studentsHandler) handleGetMyWorkouts(w http.ResponseWriter, r *http.Request) {
+	studentID, ok := r.Context().Value(middleware.TrainerIDKey).(string)
+	if !ok {
+		http.Error(w, "ID do aluno não encontrado no contexto", http.StatusInternalServerError)
+		return
+	}
+
+	query := `SELECT id, student_id, name, description, is_active FROM workouts WHERE student_id = $1 AND is_active = true ORDER BY created_at DESC`
+	rows, err := h.db.QueryContext(r.Context(), query, studentID)
+	if err != nil {
+		log.Printf("Erro ao buscar treinos do aluno: %v", err)
+		http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	var workouts []types.WorkoutResponse
+	for rows.Next() {
+		var workout types.WorkoutResponse
+		if err := rows.Scan(&workout.ID, &workout.StudentID, &workout.Name, &workout.Description, &workout.IsActive); err != nil {
+			log.Printf("Erro ao escanear linha de treino: %v", err)
+			http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
+			return
+		}
+		workouts = append(workouts, workout)
+	}
+
+	if err = rows.Err(); err != nil {
+		log.Printf("Erro após iteração de treinos do aluno: %v", err)
+		http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
+		return
+	}
+
+	if workouts == nil {
+		workouts = []types.WorkoutResponse{}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(workouts)
+}
+
 func (h *studentsHandler) handleStudentLogin(w http.ResponseWriter, r *http.Request) {
-	// ALTERAÇÃO: Usa o tipo do pacote 'types'
 	var req types.LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Corpo da requisição inválido", http.StatusBadRequest)
@@ -101,7 +143,6 @@ func (h *studentsHandler) handleStudentLogin(w http.ResponseWriter, r *http.Requ
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	// ALTERAÇÃO: Usa o tipo do pacote 'types'
 	json.NewEncoder(w).Encode(types.LoginResponse{Token: tokenString})
 }
 
@@ -132,7 +173,7 @@ func (h *studentsHandler) handleUpdateStudent(w http.ResponseWriter, r *http.Req
 		http.Error(w, "Corpo da requisição inválido", http.StatusBadRequest)
 		return
 	}
-	query := `UPDATE students SET name = $1, email = $2 WHERE id = $3 AND trainer_id = $4`
+	query := `UPDATE students SET name = COALESCE($1, name), email = COALESCE($2, email) WHERE id = $3 AND trainer_id = $4`
 	result, err := h.db.ExecContext(r.Context(), query, req.Name, req.Email, studentID, trainerID)
 	if err != nil {
 		log.Printf("Erro ao atualizar aluno: %v", err)
@@ -227,14 +268,10 @@ func (h *studentsHandler) handleCreateStudent(w http.ResponseWriter, r *http.Req
 	`
 	err = h.db.QueryRowContext(r.Context(), query, req.Name, req.Email, string(hashedPassword), trainerID).Scan(&newStudent.ID, &newStudent.Name, &newStudent.Email)
 	if err != nil {
-		// --- ALTERAÇÃO AQUI ---
-		// Verificamos se o erro é de violação de chave única.
 		if strings.Contains(err.Error(), "violates unique constraint") {
-			http.Error(w, "O email fornecido já está em uso.", http.StatusConflict) // 409 Conflict
+			http.Error(w, "O email fornecido já está em uso.", http.StatusConflict)
 			return
 		}
-		// --- FIM DA ALTERAÇÃO ---
-
 		log.Printf("Erro ao inserir aluno no banco de dados: %v", err)
 		http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
 		return

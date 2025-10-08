@@ -11,3 +11,12 @@ type LoginRequest struct {
 type LoginResponse struct {
 	Token string `json:"token"`
 }
+
+// ALTERAÇÃO: Adicionamos a struct de resposta para os treinos
+type WorkoutResponse struct {
+	ID          string `json:"id"`
+	StudentID   string `json:"student_id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	IsActive    bool   `json:"is_active"`
+}
