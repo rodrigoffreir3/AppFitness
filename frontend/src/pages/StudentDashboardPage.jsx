@@ -61,12 +61,12 @@ function StudentDashboardPage() {
 
       {workouts.length > 0 ? (
         workouts.map(workout => (
-          <div key={workout.id} style={{ marginBottom: '2rem', border: '1px solid #eee', padding: '1rem', borderRadius: '8px' }}>
-            <h2>{workout.name}</h2>
-            <p><em>{workout.description}</em></p>
-            {/* No próximo passo, tornaremos este um link para ver os exercícios */}
-            <Link to={`/student/workout/${workout.id}`}>Ver Treino Detalhado</Link>
-          </div>
+          <Link key={workout.id} to={`/student/workout/${workout.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+    <div style={{ marginBottom: '2rem', border: '1px solid #eee', padding: '1rem', borderRadius: '8px', cursor: 'pointer' }}>
+      <h2>{workout.name}</h2>
+      <p><em>{workout.description}</em></p>
+    </div>
+  </Link>
         ))
       ) : (
         <p>Você ainda não tem nenhum treino ativo. Fale com o seu treinador!</p>
