@@ -3,6 +3,7 @@ package handlers
 
 import (
 	"appfitness/internal/middleware"
+	"appfitness/internal/types"
 	"database/sql"
 	"encoding/json"
 	"log"
@@ -19,9 +20,7 @@ func RegisterWorkoutExercisesRoutes(mux *http.ServeMux, db *sql.DB) {
 
 	mux.Handle("POST /api/workouts/{workout_id}/exercises", middleware.AuthMiddleware(addHandler))
 	mux.Handle("GET /api/workouts/{workout_id}/exercises", middleware.AuthMiddleware(listHandler))
-	// Rota para o método PUT
 	mux.Handle("PUT /api/workouts/{workout_id}/exercises/{we_id}", middleware.AuthMiddleware(updateHandler))
-	// Rota para o método DELETE
 	mux.Handle("DELETE /api/workouts/{workout_id}/exercises/{we_id}", middleware.AuthMiddleware(deleteHandler))
 }
 
@@ -48,22 +47,12 @@ type UpdateWorkoutExerciseRequest struct {
 	ExecutionDetails  *string `json:"execution_details"`
 }
 
-type WorkoutExerciseResponse struct {
-	ID                string `json:"id"`
-	ExerciseID        string `json:"exercise_id"`
-	ExerciseName      string `json:"exercise_name"`
-	Sets              int    `json:"sets"`
-	Reps              string `json:"reps"`
-	RestPeriodSeconds int    `json:"rest_period_seconds"`
-	Order             int    `json:"order"`
-	Notes             string `json:"notes"`
-	ExecutionDetails  string `json:"execution_details"`
-}
+// --- ALTERAÇÃO: A struct WorkoutExerciseResponse foi removida daqui ---
 
 func (h *workoutExercisesHandler) handleUpdateExerciseInWorkout(w http.ResponseWriter, r *http.Request) {
 	trainerID := r.Context().Value(middleware.TrainerIDKey).(string)
 	workoutID := r.PathValue("workout_id")
-	workoutExerciseID := r.PathValue("we_id") // ID da tabela workout_exercises
+	workoutExerciseID := r.PathValue("we_id")
 
 	var ownerTrainerID string
 	err := h.db.QueryRowContext(r.Context(), "SELECT trainer_id FROM workouts WHERE id = $1 AND trainer_id = $2", workoutID, trainerID).Scan(&ownerTrainerID)
@@ -164,9 +153,9 @@ func (h *workoutExercisesHandler) handleListExercisesInWorkout(w http.ResponseWr
 		return
 	}
 	defer rows.Close()
-	var exercises []WorkoutExerciseResponse
+	var exercises []types.WorkoutExerciseResponse
 	for rows.Next() {
-		var ex WorkoutExerciseResponse
+		var ex types.WorkoutExerciseResponse
 		if err := rows.Scan(&ex.ID, &ex.ExerciseID, &ex.ExerciseName, &ex.Sets, &ex.Reps, &ex.RestPeriodSeconds, &ex.Order, &ex.Notes, &ex.ExecutionDetails); err != nil {
 			log.Printf("Erro ao escanear linha de exercício do treino: %v", err)
 			http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
@@ -180,7 +169,7 @@ func (h *workoutExercisesHandler) handleListExercisesInWorkout(w http.ResponseWr
 		return
 	}
 	if exercises == nil {
-		exercises = []WorkoutExerciseResponse{}
+		exercises = []types.WorkoutExerciseResponse{}
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(exercises)
@@ -209,7 +198,19 @@ func (h *workoutExercisesHandler) handleAddExerciseToWorkout(w http.ResponseWrit
 		http.Error(w, "Corpo da requisição inválido", http.StatusBadRequest)
 		return
 	}
-	var newExercise WorkoutExerciseResponse
+
+	// A resposta não inclui o nome do exercício, por isso não podemos usar a struct partilhada diretamente
+	var newExercise struct {
+		ID                string `json:"id"`
+		ExerciseID        string `json:"exercise_id"`
+		Sets              int    `json:"sets"`
+		Reps              string `json:"reps"`
+		RestPeriodSeconds int    `json:"rest_period_seconds"`
+		Order             int    `json:"order"`
+		Notes             string `json:"notes"`
+		ExecutionDetails  string `json:"execution_details"`
+	}
+
 	query := `
 		INSERT INTO workout_exercises (workout_id, exercise_id, sets, reps, rest_period_seconds, "order", notes, execution_details)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -223,6 +224,7 @@ func (h *workoutExercisesHandler) handleAddExerciseToWorkout(w http.ResponseWrit
 		http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
 		return
 	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(newExercise)

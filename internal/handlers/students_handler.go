@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	// --- ALTERAÇÃO AQUI: Corrigido o erro de digitação ---
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -28,6 +29,7 @@ func RegisterStudentsRoutes(mux *http.ServeMux, db *sql.DB) {
 	deleteStudentHandler := http.HandlerFunc(h.handleDeleteStudent)
 	loginStudentHandler := http.HandlerFunc(h.handleStudentLogin)
 	getMyWorkoutsHandler := http.HandlerFunc(h.handleGetMyWorkouts)
+	getMyWorkoutDetailsHandler := http.HandlerFunc(h.handleGetMyWorkoutDetails)
 
 	mux.Handle("POST /api/students", middleware.AuthMiddleware(createStudentHandler))
 	mux.Handle("GET /api/students", middleware.AuthMiddleware(listStudentsHandler))
@@ -35,9 +37,8 @@ func RegisterStudentsRoutes(mux *http.ServeMux, db *sql.DB) {
 	mux.Handle("PUT /api/students/{id}", middleware.AuthMiddleware(updateStudentHandler))
 	mux.Handle("DELETE /api/students/{id}", middleware.AuthMiddleware(deleteStudentHandler))
 	mux.HandleFunc("POST /api/students/login", loginStudentHandler)
-
-	// Rota protegida para o aluno ver seus treinos
 	mux.Handle("GET /api/students/me/workouts", middleware.AuthMiddleware(getMyWorkoutsHandler))
+	mux.Handle("GET /api/students/me/workouts/{id}", middleware.AuthMiddleware(getMyWorkoutDetailsHandler))
 }
 
 type studentsHandler struct {
@@ -60,7 +61,65 @@ type UpdateStudentRequest struct {
 	Email *string `json:"email"`
 }
 
+// --- ALTERAÇÃO: A struct WorkoutExerciseResponse foi removida daqui ---
+
 // --- Handlers ---
+
+func (h *studentsHandler) handleGetMyWorkoutDetails(w http.ResponseWriter, r *http.Request) {
+	studentID := r.Context().Value(middleware.TrainerIDKey).(string)
+	workoutID := r.PathValue("id")
+
+	var workout types.WorkoutResponse
+	queryWorkout := `SELECT id, student_id, name, description, is_active FROM workouts WHERE id = $1 AND student_id = $2`
+	err := h.db.QueryRowContext(r.Context(), queryWorkout, workoutID, studentID).Scan(&workout.ID, &workout.StudentID, &workout.Name, &workout.Description, &workout.IsActive)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "Treino não encontrado ou não pertence a este aluno", http.StatusNotFound)
+			return
+		}
+		log.Printf("Erro ao buscar detalhes do treino do aluno: %v", err)
+		http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
+		return
+	}
+
+	queryExercises := `
+		SELECT we.id, we.exercise_id, e.name, we.sets, we.reps, we.rest_period_seconds,
+			   we."order", we.notes, we.execution_details
+		FROM workout_exercises we
+		JOIN exercises e ON we.exercise_id = e.id
+		WHERE we.workout_id = $1 ORDER BY we."order" ASC
+	`
+	rows, err := h.db.QueryContext(r.Context(), queryExercises, workoutID)
+	if err != nil {
+		log.Printf("Erro ao buscar exercícios do treino para o aluno: %v", err)
+		http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	var exercises []types.WorkoutExerciseResponse
+	for rows.Next() {
+		var ex types.WorkoutExerciseResponse
+		if err := rows.Scan(&ex.ID, &ex.ExerciseID, &ex.ExerciseName, &ex.Sets, &ex.Reps, &ex.RestPeriodSeconds, &ex.Order, &ex.Notes, &ex.ExecutionDetails); err != nil {
+			log.Printf("Erro ao escanear exercício do treino para o aluno: %v", err)
+			http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
+			return
+		}
+		exercises = append(exercises, ex)
+	}
+
+	if exercises == nil {
+		exercises = []types.WorkoutExerciseResponse{}
+	}
+
+	response := map[string]interface{}{
+		"workout":   workout,
+		"exercises": exercises,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
 
 func (h *studentsHandler) handleGetMyWorkouts(w http.ResponseWriter, r *http.Request) {
 	studentID, ok := r.Context().Value(middleware.TrainerIDKey).(string)
@@ -103,6 +162,7 @@ func (h *studentsHandler) handleGetMyWorkouts(w http.ResponseWriter, r *http.Req
 	json.NewEncoder(w).Encode(workouts)
 }
 
+// ... (o resto das funções, como handleStudentLogin, handleCreateStudent, etc., permanecem iguais)
 func (h *studentsHandler) handleStudentLogin(w http.ResponseWriter, r *http.Request) {
 	var req types.LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
