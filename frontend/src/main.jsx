@@ -14,9 +14,10 @@ import ProtectedRoute from './components/ProtectedRoute.jsx';
 import StudentDetailPage from './pages/StudentDetailPage.jsx';
 import WorkoutDetailPage from './pages/WorkoutDetailPage.jsx';
 import StudentLoginPage from './pages/StudentLoginPage.jsx';
-// --- ALTERAÇÃO: Importamos os novos componentes do aluno ---
 import StudentDashboardPage from './pages/StudentDashboardPage.jsx';
 import StudentProtectedRoute from './components/StudentProtectedRoute.jsx';
+// --- ALTERAÇÃO: Importamos a nova página de detalhes do treino do aluno ---
+import StudentWorkoutDetailPage from './pages/StudentWorkoutDetailPage.jsx';
 
 
 const router = createBrowserRouter([
@@ -48,16 +49,20 @@ const router = createBrowserRouter([
     element: <RegisterPage />,
   },
 
-  // --- ALTERAÇÃO: Adicionamos o bloco de rotas do aluno ---
+  // --- ROTAS DO ALUNO ---
   {
-    path: "/student/dashboard",
+    path: "/student", // Usamos um caminho base para as rotas do aluno
     element: <StudentProtectedRoute />, // Proteção específica para o aluno
     children: [
       {
-        path: "/student/dashboard",
+        path: "dashboard", // Rota relativa: /student/dashboard
         element: <StudentDashboardPage />,
+      },
+      // --- ALTERAÇÃO: Adicionamos a nova rota para os detalhes do treino do aluno ---
+      {
+        path: "workout/:workoutId", // Rota relativa: /student/workout/:workoutId
+        element: <StudentWorkoutDetailPage />,
       }
-      // Futuras rotas protegidas do aluno (ex: /student/profile) viriam aqui
     ]
   },
   {

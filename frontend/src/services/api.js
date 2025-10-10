@@ -1,20 +1,26 @@
 // src/services/api.js
 import axios from 'axios';
 
-// Cria uma "instância" do axios com configurações pré-definidas.
 const api = axios.create({
-  baseURL: 'http://localhost:8080/api', // A URL base da nossa API Go
+  baseURL: 'http://localhost:8080/api',
 });
 
-// Isto é um "interceptor". Ele "intercepta" cada pedido antes de ser enviado.
+// O interceptor agora é mais inteligente
 api.interceptors.request.use(
   (config) => {
-    // Pega o token do localStorage
-    const token = localStorage.getItem('authToken');
+    // Procura primeiro pelo token do aluno
+    let token = localStorage.getItem('studentAuthToken');
+
+    // Se não encontrar o token do aluno, procura pelo do treinador
+    if (!token) {
+      token = localStorage.getItem('authToken');
+    }
+
     if (token) {
-      // Se o token existir, adiciona-o ao cabeçalho de Authorization
+      // Adiciona o token encontrado ao cabeçalho
       config.headers['Authorization'] = `Bearer ${token}`;
     }
+    
     return config;
   },
   (error) => {
@@ -22,5 +28,4 @@ api.interceptors.request.use(
   }
 );
 
-// Exportamos a nossa instância configurada do api para ser usada em todo o projeto.
 export default api;
