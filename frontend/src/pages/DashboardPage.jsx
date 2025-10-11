@@ -1,6 +1,5 @@
 // src/pages/DashboardPage.jsx
 import React, { useState, useEffect } from 'react';
-// ALTERAÇÃO: Importamos o Link para a navegação
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../services/api';
 import AddStudentForm from '../components/AddStudentForm';
@@ -72,9 +71,12 @@ function DashboardPage() {
     <div style={{ padding: '2rem', fontFamily: 'sans-serif', maxWidth: '800px', margin: 'auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h1>Dashboard do Treinador</h1>
-        <button onClick={handleLogout} style={{ padding: '10px' }}>
-          Sair (Logout)
-        </button>
+        <div>
+          <Link to="/profile" style={{ marginRight: '1rem', textDecoration: 'none', color: '#007bff' }}>Meu Perfil</Link>
+          <button onClick={handleLogout} style={{ padding: '10px' }}>
+            Sair (Logout)
+          </button>
+        </div>
       </div>
       
       <hr style={{ margin: '1rem 0' }} />
@@ -86,7 +88,6 @@ function DashboardPage() {
         <ul style={{ listStyle: 'none', padding: 0 }}>
           {students.map(student => (
             <li key={student.id} style={{ padding: '0.5rem 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #eee' }}>
-              {/* ALTERAÇÃO: O nome do aluno agora é um link */}
               <Link to={`/students/${student.id}`} style={{ textDecoration: 'none', color: '#007bff', fontWeight: 'bold' }}>
                 {student.name} ({student.email})
               </Link>

@@ -7,9 +7,16 @@ type LoginRequest struct {
 	Password string `json:"password"`
 }
 
+// Resposta de branding do treinador
+type BrandingResponse struct {
+	LogoURL      string `json:"logo_url,omitempty"`
+	PrimaryColor string `json:"primary_color,omitempty"`
+}
+
 // Resposta de login (usada por trainers e students)
 type LoginResponse struct {
-	Token string `json:"token"`
+	Token    string           `json:"token"`
+	Branding BrandingResponse `json:"branding,omitempty"`
 }
 
 // Resposta para um treino (usada em múltiplos handlers)
@@ -21,7 +28,6 @@ type WorkoutResponse struct {
 	IsActive    bool   `json:"is_active"`
 }
 
-// --- ALTERAÇÃO AQUI ---
 // Resposta para um exercício dentro de um treino
 type WorkoutExerciseResponse struct {
 	ID                string `json:"id"`

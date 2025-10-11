@@ -16,8 +16,8 @@ import WorkoutDetailPage from './pages/WorkoutDetailPage.jsx';
 import StudentLoginPage from './pages/StudentLoginPage.jsx';
 import StudentDashboardPage from './pages/StudentDashboardPage.jsx';
 import StudentProtectedRoute from './components/StudentProtectedRoute.jsx';
-// --- ALTERAÇÃO: Importamos a nova página de detalhes do treino do aluno ---
 import StudentWorkoutDetailPage from './pages/StudentWorkoutDetailPage.jsx';
+import ProfilePage from './pages/ProfilePage.jsx'; // Importamos a nova página
 
 
 const router = createBrowserRouter([
@@ -37,6 +37,10 @@ const router = createBrowserRouter([
       {
         path: "/workouts/:workoutId",
         element: <WorkoutDetailPage />,
+      },
+      {
+        path: "/profile", // Adicionamos a nova rota aqui
+        element: <ProfilePage />,
       },
     ]
   },
@@ -58,7 +62,6 @@ const router = createBrowserRouter([
         path: "dashboard", // Rota relativa: /student/dashboard
         element: <StudentDashboardPage />,
       },
-      // --- ALTERAÇÃO: Adicionamos a nova rota para os detalhes do treino do aluno ---
       {
         path: "workout/:workoutId", // Rota relativa: /student/workout/:workoutId
         element: <StudentWorkoutDetailPage />,

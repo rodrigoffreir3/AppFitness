@@ -170,9 +170,10 @@ func (h *studentsHandler) handleStudentLogin(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	var studentID, hashedPassword string
-	query := `SELECT id, password_hash FROM students WHERE email = $1`
-	err := h.db.QueryRowContext(r.Context(), query, req.Email).Scan(&studentID, &hashedPassword)
+	// --- MUDANÇA AQUI: Agora buscamos também o trainer_id ---
+	var studentID, trainerID, hashedPassword string
+	query := `SELECT id, trainer_id, password_hash FROM students WHERE email = $1`
+	err := h.db.QueryRowContext(r.Context(), query, req.Email).Scan(&studentID, &trainerID, &hashedPassword)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			http.Error(w, "Email ou senha inválidos", http.StatusUnauthorized)
@@ -189,6 +190,16 @@ func (h *studentsHandler) handleStudentLogin(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	// --- NOVO BLOCO: Buscar os dados de branding do treinador ---
+	var branding types.BrandingResponse
+	brandingQuery := `SELECT COALESCE(brand_logo_url, ''), COALESCE(brand_primary_color, '') FROM trainers WHERE id = $1`
+	err = h.db.QueryRowContext(r.Context(), brandingQuery, trainerID).Scan(&branding.LogoURL, &branding.PrimaryColor)
+	if err != nil {
+		// Se não encontrar o branding, não é um erro fatal, apenas logamos e continuamos.
+		log.Printf("Aviso: não foi possível buscar branding para o trainer ID %s: %v", trainerID, err)
+	}
+	// --- FIM DO NOVO BLOCO ---
+
 	claims := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"sub": studentID,
 		"exp": time.Now().Add(time.Hour * 8).Unix(),
@@ -202,8 +213,14 @@ func (h *studentsHandler) handleStudentLogin(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	// --- MUDANÇA AQUI: Montamos a nova resposta completa ---
+	response := types.LoginResponse{
+		Token:    tokenString,
+		Branding: branding,
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(types.LoginResponse{Token: tokenString})
+	json.NewEncoder(w).Encode(response)
 }
 
 func (h *studentsHandler) handleGetStudent(w http.ResponseWriter, r *http.Request) {
