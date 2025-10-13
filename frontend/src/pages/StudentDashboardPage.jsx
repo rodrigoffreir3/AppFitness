@@ -1,33 +1,28 @@
 // src/pages/StudentDashboardPage.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import api from '../services/api'; // Usamos o nosso serviço de API centralizado
+import api from '../services/api';
+import './StudentDashboard.css'; // 1. Importamos nossa nova folha de estilos
 
 function StudentDashboardPage() {
   const navigate = useNavigate();
   const [workouts, setWorkouts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [userName, setUserName] = useState(''); // Estado para o nome do aluno
-
-  // O useEffect vai buscar os dados quando o componente carregar
+  
   useEffect(() => {
     const fetchStudentData = async () => {
       try {
-        // Usamos o nosso serviço de API para fazer o GET. O token do aluno será
-        // adicionado automaticamente pelo nosso interceptor no 'api.js'.
         const response = await api.get('/students/me/workouts');
         setWorkouts(response.data);
-
-        // Se quisermos o nome do aluno, teríamos que buscar de outro endpoint ou
-        // idealmente, o backend poderia nos dar essa informação no futuro.
-        // Por agora, vamos focar em exibir os treinos.
-
       } catch (err) {
         console.error("Erro ao buscar treinos do aluno:", err);
         setError('Não foi possível carregar seus treinos.');
         if (err.response && err.response.status === 401) {
-          handleLogout(); // Se o token for inválido, faz logout
+          localStorage.removeItem('studentAuthToken');
+          localStorage.removeItem('brandingLogo');
+          localStorage.removeItem('brandingColor');
+          navigate('/student/login');
         }
       } finally {
         setLoading(false);
@@ -35,41 +30,37 @@ function StudentDashboardPage() {
     };
 
     fetchStudentData();
-  }, []); // O array vazio [] significa que este efeito corre apenas uma vez.
-
-  const handleLogout = () => {
-    localStorage.removeItem('studentAuthToken');
-    navigate('/student/login');
-  };
+  }, [navigate]);
 
   if (loading) {
-    return <div>A carregar treinos...</div>;
+    return <div style={{textAlign: 'center', marginTop: '2rem'}}>A carregar treinos...</div>;
   }
 
   return (
-    <div style={{ padding: '2rem', fontFamily: 'sans-serif' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1>Meu Treino</h1>
-        <button onClick={handleLogout} style={{ padding: '10px' }}>
-          Sair
-        </button>
-      </div>
+    // 2. Usamos classNames em vez de estilos inline
+    <div className="dashboard-container">
+      <h1>Meus Treinos</h1>
+      <p>Clique em uma ficha para ver os detalhes e começar a treinar.</p>
       
-      <hr style={{ margin: '1rem 0' }} />
+      <hr />
 
       {error && <p style={{ color: 'red' }}>{error}</p>}
 
       {workouts.length > 0 ? (
         workouts.map(workout => (
-          <Link key={workout.id} to={`/student/workout/${workout.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
-    <div style={{ marginBottom: '2rem', border: '1px solid #eee', padding: '1rem', borderRadius: '8px', cursor: 'pointer' }}>
-      <h2>{workout.name}</h2>
-      <p><em>{workout.description}</em></p>
-    </div>
-  </Link>
+          // 3. O Link agora tem um className para o estilo do card
+          <Link key={workout.id} to={`/student/workout/${workout.id}`} className="workout-card">
+            <div>
+              <h2>{workout.name}</h2>
+              <p><em>{workout.description}</em></p>
+            </div>
+          </Link>
         ))
       ) : (
-        <p>Você ainda não tem nenhum treino ativo. Fale com o seu treinador!</p>
+        <div className="workout-card">
+          <h2>Nenhum treino encontrado</h2>
+          <p>Você ainda não tem nenhum treino ativo. Fale com o seu treinador!</p>
+        </div>
       )}
     </div>
   );
