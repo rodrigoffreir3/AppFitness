@@ -1,35 +1,41 @@
 /* src/pages/StudentDashboard.css */
 
 .dashboard-container h1 {
-  font-size: 2rem;
-  color: #1c1e21;
+  font-size: 2.25rem;
+  font-weight: 700;
+  color: var(--text-color);
   margin-bottom: 0.5rem;
 }
 
-.dashboard-container hr {
-  border: none;
-  border-top: 1px solid #ddd;
-  margin: 1.5rem 0;
+.dashboard-container .subtitle {
+  font-size: 1.1rem;
+  color: var(--text-color-secondary);
+  margin-bottom: 2rem;
+}
+
+.workout-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.5rem;
 }
 
 .workout-card {
-  background-color: #ffffff;
-  border: 1px solid #ddd;
-  border-radius: 8px;
+  background-color: var(--card-background-color);
+  border: 1px solid #ddd; /* Borda sutil */
+  border-radius: 12px;
   padding: 1.5rem;
-  margin-bottom: 1.5rem;
   text-decoration: none;
   color: inherit;
-  display: block;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1); /* Sombra mais leve para tema claro */
   transition: all 0.2s ease-in-out;
   position: relative;
-  overflow: hidden;
 }
 
 .workout-card:hover {
   transform: translateY(-5px);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
   border-color: var(--primary-color);
 }
 
@@ -37,25 +43,20 @@
   font-size: 1.5rem;
   margin-bottom: 0.5rem;
   color: var(--primary-color);
+  font-weight: 600;
 }
 
 .workout-card p {
   font-size: 1rem;
-  color: #606770;
+  color: var(--text-color-secondary);
+  flex-grow: 1;
+  margin-bottom: 1.5rem;
 }
 
-.workout-card::after {
-  content: '→';
-  position: absolute;
-  right: 1.5rem;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 2rem;
-  color: #ddd;
-  transition: all 0.2s ease-in-out;
-}
-
-.workout-card:hover::after {
+.card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
   color: var(--primary-color);
-  transform: translateY(-50%) scale(1.2);
 }

@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import api from '../services/api';
+import './StudentWorkoutDetail.css'; // Importamos os novos estilos
 
 function StudentWorkoutDetailPage() {
   const { workoutId } = useParams();
@@ -13,7 +14,6 @@ function StudentWorkoutDetailPage() {
   useEffect(() => {
     const fetchWorkoutDetails = async () => {
       try {
-        // ATENÇÃO: Precisaremos de um novo endpoint para buscar os detalhes de um treino específico para o aluno.
         const response = await api.get(`/students/me/workouts/${workoutId}`);
         setWorkout(response.data.workout);
         setExercises(response.data.exercises);
@@ -28,36 +28,53 @@ function StudentWorkoutDetailPage() {
     fetchWorkoutDetails();
   }, [workoutId]);
 
-  if (loading) return <div>A carregar detalhes do treino...</div>;
-  if (error) return <div style={{ color: 'red', padding: '2rem' }}>{error}</div>;
+  if (loading) return <div style={{textAlign: 'center', marginTop: '2rem'}}>A carregar detalhes do treino...</div>;
+  if (error) return <div style={{ color: '#ff5555', padding: '2rem' }}>{error}</div>;
 
   return (
-    <div style={{ padding: '2rem', fontFamily: 'sans-serif', maxWidth: '800px', margin: 'auto' }}>
-      <Link to="/student/dashboard">&larr; Voltar para Meus Treinos</Link>
+    <div>
+      <Link to="/student/dashboard" style={{marginBottom: '1.5rem', display: 'inline-block'}}>&larr; Voltar para Meus Treinos</Link>
 
       {workout && (
-        <div style={{ marginTop: '1rem', marginBottom: '1.5rem' }}>
+        <div className="workout-detail-header">
           <h1>{workout.name}</h1>
           <p>{workout.description}</p>
         </div>
       )}
 
-      <hr />
-
-      <h2 style={{ marginTop: '1.5rem' }}>Seus Exercícios</h2>
-      <ul style={{ listStyle: 'none', padding: 0, marginTop: '1rem' }}>
-        {exercises.map(ex => (
-          <li key={ex.id} style={{ marginBottom: '1.5rem', border: '1px solid #eee', padding: '1rem', borderRadius: '8px' }}>
-            <strong style={{ fontSize: '1.2rem' }}>{ex.order}. {ex.exercise_name}</strong>
-            <div style={{ marginTop: '0.5rem' }}>
-              <span style={{ fontWeight: 'bold' }}>{ex.sets} séries x {ex.reps} reps</span>
-              <span style={{ marginLeft: '1rem' }}>({ex.rest_period_seconds}s de descanso)</span>
+      <ul className="exercise-list">
+        {exercises.map((ex, index) => (
+          <li key={ex.id} className="exercise-card">
+            <div className="exercise-card-header">
+              <div className="exercise-order">{index + 1}</div>
+              <h2 className="exercise-name">{ex.exercise_name}</h2>
             </div>
-            {ex.notes && <p style={{ marginTop: '0.5rem' }}><em>Notas: {ex.notes}</em></p>}
+            
+            <div className="exercise-details-grid">
+              <div className="detail-item">
+                <div className="detail-item-label">Séries</div>
+                <div className="detail-item-value">{ex.sets}</div>
+              </div>
+              <div className="detail-item">
+                <div className="detail-item-label">Repetições</div>
+                <div className="detail-item-value">{ex.reps}</div>
+              </div>
+              <div className="detail-item">
+                <div className="detail-item-label">Descanso</div>
+                <div className="detail-item-value">{ex.rest_period_seconds}s</div>
+              </div>
+            </div>
+
+            {ex.notes && (
+              <div className="notes-section">
+                <strong>Notas do Treinador:</strong>
+                <p>{ex.notes}</p>
+              </div>
+            )}
             {ex.execution_details && (
-              <div style={{ marginTop: '0.5rem', padding: '0.75rem', backgroundColor: '#f0f2f5', borderRadius: '4px' }}>
+              <div className="notes-section">
                 <strong>Instruções de Execução:</strong>
-                <p style={{ color: '#333', whiteSpace: 'pre-wrap' }}>{ex.execution_details}</p>
+                <p>{ex.execution_details}</p>
               </div>
             )}
           </li>

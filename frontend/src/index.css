@@ -1,7 +1,12 @@
 /* src/index.css */
 :root {
-  /* Definimos a variável de cor aqui para que ela seja global */
-  --primary-color: #007bff; 
+  /* Variáveis para o nosso tema claro */
+  --primary-color: #007bff; /* Esta cor será substituída dinamicamente */
+  --background-color: #f0f2f5; /* Fundo cinza-claro, como na sua referência */
+  --card-background-color: #ffffff; /* Cards brancos */
+  --text-color: #050505; /* Texto principal escuro para legibilidade */
+  --text-color-secondary: #65676b; /* Texto secundário um pouco mais claro */
+  --border-color: #ced0d4;
 }
 
 * {
@@ -11,7 +16,12 @@
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
-  background-color: #f0f2f5; /* Um cinza muito claro para o fundo */
-  color: #1c1e21; /* Um preto mais suave */
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background-color: var(--background-color);
+  color: var(--text-color);
+}
+
+a {
+  text-decoration: none;
+  color: var(--primary-color);
 }
