@@ -40,6 +40,7 @@ CREATE TABLE exercises (
     muscle_group VARCHAR(100),
     equipment VARCHAR(100),
     video_url TEXT
+    image_url TEXT
 );
 
 -- Tabela: workout_exercises (A "Receita" do Treino)
