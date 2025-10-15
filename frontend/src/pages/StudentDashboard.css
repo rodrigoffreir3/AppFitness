@@ -56,6 +56,7 @@
   color: var(--text-color-secondary);
   flex-grow: 1;
   margin-bottom: 1.5rem;
+  line-height: 1.6;
 }
 
 .workout-card-footer {
@@ -72,6 +73,7 @@
   padding: 0.75rem 1.5rem;
   border-radius: 9999px; /* Botão em pílula */
   transition: background-color 0.2s;
+  font-size: 1rem;
 }
 
 .start-workout-btn:hover {
