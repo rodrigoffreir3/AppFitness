@@ -1,69 +1,65 @@
-import React from 'react'
-import ReactDOM from 'react-dom/client'
-import { createBrowserRouter, RouterProvider } from 'react-router-dom'
-import App from './App.tsx'
-import './index.css'
-import { AuthProvider } from './contexts/AuthContext.tsx' // 1. Importe o AuthProvider
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import { createBrowserRouter, RouterProvider } from 'react-router-dom'; // Removido Outlet daqui
+import App from './App.tsx';
+import './index.css';
+import { AuthProvider } from './contexts/AuthContext.tsx';
 
-// ... (importações das páginas) ...
-// Exemplo: import TrainerLogin from './pages/auth/TrainerLogin.tsx'
-//          import StudentDashboard from './pages/student/Dashboard.tsx'
+// Layouts - Agora os caminhos devem funcionar
+import PublicLayout from './components/layout/PublicLayout.tsx';
+import TrainerLayout from './components/layout/TrainerLayout.tsx';
+import StudentLayout from './components/layout/StudentLayout.tsx';
+import ProtectedRoute from './components/ProtectedRoute.tsx';
 
-// --- PLACEHOLDERS --- (Substitua pelos seus imports reais quando as páginas forem criadas)
-const IndexPage = () => <div>Landing Page (Index.tsx)</div>;
-const TrainerLogin = () => <div>Login Treinador</div>;
-const StudentLogin = () => <div>Login Aluno</div>;
-const TrainerDashboard = () => <div>Dashboard Treinador</div>;
-const StudentDashboard = () => <div>Dashboard Aluno</div>;
-const NotFound = () => <div>Página não encontrada</div>;
-// --- FIM PLACEHOLDERS ---
-
-// --- LAYOUTS --- (Precisaremos criar estes)
-import { Outlet } from 'react-router-dom';
-const PublicLayout = () => <Outlet />; // Layout simples para páginas públicas
-const TrainerLayout = () => <div>Layout Treinador <Outlet /></div>; // Layout com Sidebar do Treinador
-const StudentLayout = () => <div>Layout Aluno <Outlet /></div>; // Layout com Sidebar do Aluno
-// --- FIM LAYOUTS ---
-
+// Páginas (Importe suas páginas reais aqui)
+import IndexPage from './pages/Index.tsx';
+import TrainerLogin from './pages/auth/TrainerLogin.tsx';
+import StudentLogin from './pages/auth/StudentLogin.tsx';
+import TrainerDashboard from './pages/trainer/Dashboard.tsx';
+import StudentDashboard from './pages/student/Dashboard.tsx';
+import NotFound from './pages/NotFound.tsx';
 
 const router = createBrowserRouter([
   {
     path: '/',
-    element: <App />, // O App principal ainda é a raiz
+    element: <App />,
+    errorElement: <NotFound />, // Página de erro genérica
     children: [
-      // Rotas Públicas (Landing Page, etc.)
-      { 
-        element: <PublicLayout />, 
+      // Rotas Públicas
+      {
+        element: <PublicLayout />,
         children: [
-          { index: true, element: <IndexPage /> }, // Página inicial
+          { index: true, element: <IndexPage /> },
           { path: 'login/trainer', element: <TrainerLogin /> },
           { path: 'login/student', element: <StudentLogin /> },
-        ] 
+        ]
       },
-
-      // Rotas do Treinador (Protegidas) - Precisarão de lógica de proteção
+      // Rotas do Treinador
       {
         path: 'trainer',
-        element: <TrainerLayout />, // Usará o layout com sidebar do treinador
+        element: (
+          <ProtectedRoute allowedRoles={['trainer']}>
+            <TrainerLayout />
+          </ProtectedRoute>
+        ),
         children: [
           { path: 'dashboard', element: <TrainerDashboard /> },
-          // { path: 'students', element: <StudentsView /> }, // Exemplo futuro
-          // { path: 'settings', element: <WhiteLabelSettings /> }, // Exemplo futuro
+          // Adicione outras rotas do treinador aqui
         ],
       },
-      
-      // Rotas do Aluno (Protegidas) - Precisarão de lógica de proteção
+      // Rotas do Aluno
       {
         path: 'student',
-        element: <StudentLayout />, // Usará o layout com sidebar do aluno
+        element: (
+          <ProtectedRoute allowedRoles={['student']}>
+            <StudentLayout />
+          </ProtectedRoute>
+        ),
         children: [
           { path: 'dashboard', element: <StudentDashboard /> },
-          // { path: 'workouts', element: <MyWorkoutsView /> }, // Exemplo futuro
-          // { path: 'chat', element: <StudentChatView /> }, // Exemplo futuro
+          // Adicione outras rotas do aluno aqui
         ],
       },
-      
-      // Rota para página não encontrada
       { path: '*', element: <NotFound /> }
     ],
   },
@@ -71,7 +67,6 @@ const router = createBrowserRouter([
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    {/* 2. Envolva o RouterProvider com o AuthProvider */}
     <AuthProvider>
       <RouterProvider router={router} />
     </AuthProvider>

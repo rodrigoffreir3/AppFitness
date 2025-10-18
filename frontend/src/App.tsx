@@ -1,35 +1,28 @@
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
+import { Outlet } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Index from "./pages/Index";
-import NotFound from "./pages/NotFound";
-import TrainerLogin from "./pages/auth/TrainerLogin";
-import StudentLogin from "./pages/auth/StudentLogin";
-import TrainerDashboard from "./pages/trainer/Dashboard";
-import StudentDashboard from "./pages/student/Dashboard";
+import { ThemeProvider } from "@/components/theme-provider"; // Assumindo que você tem este componente
+import { TooltipProvider } from "@/components/ui/tooltip"; // Assumindo que você tem este
+import { Toaster } from "@/components/ui/sonner"; // Para notificações (já criamos)
 
+// Cria uma instância do QueryClient
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/login" element={<TrainerLogin />} />
-          <Route path="/student/login" element={<StudentLogin />} />
-          <Route path="/trainer/dashboard" element={<TrainerDashboard />} />
-          <Route path="/student/dashboard" element={<StudentDashboard />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+function App() {
+  return (
+    // 1. Envolvemos com os Provedores necessários (Query, Tooltip, Tema)
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        {/* Usamos o ThemeProvider do seu protótipo */}
+        <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme"> 
+          {/* 2. Removemos o <Router> daqui */}
+          {/* 3. Renderizamos o <Outlet /> para que as rotas filhas apareçam aqui */}
+          <Outlet /> 
+          {/* 4. Adicionamos o Toaster para notificações globais */}
+          <Toaster />
+        </ThemeProvider>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+}
 
 export default App;
