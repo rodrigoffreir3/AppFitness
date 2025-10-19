@@ -15,12 +15,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge"; // Assumindo que você tem Badge
-import { PlusCircle, UserCog } from 'lucide-react'; // Ícones
-import api from '@/services/api'; // Nossa ponte para o backend
+import { Badge } from "@/components/ui/badge";
+import { PlusCircle, UserCog } from 'lucide-react';
+import api from '@/services/api'; // A nossa "ponte" para o backend
 
 // --- TIPOS DE DADOS DO BACKEND ---
-// É uma boa prática definir interfaces para os dados que esperamos da API
+// Definimos a "forma" dos dados que esperamos da API para o TypeScript nos ajudar.
 interface TrainerProfile {
   id: string;
   name: string;
@@ -38,72 +38,67 @@ interface Student {
 
 
 export default function TrainerDashboard() {
-  // --- ESTADOS PARA GUARDAR OS DADOS ---
+  // --- ESTADOS PARA GUARDAR OS DADOS DA API ---
   const [trainer, setTrainer] = useState<TrainerProfile | null>(null);
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   // --- FIM DOS ESTADOS ---
 
-  // --- useEffect PARA BUSCAR OS DADOS ---
+  // --- useEffect PARA BUSCAR OS DADOS QUANDO A PÁGINA CARREGA ---
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       setError('');
       try {
-        // Busca os dados do perfil do treinador logado
-        const profileResponse = await api.get<TrainerProfile>('/trainers/me');
-        setTrainer(profileResponse.data);
+        // Usamos Promise.all para fazer as duas chamadas em paralelo
+        const [profileResponse, studentsResponse] = await Promise.all([
+          api.get<TrainerProfile>('/trainers/me'), // Endpoint: Dados do treinador logado
+          api.get<Student[]>('/students')        // Endpoint: Lista de alunos do treinador
+        ]);
 
-        // Busca a lista de alunos deste treinador
-        const studentsResponse = await api.get<Student[]>('/students');
+        setTrainer(profileResponse.data);
         setStudents(studentsResponse.data);
 
       } catch (err: any) {
         console.error("Erro ao buscar dados do dashboard:", err);
         setError('Não foi possível carregar os dados. Tente atualizar a página.');
-        // Aqui poderíamos adicionar lógica para deslogar se o erro for 401 (não autorizado)
+        // No futuro, podemos adicionar lógica para deslogar se o erro for 401 (Não Autorizado)
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-  }, []); // O array vazio [] garante que a busca ocorra apenas uma vez quando o componente monta
+  }, []); // O array vazio [] garante que a busca ocorra apenas uma vez.
   // --- FIM DO useEffect ---
 
 
   // --- RENDERIZAÇÃO ---
   if (loading) {
-    // Podemos usar um Skeleton ou um spinner aqui no futuro
-    return <div className="p-6">Carregando dashboard...</div>;
+    // No futuro, podemos substituir isso por um componente "Skeleton" do seu design
+    return <div className="p-8 text-center text-muted-foreground">Carregando dashboard...</div>;
   }
 
   if (error) {
-    return <div className="p-6 text-red-600">{error}</div>;
+    return <div className="p-8 text-center text-red-600 bg-red-100 rounded-lg">{error}</div>;
   }
 
   return (
-    <div className="flex flex-col gap-6 p-4 md:p-6">
-       {/* Saudação Personalizada */}
-      <div className="mb-4">
+    <div className="flex flex-col gap-8">
+      {/* Saudação Personalizada */}
+      <div>
           <h1 className="text-3xl font-bold tracking-tight">Bem-vindo(a), {trainer?.name || 'Treinador'}!</h1>
-          <p className="text-muted-foreground">Aqui está um resumo da sua atividade.</p>
+          <p className="text-muted-foreground">Aqui está um resumo da sua atividade e seus alunos.</p>
       </div>
 
-      {/* Cards de Resumo (Exemplo - podem ser adicionados no futuro) */}
-      {/* <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-         <Card> ... </Card>
-         <Card> ... </Card>
-      </div> */}
-
-      {/* Tabela de Alunos Recentes */}
+      {/* Tabela de Alunos */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-xl font-semibold">Meus Alunos</CardTitle>
           <Button size="sm" className="gap-1">
              <PlusCircle className="h-4 w-4" />
-             Adicionar Aluno {/* Esta ação precisará de um Modal ou página */}
+             Adicionar Aluno {/* Esta ação precisará de um Modal ou página no futuro */}
           </Button>
         </CardHeader>
         <CardContent>
@@ -113,7 +108,6 @@ export default function TrainerDashboard() {
                 <TableRow>
                   <TableHead>Nome</TableHead>
                   <TableHead className="hidden md:table-cell">Email</TableHead>
-                  {/* <TableHead>Status</TableHead> */}
                   <TableHead><span className="sr-only">Ações</span></TableHead>
                 </TableRow>
               </TableHeader>
@@ -122,8 +116,7 @@ export default function TrainerDashboard() {
                   <TableRow key={student.id}>
                     <TableCell className="font-medium">{student.name}</TableCell>
                     <TableCell className="hidden md:table-cell">{student.email}</TableCell>
-                    {/* <TableCell><Badge variant="outline">Ativo</Badge></TableCell> */}
-                    <TableCell>
+                    <TableCell className="text-right">
                       {/* Botões de Ação (Editar/Ver) podem ser adicionados aqui */}
                       <Button variant="outline" size="sm">Ver Detalhes</Button>
                     </TableCell>
@@ -132,13 +125,15 @@ export default function TrainerDashboard() {
               </TableBody>
             </Table>
           ) : (
-             <div className="text-center text-muted-foreground py-8">
-                Você ainda não adicionou nenhum aluno.
+             <div className="text-center text-muted-foreground py-12">
+                <UserCog className="mx-auto h-12 w-12 text-gray-400" />
+                <h3 className="mt-2 text-sm font-semibold">Nenhum aluno encontrado</h3>
+                <p className="mt-1 text-sm text-gray-500">Comece por adicionar seu primeiro aluno.</p>
              </div>
           )}
         </CardContent>
       </Card>
-       {/* Poderíamos adicionar mais cards ou seções aqui */}
+       {/* Aqui podemos adicionar mais cards no futuro (Ex: Treinos Ativos, Anúncios, etc.) */}
     </div>
   );
 }
