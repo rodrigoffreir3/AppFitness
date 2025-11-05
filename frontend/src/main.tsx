@@ -1,17 +1,18 @@
+// frontend/src/main.tsx
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { createBrowserRouter, RouterProvider } from 'react-router-dom'; // Removido Outlet daqui
+import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import App from './App.tsx';
 import './index.css';
 import { AuthProvider } from './contexts/AuthContext.tsx';
 
-// Layouts - Agora os caminhos devem funcionar
+// Layouts
 import PublicLayout from './components/layout/PublicLayout.tsx';
 import TrainerLayout from './components/layout/TrainerLayout.tsx';
 import StudentLayout from './components/layout/StudentLayout.tsx';
 import ProtectedRoute from './components/ProtectedRoute.tsx';
 
-// Páginas (Importe suas páginas reais aqui)
+// Páginas
 import IndexPage from './pages/Index.tsx';
 import TrainerLogin from './pages/auth/TrainerLogin.tsx';
 import StudentLogin from './pages/auth/StudentLogin.tsx';
@@ -19,11 +20,15 @@ import TrainerDashboard from './pages/trainer/Dashboard.tsx';
 import StudentDashboard from './pages/student/Dashboard.tsx';
 import NotFound from './pages/NotFound.tsx';
 
+// --- NOVA IMPORTAÇÃO ---
+import WorkoutDetails from './pages/student/WorkoutDetails.tsx'; 
+// --- FIM DA NOVA IMPORTAÇÃO ---
+
 const router = createBrowserRouter([
   {
     path: '/',
     element: <App />,
-    errorElement: <NotFound />, // Página de erro genérica
+    errorElement: <NotFound />,
     children: [
       // Rotas Públicas
       {
@@ -57,7 +62,9 @@ const router = createBrowserRouter([
         ),
         children: [
           { path: 'dashboard', element: <StudentDashboard /> },
-          // Adicione outras rotas do aluno aqui
+          // --- NOVA ROTA ADICIONADA ---
+          { path: 'workout/:workoutId', element: <WorkoutDetails /> },
+          // --- FIM DA NOVA ROTA ---
         ],
       },
       { path: '*', element: <NotFound /> }
