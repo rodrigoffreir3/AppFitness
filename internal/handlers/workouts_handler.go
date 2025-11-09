@@ -10,6 +10,7 @@ import (
 	"net/http"
 )
 
+// (As funções RegisterWorkoutsRoutes, workoutsHandler, CreateWorkoutRequest, e UpdateWorkoutRequest permanecem as mesmas)
 func RegisterWorkoutsRoutes(mux *http.ServeMux, db *sql.DB) {
 	h := &workoutsHandler{
 		db: db,
@@ -43,6 +44,129 @@ type UpdateWorkoutRequest struct {
 	Description *string `json:"description"`
 	IsActive    *bool   `json:"is_active"`
 }
+
+// (As funções handleGetWorkout, handleUpdateWorkout, handleDeleteWorkout, e handleCreateWorkout permanecem as mesmas)
+// ... (handleGetWorkout) ...
+// ... (handleUpdateWorkout) ...
+// ... (handleDeleteWorkout) ...
+// ... (handleCreateWorkout) ...
+
+// --- handleListWorkouts MODIFICADO ---
+
+func (h *workoutsHandler) handleListWorkouts(w http.ResponseWriter, r *http.Request) {
+	trainerID := r.Context().Value(middleware.TrainerIDKey).(string)
+	studentID := r.URL.Query().Get("student_id")
+
+	// SE O student_id FOR FORNECIDO, usamos a lógica antiga (listar para um aluno específico)
+	if studentID != "" {
+		var studentOwnerTrainerID string
+		err := h.db.QueryRowContext(r.Context(), "SELECT trainer_id FROM students WHERE id = $1 AND trainer_id = $2", studentID, trainerID).Scan(&studentOwnerTrainerID)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				http.Error(w, "Aluno não encontrado ou não pertence a este trainer", http.StatusNotFound)
+				return
+			}
+			log.Printf("Erro ao verificar dono do aluno para listar treinos: %v", err)
+			http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
+			return
+		}
+
+		query := `SELECT id, student_id, name, description, is_active FROM workouts WHERE student_id = $1 ORDER BY created_at DESC`
+		rows, err := h.db.QueryContext(r.Context(), query, studentID)
+		if err != nil {
+			log.Printf("Erro ao buscar treinos: %v", err)
+			http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
+			return
+		}
+		defer rows.Close()
+
+		var workouts []types.WorkoutResponse // Usando o tipo padrão
+		for rows.Next() {
+			var workout types.WorkoutResponse
+			if err := rows.Scan(&workout.ID, &workout.StudentID, &workout.Name, &workout.Description, &workout.IsActive); err != nil {
+				log.Printf("Erro ao escanear linha de treino: %v", err)
+				http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
+				return
+			}
+			workouts = append(workouts, workout)
+		}
+
+		if err = rows.Err(); err != nil {
+			log.Printf("Erro após iteração de treinos: %v", err)
+			http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
+			return
+		}
+
+		if workouts == nil {
+			workouts = []types.WorkoutResponse{}
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(workouts)
+
+	} else {
+		// --- NOVA LÓGICA ---
+		// SE O student_id FOR OMITIDO, listamos todos os treinos do treinador
+
+		// 1. Definimos uma struct de resposta local que inclui o nome do aluno
+		type WorkoutWithStudentResponse struct {
+			ID          string `json:"id"`
+			StudentID   string `json:"student_id"`
+			StudentName string `json:"student_name"` // Novo campo
+			Name        string `json:"name"`
+			Description string `json:"description"`
+			IsActive    bool   `json:"is_active"`
+		}
+
+		// 2. Criamos a query com JOIN na tabela 'students'
+		query := `
+			SELECT 
+				w.id, w.student_id, s.name as student_name, 
+				w.name, w.description, w.is_active
+			FROM workouts w
+			JOIN students s ON w.student_id = s.id
+			WHERE w.trainer_id = $1
+			ORDER BY s.name ASC, w.created_at DESC
+		`
+		rows, err := h.db.QueryContext(r.Context(), query, trainerID)
+		if err != nil {
+			log.Printf("Erro ao buscar todos os treinos do trainer: %v", err)
+			http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
+			return
+		}
+		defer rows.Close()
+
+		// 3. Scan para a nova struct
+		var workouts []WorkoutWithStudentResponse
+		for rows.Next() {
+			var workout WorkoutWithStudentResponse
+			if err := rows.Scan(&workout.ID, &workout.StudentID, &workout.StudentName, &workout.Name, &workout.Description, &workout.IsActive); err != nil {
+				log.Printf("Erro ao escanear linha de treino com aluno: %v", err)
+				http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
+				return
+			}
+			workouts = append(workouts, workout)
+		}
+
+		if err = rows.Err(); err != nil {
+			log.Printf("Erro após iteração de todos os treinos: %v", err)
+			http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
+			return
+		}
+
+		if workouts == nil {
+			workouts = []WorkoutWithStudentResponse{}
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(workouts)
+	}
+}
+
+// --- FIM DA MODIFICAÇÃO ---
+
+// (handleGetWorkout, handleUpdateWorkout, handleDeleteWorkout, e handleCreateWorkout
+//  devem estar presentes no seu arquivo. Se não estiverem, cole-os aqui do arquivo original)
 
 func (h *workoutsHandler) handleGetWorkout(w http.ResponseWriter, r *http.Request) {
 	trainerID := r.Context().Value(middleware.TrainerIDKey).(string)
@@ -112,60 +236,6 @@ func (h *workoutsHandler) handleDeleteWorkout(w http.ResponseWriter, r *http.Req
 	}
 
 	w.WriteHeader(http.StatusNoContent)
-}
-
-func (h *workoutsHandler) handleListWorkouts(w http.ResponseWriter, r *http.Request) {
-	trainerID := r.Context().Value(middleware.TrainerIDKey).(string)
-	studentID := r.URL.Query().Get("student_id")
-	if studentID == "" {
-		http.Error(w, "O query parameter 'student_id' é obrigatório", http.StatusBadRequest)
-		return
-	}
-
-	var studentOwnerTrainerID string
-	err := h.db.QueryRowContext(r.Context(), "SELECT trainer_id FROM students WHERE id = $1 AND trainer_id = $2", studentID, trainerID).Scan(&studentOwnerTrainerID)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			http.Error(w, "Aluno não encontrado ou não pertence a este trainer", http.StatusNotFound)
-			return
-		}
-		log.Printf("Erro ao verificar dono do aluno para listar treinos: %v", err)
-		http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
-		return
-	}
-
-	query := `SELECT id, student_id, name, description, is_active FROM workouts WHERE student_id = $1 ORDER BY created_at DESC`
-	rows, err := h.db.QueryContext(r.Context(), query, studentID)
-	if err != nil {
-		log.Printf("Erro ao buscar treinos: %v", err)
-		http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
-		return
-	}
-	defer rows.Close()
-
-	var workouts []types.WorkoutResponse
-	for rows.Next() {
-		var workout types.WorkoutResponse
-		if err := rows.Scan(&workout.ID, &workout.StudentID, &workout.Name, &workout.Description, &workout.IsActive); err != nil {
-			log.Printf("Erro ao escanear linha de treino: %v", err)
-			http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
-			return
-		}
-		workouts = append(workouts, workout)
-	}
-
-	if err = rows.Err(); err != nil {
-		log.Printf("Erro após iteração de treinos: %v", err)
-		http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
-		return
-	}
-
-	if workouts == nil {
-		workouts = []types.WorkoutResponse{}
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(workouts)
 }
 
 func (h *workoutsHandler) handleCreateWorkout(w http.ResponseWriter, r *http.Request) {
