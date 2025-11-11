@@ -1,6 +1,6 @@
-import { useState } from "react";
-import { Plus } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { useState, useEffect } from "react";
+import { Plus, Loader2, AlertCircle, Edit, Trash2 } from "lucide-react";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
@@ -10,109 +10,323 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
+import api from "@/services/api";
+
+// --- NOVO: Interfaces baseadas no announcements_handler.go ---
+interface Announcement {
+  id: string;
+  title: string;
+  content: string;
+  created_at: string; // Manter como string para exibição
+}
+
+interface AnnouncementRequest {
+  title: string;
+  content: string;
+}
+// --- FIM NOVO ---
 
 const AnnouncementsView = () => {
-  const [announcements] = useState([
-    {
-      id: 1,
-      title: "Feriado próxima semana",
-      content: "A academia estará fechada na próxima segunda-feira",
-      date: "2024-01-15",
-    },
-    {
-      id: 2,
-      title: "Novos horários",
-      content: "Confira os novos horários disponíveis",
-      date: "2024-01-10",
-    },
-  ]);
-
-  const [newAnnouncement, setNewAnnouncement] = useState({
+  // --- ESTADOS CONECTADOS À API ---
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [formLoading, setFormLoading] = useState(false);
+  
+  // Estado para Criar (title, content)
+  const [newAnnouncement, setNewAnnouncement] = useState<AnnouncementRequest>({
     title: "",
     content: "",
   });
+  
+  // Estado para Editar (id, title, content)
+  const [editingAnnouncement, setEditingAnnouncement] = useState<Announcement | null>(null);
+  // Estado para Deletar
+  const [announcementToDelete, setAnnouncementToDelete] = useState<Announcement | null>(null);
+  // --- FIM ESTADOS API ---
 
-  const handleAddAnnouncement = () => {
-    // TODO: Integrar com backend
-    toast({
-      title: "Aviso publicado!",
-      description: "Todos os alunos foram notificados.",
-    });
-    setNewAnnouncement({ title: "", content: "" });
+  // Função para formatar a data (opcional, mas melhora a UI)
+  const formatDate = (dateString: string) => {
+    try {
+      return new Date(dateString).toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (e) {
+      return dateString.split('T')[0]; // Fallback
+    }
   };
 
-  return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold">Mural de Avisos</h1>
-          <p className="text-muted-foreground">Publique avisos para seus alunos</p>
-        </div>
-        
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Novo Aviso
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Publicar Novo Aviso</DialogTitle>
-              <DialogDescription>
-                Todos os seus alunos receberão este aviso
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="title">Título</Label>
-                <Input
-                  id="title"
-                  value={newAnnouncement.title}
-                  onChange={(e) =>
-                    setNewAnnouncement({ ...newAnnouncement, title: e.target.value })
-                  }
-                  placeholder="Título do aviso"
-                />
-              </div>
-              <div>
-                <Label htmlFor="content">Conteúdo</Label>
-                <Textarea
-                  id="content"
-                  value={newAnnouncement.content}
-                  onChange={(e) =>
-                    setNewAnnouncement({ ...newAnnouncement, content: e.target.value })
-                  }
-                  placeholder="Mensagem do aviso"
-                  rows={4}
-                />
-              </div>
-              <Button onClick={handleAddAnnouncement} className="w-full">
-                Publicar Aviso
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-      </div>
+  // --- NOVO: useEffect para buscar dados ---
+  const fetchAnnouncements = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const response = await api.get<Announcement[]>('/announcements');
+      setAnnouncements(response.data);
+    } catch (err) {
+      console.error("Erro ao buscar avisos:", err);
+      setError("Não foi possível carregar os avisos.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
+    fetchAnnouncements();
+  }, []);
+  // --- FIM NOVO ---
+
+  // --- NOVO: Handler para Adicionar/Editar ---
+  const handleSaveAnnouncement = async () => {
+    setFormLoading(true);
+    
+    // Define os dados e o método (POST para criar, PUT para editar)
+    const isEditing = !!editingAnnouncement;
+    const dataToSave: AnnouncementRequest = isEditing 
+      ? { title: editingAnnouncement.title, content: editingAnnouncement.content } 
+      : newAnnouncement;
+    
+    // Validação
+    if (!dataToSave.title) {
+      toast({ title: "Erro de Validação", description: "O título é obrigatório.", variant: "destructive" });
+      setFormLoading(false);
+      return;
+    }
+
+    try {
+      if (isEditing) {
+        // --- LÓGICA DE UPDATE ---
+        await api.put(`/api/announcements/${editingAnnouncement.id}`, dataToSave);
+        toast({ title: "Aviso atualizado!", description: "O aviso foi salvo com sucesso." });
+      } else {
+        // --- LÓGICA DE CREATE ---
+        await api.post('/api/announcements', dataToSave);
+        toast({ title: "Aviso publicado!", description: "Todos os alunos foram notificados." });
+      }
+
+      // Resetar estados e fechar modal
+      setIsDialogOpen(false);
+      setNewAnnouncement({ title: "", content: "" });
+      setEditingAnnouncement(null);
+      fetchAnnouncements(); // Atualizar a lista
+
+    } catch (err) {
+      console.error("Erro ao salvar aviso:", err);
+      toast({ title: "Erro ao salvar", description: "Não foi possível salvar o aviso.", variant: "destructive" });
+    } finally {
+      setFormLoading(false);
+    }
+  };
+
+  // --- NOVO: Handler para Deletar ---
+  const handleDeleteAnnouncement = async () => {
+    if (!announcementToDelete) return;
+
+    try {
+      await api.delete(`/api/announcements/${announcementToDelete.id}`);
+      toast({ title: "Aviso excluído!", description: "O aviso foi removido com sucesso." });
+      setAnnouncementToDelete(null);
+      fetchAnnouncements(); // Atualizar a lista
+    } catch (err) {
+      console.error("Erro ao deletar aviso:", err);
+      toast({ title: "Erro ao excluir", description: "Não foi possível remover o aviso.", variant: "destructive" });
+    }
+  };
+
+  // Funções para controlar o Dialog (para Criar ou Editar)
+  const openNewDialog = () => {
+    setEditingAnnouncement(null);
+    setNewAnnouncement({ title: "", content: "" });
+    setIsDialogOpen(true);
+  };
+
+  const openEditDialog = (announcement: Announcement) => {
+    setEditingAnnouncement(announcement);
+    // Preenche o formulário com os dados de edição
+    setNewAnnouncement({ title: announcement.title, content: announcement.content }); 
+    setIsDialogOpen(true);
+  };
+  
+  // Define os dados do formulário a serem exibidos (novo ou em edição)
+  const formData = editingAnnouncement ? editingAnnouncement : newAnnouncement;
+  const setFormData = (field: 'title' | 'content', value: string) => {
+    if (editingAnnouncement) {
+      setEditingAnnouncement(current => current ? { ...current, [field]: value } : null);
+    } else {
+      setNewAnnouncement(current => ({ ...current, [field]: value }));
+    }
+  };
+
+  // --- RENDERIZAÇÃO ---
+  const renderContent = () => {
+    if (loading) {
+      return (
+        <div className="flex justify-center items-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      );
+    }
+    if (error) {
+      return (
+        <div className="flex flex-col items-center justify-center h-64 text-center text-destructive bg-destructive/10 border border-destructive rounded-lg p-6">
+          <AlertCircle className="h-8 w-8 mb-4" />
+          <p className="font-semibold">Erro ao carregar avisos</p>
+          <p className="text-sm">{error}</p>
+        </div>
+      );
+    }
+    if (announcements.length === 0) {
+      return (
+        <div className="text-center text-muted-foreground py-12 border border-dashed rounded-lg">
+          <h3 className="mt-2 text-sm font-semibold">Nenhum aviso publicado</h3>
+          <p className="mt-1 text-sm text-gray-500">Crie seu primeiro aviso para se comunicar com seus alunos.</p>
+        </div>
+      );
+    }
+    return (
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {announcements.map((announcement) => (
           <Card key={announcement.id}>
             <CardHeader>
               <CardTitle className="text-lg">{announcement.title}</CardTitle>
-              <p className="text-sm text-muted-foreground">{announcement.date}</p>
+              <p className="text-sm text-muted-foreground">{formatDate(announcement.created_at)}</p>
             </CardHeader>
-            <CardContent>
-              <p className="text-sm">{announcement.content}</p>
+            <CardContent className="flex flex-col justify-between h-full">
+              <p className="text-sm break-words">{announcement.content}</p>
+              <div className="flex gap-2 mt-4 pt-4 border-t">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="flex-1"
+                  onClick={() => openEditDialog(announcement)}
+                >
+                  <Edit className="mr-2 h-4 w-4" />
+                  Editar
+                </Button>
+                <AlertDialogTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="text-destructive hover:text-destructive"
+                    onClick={() => setAnnouncementToDelete(announcement)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </AlertDialogTrigger>
+              </div>
             </CardContent>
           </Card>
         ))}
       </div>
-    </div>
+    );
+  };
+
+  return (
+    <AlertDialog>
+      <div className="space-y-6">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-bold">Mural de Avisos</h1>
+            <p className="text-muted-foreground">Publique avisos para seus alunos</p>
+          </div>
+          
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={openNewDialog}>
+                <Plus className="mr-2 h-4 w-4" />
+                Novo Aviso
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{editingAnnouncement ? "Editar Aviso" : "Publicar Novo Aviso"}</DialogTitle>
+                <DialogDescription>
+                  {editingAnnouncement 
+                    ? "Edite os detalhes do aviso."
+                    : "Todos os seus alunos receberão este aviso."
+                  }
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="title">Título (Obrigatório)</Label>
+                  <Input
+                    id="title"
+                    value={formData.title}
+                    onChange={(e) => setFormData('title', e.target.value)}
+                    placeholder="Título do aviso"
+                    disabled={formLoading}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="content">Conteúdo (Opcional)</Label>
+                  <Textarea
+                    id="content"
+                    value={formData.content}
+                    onChange={(e) => setFormData('content', e.target.value)}
+                    placeholder="Mensagem do aviso"
+                    rows={4}
+                    disabled={formLoading}
+                  />
+                </div>
+                <Button onClick={handleSaveAnnouncement} className="w-full" disabled={formLoading}>
+                  {formLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  {formLoading ? "Salvando..." : (editingAnnouncement ? "Salvar Alterações" : "Publicar Aviso")}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
+
+        {renderContent()}
+      </div>
+
+      {/* Modal de Confirmação para Deletar */}
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle className="flex items-center gap-2">
+            <AlertCircle className="text-destructive" />
+            Excluir Aviso?
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            Tem certeza que deseja excluir o aviso
+            <span className="font-medium text-foreground"> "{announcementToDelete?.title}"</span>?
+            Esta ação não pode ser desfeita.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => setAnnouncementToDelete(null)}>Cancelar</AlertDialogCancel>
+          <AlertDialogAction 
+            onClick={handleDeleteAnnouncement} 
+            className={buttonVariants({ variant: "destructive" })}
+          >
+            Sim, excluir
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+
+    </AlertDialog>
   );
 };
 
