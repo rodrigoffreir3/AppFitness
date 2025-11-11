@@ -29,10 +29,8 @@ func RegisterStudentsRoutes(mux *http.ServeMux, db *sql.DB) {
 	loginStudentHandler := http.HandlerFunc(h.handleStudentLogin)
 	getMyWorkoutsHandler := http.HandlerFunc(h.handleGetMyWorkouts)
 	getMyWorkoutDetailsHandler := http.HandlerFunc(h.handleGetMyWorkoutDetails)
-
-	// --- NOVA ROTA ADICIONADA ---
 	getMyAnnouncementsHandler := http.HandlerFunc(h.handleGetMyAnnouncements)
-	// --- FIM NOVA ROTA ---
+	getMyProfileHandler := http.HandlerFunc(h.handleGetMyProfile)
 
 	mux.Handle("POST /api/students", middleware.AuthMiddleware(createStudentHandler))
 	mux.Handle("GET /api/students", middleware.AuthMiddleware(listStudentsHandler))
@@ -42,17 +40,15 @@ func RegisterStudentsRoutes(mux *http.ServeMux, db *sql.DB) {
 	mux.HandleFunc("POST /api/students/login", loginStudentHandler)
 	mux.Handle("GET /api/students/me/workouts", middleware.AuthMiddleware(getMyWorkoutsHandler))
 	mux.Handle("GET /api/students/me/workouts/{id}", middleware.AuthMiddleware(getMyWorkoutDetailsHandler))
-
-	// --- REGISTRO DA NOVA ROTA ---
 	mux.Handle("GET /api/students/me/announcements", middleware.AuthMiddleware(getMyAnnouncementsHandler))
-	// --- FIM REGISTRO ---
+	mux.Handle("GET /api/students/me/profile", middleware.AuthMiddleware(getMyProfileHandler))
 }
 
 type studentsHandler struct {
 	db *sql.DB
 }
 
-// (As structs CreateStudentRequest, StudentResponse, UpdateStudentRequest permanecem as mesmas)
+// Structs de Requisição/Resposta
 type CreateStudentRequest struct {
 	Name     string `json:"name"`
 	Email    string `json:"email"`
@@ -68,12 +64,54 @@ type UpdateStudentRequest struct {
 	Email *string `json:"email"`
 }
 
-// --- NOVO HANDLER ---
-// handleGetMyAnnouncements busca os avisos do treinador do aluno logado
+// --- STRUCT ATUALIZADA ---
+// Agora inclui o TrainerName
+type StudentProfileResponse struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Email       string `json:"email"`
+	TrainerID   string `json:"trainer_id"`
+	TrainerName string `json:"trainer_name"` // Novo campo
+}
+
+// --- FIM DA ATUALIZAÇÃO ---
+
+// --- HANDLER ATUALIZADO ---
+func (h *studentsHandler) handleGetMyProfile(w http.ResponseWriter, r *http.Request) {
+	studentID := r.Context().Value(middleware.TrainerIDKey).(string)
+
+	var profile StudentProfileResponse
+	// Query atualizada com LEFT JOIN para buscar o nome do treinador
+	query := `
+		SELECT s.id, s.name, s.email, s.trainer_id, COALESCE(t.name, '') as trainer_name
+		FROM students s
+		LEFT JOIN trainers t ON s.trainer_id = t.id
+		WHERE s.id = $1
+	`
+	// Scan atualizado para incluir o novo campo
+	err := h.db.QueryRowContext(r.Context(), query, studentID).Scan(
+		&profile.ID, &profile.Name, &profile.Email, &profile.TrainerID, &profile.TrainerName,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "Perfil do aluno não encontrado", http.StatusNotFound)
+			return
+		}
+		log.Printf("Erro ao buscar perfil do aluno: %v", err)
+		http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(profile)
+}
+
+// --- FIM DA ATUALIZAÇÃO ---
+
+// --- HANDLER DE AVISOS (Existente) ---
 func (h *studentsHandler) handleGetMyAnnouncements(w http.ResponseWriter, r *http.Request) {
 	studentID := r.Context().Value(middleware.TrainerIDKey).(string)
 
-	// 1. Descobrir quem é o treinador deste aluno
 	var trainerID string
 	queryTrainer := `SELECT trainer_id FROM students WHERE id = $1`
 	err := h.db.QueryRowContext(r.Context(), queryTrainer, studentID).Scan(&trainerID)
@@ -87,8 +125,6 @@ func (h *studentsHandler) handleGetMyAnnouncements(w http.ResponseWriter, r *htt
 		return
 	}
 
-	// 2. Buscar todos os avisos desse treinador
-	// Usamos a mesma struct de resposta do announcements_handler
 	type AnnouncementResponse struct {
 		ID        string `json:"id"`
 		Title     string `json:"title"`
@@ -129,20 +165,9 @@ func (h *studentsHandler) handleGetMyAnnouncements(w http.ResponseWriter, r *htt
 	json.NewEncoder(w).Encode(announcements)
 }
 
-// --- FIM NOVO HANDLER ---
+// --- FIM HANDLER DE AVISOS ---
 
-// (O restante dos handlers: handleGetMyWorkoutDetails, handleGetMyWorkouts, handleStudentLogin, etc... permanecem iguais)
-// ... (handleGetMyWorkoutDetails)
-// ... (handleGetMyWorkouts)
-// ... (handleStudentLogin)
-// ... (handleGetStudent)
-// ... (handleUpdateStudent)
-// ... (handleDeleteStudent)
-// ... (handleListStudents)
-// ... (handleCreateStudent)
-
-// Copiando as funções que faltam para garantir que o arquivo esteja completo:
-
+// (O restante dos handlers: handleGetMyWorkoutDetails, handleGetMyWorkouts, etc... permanecem iguais)
 func (h *studentsHandler) handleGetMyWorkoutDetails(w http.ResponseWriter, r *http.Request) {
 	studentID := r.Context().Value(middleware.TrainerIDKey).(string)
 	workoutID := r.PathValue("id")

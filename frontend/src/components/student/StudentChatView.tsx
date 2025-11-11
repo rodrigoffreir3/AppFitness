@@ -1,24 +1,142 @@
-import { useState } from "react";
-import { Send } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Send, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import api from "@/services/api";
+// 1. Importar o hook e os tipos
+import { useChatWebSocket } from '@/hooks/useChatWebSocket';
+import type { SendMessagePayload, ReceivedMessage } from '@/hooks/useChatWebSocket';
+
+// Interface para o Perfil do Aluno
+interface StudentProfile {
+  id: string;
+  name: string;
+  email: string;
+  trainer_id: string;
+  trainer_name: string;
+}
+
+// Interface para o Histórico de Mensagens
+type MessageResponse = ReceivedMessage;
+
 
 const StudentChatView = () => {
   const [message, setMessage] = useState("");
+  const [profile, setProfile] = useState<StudentProfile | null>(null);
+  const [messageHistory, setMessageHistory] = useState<MessageResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   
-  const messages = [
-    { id: 1, from: "student", text: "Boa tarde, professor!", time: "14:30" },
-    { id: 2, from: "trainer", text: "Boa tarde! Como vai?", time: "14:32" },
-    { id: 3, from: "student", text: "Tudo bem! Sobre o treino...", time: "14:33" },
-    { id: 4, from: "trainer", text: "Pode me perguntar!", time: "14:35" },
-  ];
+  // (O estado 'isSending' será controlado pelo status do hook)
+  
+  const viewportRef = useRef<HTMLDivElement>(null);
 
+  // 2. Instanciar o hook
+  const { sendMessage, lastMessage, status: wsStatus } = useChatWebSocket();
+
+  // Efeito 1: Buscar perfil e histórico (sem alterações)
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      setError("");
+      try {
+        const profileResponse = await api.get<StudentProfile>('/api/students/me/profile');
+        const profileData = profileResponse.data;
+        setProfile(profileData);
+
+        if (!profileData.trainer_id) {
+          setError("Você não está associado a um treinador.");
+          setLoading(false);
+          return;
+        }
+
+        const historyResponse = await api.get<MessageResponse[]>(`/api/chat/history/${profileData.trainer_id}`);
+        setMessageHistory(historyResponse.data);
+
+      } catch (err) {
+        console.error("Erro ao carregar dados do chat do aluno:", err);
+        setError("Não foi possível carregar o chat.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
+  // Efeito 2: Auto-scroll (sem alterações)
+  useEffect(() => {
+    if (viewportRef.current) {
+      setTimeout(() => {
+        if (viewportRef.current) {
+          viewportRef.current.scrollTop = viewportRef.current.scrollHeight;
+        }
+      }, 0);
+    }
+  }, [messageHistory, loading]);
+
+  // --- 3. NOVO: Efeito 3: Processar mensagens recebidas do WebSocket ---
+  useEffect(() => {
+    if (lastMessage) {
+      // Verificar se a mensagem pertence à conversa ativa
+      // (Neste caso, o aluno só pode falar com o treinador)
+      const isRelevant = 
+        (lastMessage.sender_id === profile?.trainer_id && lastMessage.receiver_id === profile?.id) ||
+        (lastMessage.sender_id === profile?.id && lastMessage.receiver_id === profile?.trainer_id);
+
+      if (isRelevant) {
+        // Evitar adicionar a mesma mensagem (otimista) duas vezes
+        setMessageHistory(prevHistory => {
+          if (prevHistory.find(msg => msg.id === lastMessage.id)) {
+            return prevHistory;
+          }
+          return [...prevHistory, lastMessage];
+        });
+      }
+    }
+  }, [lastMessage, profile?.id, profile?.trainer_id]);
+  // --- FIM NOVO ---
+
+
+  // --- 4. ATUALIZADO: handleSend ---
   const handleSend = () => {
-    // TODO: Enviar mensagem via WebSocket
-    if (message.trim()) {
-      setMessage("");
+    if (!message.trim() || !profile?.trainer_id || !profile?.id || wsStatus !== 'connected') {
+      return;
+    }
+
+    // 1. Preparar o payload para o backend (conforme hub.go)
+    const payload: SendMessagePayload = {
+      receiver_id: profile.trainer_id, // Enviar para o treinador
+      content: message,
+    };
+
+    // 2. Enviar pelo WebSocket
+    sendMessage(payload);
+
+    // 3. Update Otimista
+    const optimisticMessage: MessageResponse = {
+      id: new Date().toISOString(),
+      sender_id: profile.id, // Enviado pelo aluno
+      receiver_id: profile.trainer_id,
+      content: message,
+      created_at: new Date().toISOString(),
+    };
+    setMessageHistory(prevHistory => [...prevHistory, optimisticMessage]);
+
+    // 4. Limpar o input
+    setMessage("");
+  };
+  // --- FIM ATUALIZADO ---
+
+  const formatTime = (dateString: string) => {
+    try {
+      return new Date(dateString).toLocaleTimeString('pt-BR', {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (e) {
+      return dateString;
     }
   };
 
@@ -31,39 +149,80 @@ const StudentChatView = () => {
 
       <Card className="h-[600px] flex flex-col">
         <CardHeader>
-          <CardTitle>Chat com Treinador</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            {loading ? "Carregando..." : `Chat com ${profile?.trainer_name || 'Treinador'}`}
+            {/* 5. Indicador de Status do WebSocket */}
+            <span 
+              className={
+                `h-3 w-3 rounded-full ${
+                  wsStatus === 'connected' ? 'bg-green-500' : 
+                  wsStatus === 'connecting' ? 'bg-yellow-500' : 
+                  'bg-red-500'
+                }`
+              } 
+              title={`WebSocket: ${wsStatus}`}
+            />
+          </CardTitle>
         </CardHeader>
         <CardContent className="flex-1 flex flex-col p-0">
-          <ScrollArea className="flex-1 p-4">
-            <div className="space-y-4">
-              {messages.map((msg) => (
-                <div
-                  key={msg.id}
-                  className={`flex ${msg.from === "student" ? "justify-end" : "justify-start"}`}
-                >
-                  <div
-                    className={`max-w-[70%] rounded-lg p-3 ${
-                      msg.from === "student"
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted"
-                    }`}
-                  >
-                    <p>{msg.text}</p>
-                    <p className="text-xs mt-1 opacity-70">{msg.time}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+          <ScrollArea className="flex-1 p-4" viewportRef={viewportRef}>
+            {/* --- RENDERIZAÇÃO CONDICIONAL --- */}
+            {loading ? (
+              <div className="flex justify-center items-center h-full">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              </div>
+            ) : error ? (
+              <div className="flex justify-center items-center h-full text-destructive">
+                <AlertCircle className="mr-2 h-4 w-4" /> {error}
+              </div>
+            ) : messageHistory.length === 0 ? (
+              <div className="flex justify-center items-center h-full text-muted-foreground">
+                <p>Nenhuma mensagem ainda. Envie a primeira!</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {messageHistory.map((msg) => {
+                  // Compara o sender_id com o ID do aluno logado
+                  const isFromStudent = msg.sender_id === profile?.id;
+                  return (
+                    <div
+                      key={msg.id}
+                      className={`flex ${isFromStudent ? "justify-end" : "justify-start"}`}
+                    >
+                      <div
+                        className={`max-w-[70%] rounded-lg p-3 ${
+                          isFromStudent
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted"
+                        }`}
+                      >
+                        <p className="break-words">{msg.content}</p>
+                        <p className="text-xs mt-1 opacity-70">
+                          {formatTime(msg.created_at)}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {/* --- FIM RENDERIZAÇÃO --- */}
           </ScrollArea>
+          {/* 6. Inputs desabilitados com base no status do WS */}
           <div className="p-4 border-t flex gap-2">
             <Input
-              placeholder="Digite sua mensagem..."
+              placeholder={
+                wsStatus === 'connected' ? "Digite sua mensagem..." : 
+                wsStatus === 'connecting' ? "A ligar ao chat..." : 
+                "Chat desligado."
+              }
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              onKeyPress={(e) => e.key === "Enter" && handleSend()}
+              onKeyPress={(e) => e.key === "Enter" && wsStatus === 'connected' && handleSend()}
+              disabled={loading || !!error || wsStatus !== 'connected'}
             />
-            <Button onClick={handleSend}>
-              <Send className="h-4 w-4" />
+            <Button onClick={handleSend} disabled={loading || !!error || wsStatus !== 'connected'}>
+              {wsStatus === 'connecting' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             </Button>
           </div>
         </CardContent>

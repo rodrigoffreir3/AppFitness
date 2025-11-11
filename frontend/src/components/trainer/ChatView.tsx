@@ -1,29 +1,172 @@
-import { useState } from "react";
-import { Send } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Send, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import api from "@/services/api";
+// 1. Importar o nosso novo hook e os tipos dele
+import { useChatWebSocket } from '@/hooks/useChatWebSocket';
+import type { SendMessagePayload, ReceivedMessage } from '@/hooks/useChatWebSocket';
+
+// Interface para Alunos
+interface Student {
+  id: string;
+  name: string;
+  email: string;
+}
+
+// Interface para o Histórico de Mensagens (agora vem do hook)
+type MessageResponse = ReceivedMessage;
+
+// Interface para o Perfil do Treinador
+interface TrainerProfile {
+  id: string;
+  name: string;
+  email: string;
+}
 
 const ChatView = () => {
-  const [selectedStudent, setSelectedStudent] = useState<number | null>(1);
+  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   
-  const students = [
-    { id: 1, name: "João Silva", lastMessage: "Obrigado!", unread: 2 },
-    { id: 2, name: "Maria Santos", lastMessage: "Pode ser amanhã?", unread: 0 },
-  ];
+  const [students, setStudents] = useState<Student[]>([]);
+  const [loadingStudents, setLoadingStudents] = useState(true);
+  const [errorStudents, setErrorStudents] = useState("");
 
-  const messages = [
-    { id: 1, from: "student", text: "Boa tarde, professor!", time: "14:30" },
-    { id: 2, from: "trainer", text: "Boa tarde! Como vai?", time: "14:32" },
-    { id: 3, from: "student", text: "Tudo bem! Sobre o treino...", time: "14:33" },
-  ];
+  const [trainerId, setTrainerId] = useState<string | null>(null);
+  const [messageHistory, setMessageHistory] = useState<MessageResponse[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [errorHistory, setErrorHistory] = useState("");
 
+  // (Removido o estado 'isSending', pois o hook 'wsStatus' o substitui)
+
+  const viewportRef = useRef<HTMLDivElement>(null);
+
+  // 2. Instanciar o hook
+  const { sendMessage, lastMessage, status: wsStatus } = useChatWebSocket();
+
+  // Efeito 1: Buscar alunos e o perfil do próprio treinador (sem alterações)
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoadingStudents(true);
+      setErrorStudents("");
+      try {
+        const [studentsResponse, profileResponse] = await Promise.all([
+          api.get<Student[]>('/students'), 
+          api.get<TrainerProfile>('/trainers/me')
+        ]);
+        
+        setStudents(studentsResponse.data);
+        setTrainerId(profileResponse.data.id); 
+
+        if (studentsResponse.data.length > 0) {
+          setSelectedStudentId(studentsResponse.data[0].id);
+        }
+      } catch (err) {
+        console.error("Erro ao buscar dados do chat:", err);
+        setErrorStudents("Não foi possível carregar a lista de alunos.");
+      } finally {
+        setLoadingStudents(false);
+      }
+    };
+    fetchData();
+  }, []);
+
+  // Efeito 2: Buscar histórico de mensagens (sem alterações)
+  useEffect(() => {
+    const fetchHistory = async () => {
+      if (!selectedStudentId) return; 
+      setLoadingHistory(true);
+      setErrorHistory("");
+      setMessageHistory([]); 
+      try {
+        const response = await api.get<MessageResponse[]>(`/api/chat/history/${selectedStudentId}`);
+        setMessageHistory(response.data);
+      } catch (err) {
+        console.error(`Erro ao buscar histórico para ${selectedStudentId}:`, err);
+        setErrorHistory("Não foi possível carregar o histórico de mensagens.");
+      } finally {
+        setLoadingHistory(false);
+      }
+    };
+    fetchHistory();
+  }, [selectedStudentId]);
+
+  // Efeito 3: Auto-scroll para o final das mensagens (sem alterações)
+  useEffect(() => {
+    if (viewportRef.current) {
+      setTimeout(() => {
+        if (viewportRef.current) {
+          viewportRef.current.scrollTop = viewportRef.current.scrollHeight;
+        }
+      }, 0);
+    }
+  }, [messageHistory, loadingHistory]);
+
+  // --- NOVO: Efeito 4: Processar mensagens recebidas do WebSocket ---
+  useEffect(() => {
+    if (lastMessage) {
+      // Verificar se a mensagem pertence à conversa ativa
+      const isRelevant = 
+        (lastMessage.sender_id === selectedStudentId && lastMessage.receiver_id === trainerId) ||
+        (lastMessage.sender_id === trainerId && lastMessage.receiver_id === selectedStudentId);
+      
+      if (isRelevant) {
+        // Evitar adicionar a mesma mensagem (otimista) duas vezes
+        setMessageHistory(prevHistory => {
+          if (prevHistory.find(msg => msg.id === lastMessage.id)) {
+            return prevHistory;
+          }
+          return [...prevHistory, lastMessage];
+        });
+      }
+    }
+  }, [lastMessage, selectedStudentId, trainerId]);
+  // --- FIM NOVO ---
+
+
+  // --- 4. ATUALIZADO: handleSend ---
   const handleSend = () => {
-    // TODO: Enviar mensagem via WebSocket
-    if (message.trim()) {
-      setMessage("");
+    // Não enviar se a mensagem estiver vazia, ou se não houver destinatário, ou se o WS não estiver ligado
+    if (!message.trim() || !selectedStudentId || !trainerId || wsStatus !== 'connected') {
+      return;
+    }
+    
+    // 1. Preparar o payload para o backend (conforme hub.go)
+    const payload: SendMessagePayload = {
+      receiver_id: selectedStudentId,
+      content: message,
+    };
+    
+    // 2. Enviar pelo WebSocket
+    sendMessage(payload);
+
+    // 3. Update Otimista: Adicionar a mensagem à UI imediatamente
+    const optimisticMessage: MessageResponse = {
+      id: new Date().toISOString(), // ID temporário (backend irá gerar um UUID real)
+      sender_id: trainerId,
+      receiver_id: selectedStudentId,
+      content: message,
+      created_at: new Date().toISOString(),
+    };
+    setMessageHistory(prevHistory => [...prevHistory, optimisticMessage]);
+
+    // 4. Limpar o input
+    setMessage("");
+  };
+  // --- FIM ATUALIZADO ---
+
+  const selectedStudentName = students.find((s) => s.id === selectedStudentId)?.name || "Selecione uma conversa";
+  
+  const formatTime = (dateString: string) => {
+    try {
+      return new Date(dateString).toLocaleTimeString('pt-BR', {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (e) {
+      return dateString;
     }
   };
 
@@ -35,76 +178,97 @@ const ChatView = () => {
       </div>
 
       <div className="grid md:grid-cols-3 gap-4 h-[600px]">
+        {/* Card da Lista de Alunos (Sidebar) - Sem alterações */}
         <Card className="md:col-span-1">
           <CardHeader>
             <CardTitle>Conversas</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             <ScrollArea className="h-[500px]">
-              {students.map((student) => (
-                <div
-                  key={student.id}
-                  onClick={() => setSelectedStudent(student.id)}
-                  className={`p-4 cursor-pointer hover:bg-accent transition-colors border-b ${
-                    selectedStudent === student.id ? "bg-accent" : ""
-                  }`}
-                >
-                  <div className="flex justify-between items-start">
+              {loadingStudents ? (
+                <div className="flex justify-center items-center h-full p-4"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+              ) : errorStudents ? (
+                 <div className="p-4 text-center text-destructive bg-destructive/10 m-4 rounded-lg"><AlertCircle className="mx-auto h-6 w-6 mb-2" /><p className="text-sm">{errorStudents}</p></div>
+              ) : students.length === 0 ? (
+                <div className="p-4 text-center text-muted-foreground"><p className="text-sm">Nenhum aluno cadastrado ainda.</p></div>
+              ) : (
+                students.map((student) => (
+                  <div
+                    key={student.id}
+                    onClick={() => setSelectedStudentId(student.id)}
+                    className={`p-4 cursor-pointer hover:bg-accent transition-colors border-b ${
+                      selectedStudentId === student.id ? "bg-accent" : ""
+                    }`}
+                  >
                     <div>
                       <p className="font-medium">{student.name}</p>
-                      <p className="text-sm text-muted-foreground truncate">
-                        {student.lastMessage}
-                      </p>
+                      <p className="text-sm text-muted-foreground truncate">Clique para ver...</p>
                     </div>
-                    {student.unread > 0 && (
-                      <span className="bg-primary text-primary-foreground text-xs rounded-full px-2 py-1">
-                        {student.unread}
-                      </span>
-                    )}
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </ScrollArea>
           </CardContent>
         </Card>
 
+        {/* Card do Chat (Painel Principal) */}
         <Card className="md:col-span-2 flex flex-col">
           <CardHeader>
-            <CardTitle>
-              {students.find((s) => s.id === selectedStudent)?.name || "Selecione um aluno"}
+            <CardTitle className="flex items-center gap-2">
+              {loadingStudents ? "Carregando..." : selectedStudentName}
+              {/* 5. Indicador de Status do WebSocket */}
+              <span 
+                className={
+                  `h-3 w-3 rounded-full ${
+                    wsStatus === 'connected' ? 'bg-green-500' : 
+                    wsStatus === 'connecting' ? 'bg-yellow-500' : 
+                    'bg-red-500'
+                  }`
+                } 
+                title={`WebSocket: ${wsStatus}`}
+              />
             </CardTitle>
           </CardHeader>
           <CardContent className="flex-1 flex flex-col p-0">
-            <ScrollArea className="flex-1 p-4">
-              <div className="space-y-4">
-                {messages.map((msg) => (
-                  <div
-                    key={msg.id}
-                    className={`flex ${msg.from === "trainer" ? "justify-end" : "justify-start"}`}
-                  >
-                    <div
-                      className={`max-w-[70%] rounded-lg p-3 ${
-                        msg.from === "trainer"
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted"
-                      }`}
-                    >
-                      <p>{msg.text}</p>
-                      <p className="text-xs mt-1 opacity-70">{msg.time}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
+            <ScrollArea className="flex-1 p-4" viewportRef={viewportRef}>
+              {/* Renderização do Histórico (sem alterações) */}
+              {loadingHistory ? (
+                <div className="flex justify-center items-center h-full"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+              ) : errorHistory ? (
+                <div className="flex justify-center items-center h-full text-destructive"><AlertCircle className="mr-2 h-4 w-4" /> {errorHistory}</div>
+              ) : messageHistory.length === 0 ? (
+                <div className="flex justify-center items-center h-full text-muted-foreground"><p>Inicie a conversa!</p></div>
+              ) : (
+                <div className="space-y-4">
+                  {messageHistory.map((msg) => {
+                    const isFromTrainer = msg.sender_id === trainerId;
+                    return (
+                      <div key={msg.id} className={`flex ${isFromTrainer ? "justify-end" : "justify-start"}`}>
+                        <div className={`max-w-[70%] rounded-lg p-3 ${isFromTrainer ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
+                          <p className="break-words">{msg.content}</p>
+                          <p className="text-xs mt-1 opacity-70">{formatTime(msg.created_at)}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </ScrollArea>
+            {/* 6. Inputs desabilitados com base no status do WS */}
             <div className="p-4 border-t flex gap-2">
               <Input
-                placeholder="Digite sua mensagem..."
+                placeholder={
+                  wsStatus === 'connected' ? "Digite sua mensagem..." : 
+                  wsStatus === 'connecting' ? "A ligar ao chat..." : 
+                  "Chat desligado."
+                }
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                onKeyPress={(e) => e.key === "Enter" && handleSend()}
+                onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+                disabled={loadingStudents || !selectedStudentId || loadingHistory || wsStatus !== 'connected'}
               />
-              <Button onClick={handleSend}>
-                <Send className="h-4 w-4" />
+              <Button onClick={handleSend} disabled={loadingStudents || !selectedStudentId || loadingHistory || wsStatus !== 'connected'}>
+                {wsStatus === 'connecting' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               </Button>
             </div>
           </CardContent>
