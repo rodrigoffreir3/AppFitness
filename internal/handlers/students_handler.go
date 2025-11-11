@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	// --- ALTERAÇÃO AQUI: Corrigido o erro de digitação ---
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -31,6 +30,10 @@ func RegisterStudentsRoutes(mux *http.ServeMux, db *sql.DB) {
 	getMyWorkoutsHandler := http.HandlerFunc(h.handleGetMyWorkouts)
 	getMyWorkoutDetailsHandler := http.HandlerFunc(h.handleGetMyWorkoutDetails)
 
+	// --- NOVA ROTA ADICIONADA ---
+	getMyAnnouncementsHandler := http.HandlerFunc(h.handleGetMyAnnouncements)
+	// --- FIM NOVA ROTA ---
+
 	mux.Handle("POST /api/students", middleware.AuthMiddleware(createStudentHandler))
 	mux.Handle("GET /api/students", middleware.AuthMiddleware(listStudentsHandler))
 	mux.Handle("GET /api/students/{id}", middleware.AuthMiddleware(getStudentHandler))
@@ -39,13 +42,17 @@ func RegisterStudentsRoutes(mux *http.ServeMux, db *sql.DB) {
 	mux.HandleFunc("POST /api/students/login", loginStudentHandler)
 	mux.Handle("GET /api/students/me/workouts", middleware.AuthMiddleware(getMyWorkoutsHandler))
 	mux.Handle("GET /api/students/me/workouts/{id}", middleware.AuthMiddleware(getMyWorkoutDetailsHandler))
+
+	// --- REGISTRO DA NOVA ROTA ---
+	mux.Handle("GET /api/students/me/announcements", middleware.AuthMiddleware(getMyAnnouncementsHandler))
+	// --- FIM REGISTRO ---
 }
 
 type studentsHandler struct {
 	db *sql.DB
 }
 
-// --- Estruturas de Requisição/Resposta ---
+// (As structs CreateStudentRequest, StudentResponse, UpdateStudentRequest permanecem as mesmas)
 type CreateStudentRequest struct {
 	Name     string `json:"name"`
 	Email    string `json:"email"`
@@ -61,9 +68,80 @@ type UpdateStudentRequest struct {
 	Email *string `json:"email"`
 }
 
-// --- ALTERAÇÃO: A struct WorkoutExerciseResponse foi removida daqui ---
+// --- NOVO HANDLER ---
+// handleGetMyAnnouncements busca os avisos do treinador do aluno logado
+func (h *studentsHandler) handleGetMyAnnouncements(w http.ResponseWriter, r *http.Request) {
+	studentID := r.Context().Value(middleware.TrainerIDKey).(string)
 
-// --- Handlers ---
+	// 1. Descobrir quem é o treinador deste aluno
+	var trainerID string
+	queryTrainer := `SELECT trainer_id FROM students WHERE id = $1`
+	err := h.db.QueryRowContext(r.Context(), queryTrainer, studentID).Scan(&trainerID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "Aluno não encontrado", http.StatusNotFound)
+			return
+		}
+		log.Printf("Erro ao buscar trainer_id do aluno: %v", err)
+		http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
+		return
+	}
+
+	// 2. Buscar todos os avisos desse treinador
+	// Usamos a mesma struct de resposta do announcements_handler
+	type AnnouncementResponse struct {
+		ID        string `json:"id"`
+		Title     string `json:"title"`
+		Content   string `json:"content"`
+		CreatedAt string `json:"created_at"`
+	}
+
+	queryAnnouncements := `
+		SELECT id, title, content, created_at 
+		FROM announcements 
+		WHERE trainer_id = $1 
+		ORDER BY created_at DESC
+	`
+	rows, err := h.db.QueryContext(r.Context(), queryAnnouncements, trainerID)
+	if err != nil {
+		log.Printf("Erro ao listar avisos para o aluno: %v", err)
+		http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	var announcements []AnnouncementResponse
+	for rows.Next() {
+		var a AnnouncementResponse
+		if err := rows.Scan(&a.ID, &a.Title, &a.Content, &a.CreatedAt); err != nil {
+			log.Printf("Erro ao escanear aviso para o aluno: %v", err)
+			http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
+			return
+		}
+		announcements = append(announcements, a)
+	}
+
+	if announcements == nil {
+		announcements = []AnnouncementResponse{}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(announcements)
+}
+
+// --- FIM NOVO HANDLER ---
+
+// (O restante dos handlers: handleGetMyWorkoutDetails, handleGetMyWorkouts, handleStudentLogin, etc... permanecem iguais)
+// ... (handleGetMyWorkoutDetails)
+// ... (handleGetMyWorkouts)
+// ... (handleStudentLogin)
+// ... (handleGetStudent)
+// ... (handleUpdateStudent)
+// ... (handleDeleteStudent)
+// ... (handleListStudents)
+// ... (handleCreateStudent)
+
+// Copiando as funções que faltam para garantir que o arquivo esteja completo:
 
 func (h *studentsHandler) handleGetMyWorkoutDetails(w http.ResponseWriter, r *http.Request) {
 	studentID := r.Context().Value(middleware.TrainerIDKey).(string)
@@ -162,7 +240,6 @@ func (h *studentsHandler) handleGetMyWorkouts(w http.ResponseWriter, r *http.Req
 	json.NewEncoder(w).Encode(workouts)
 }
 
-// ... (o resto das funções, como handleStudentLogin, handleCreateStudent, etc., permanecem iguais)
 func (h *studentsHandler) handleStudentLogin(w http.ResponseWriter, r *http.Request) {
 	var req types.LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -170,7 +247,6 @@ func (h *studentsHandler) handleStudentLogin(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// --- MUDANÇA AQUI: Agora buscamos também o trainer_id ---
 	var studentID, trainerID, hashedPassword string
 	query := `SELECT id, trainer_id, password_hash FROM students WHERE email = $1`
 	err := h.db.QueryRowContext(r.Context(), query, req.Email).Scan(&studentID, &trainerID, &hashedPassword)
@@ -190,15 +266,12 @@ func (h *studentsHandler) handleStudentLogin(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// --- NOVO BLOCO: Buscar os dados de branding do treinador ---
 	var branding types.BrandingResponse
 	brandingQuery := `SELECT COALESCE(brand_logo_url, ''), COALESCE(brand_primary_color, '') FROM trainers WHERE id = $1`
 	err = h.db.QueryRowContext(r.Context(), brandingQuery, trainerID).Scan(&branding.LogoURL, &branding.PrimaryColor)
 	if err != nil {
-		// Se não encontrar o branding, não é um erro fatal, apenas logamos e continuamos.
 		log.Printf("Aviso: não foi possível buscar branding para o trainer ID %s: %v", trainerID, err)
 	}
-	// --- FIM DO NOVO BLOCO ---
 
 	claims := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"sub": studentID,
@@ -213,7 +286,6 @@ func (h *studentsHandler) handleStudentLogin(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// --- MUDANÇA AQUI: Montamos a nova resposta completa ---
 	response := types.LoginResponse{
 		Token:    tokenString,
 		Branding: branding,

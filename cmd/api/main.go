@@ -8,7 +8,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/rs/cors" // <-- Importa o pacote de CORS
+	"github.com/rs/cors"
 )
 
 func main() {
@@ -19,7 +19,7 @@ func main() {
 	defer db.Close()
 	log.Println("Conexão com o banco de dados estabelecida com sucesso!")
 
-	hub := chat.NewHub(db)
+	hub := chat.NewHub(db) // O Hub ainda precisa do db para salvar mensagens
 	go hub.Run()
 
 	port := "8080"
@@ -29,7 +29,12 @@ func main() {
 	handlers.RegisterStudentsRoutes(mux, db)
 	handlers.RegisterWorkoutsRoutes(mux, db)
 	handlers.RegisterWorkoutExercisesRoutes(mux, db)
-	handlers.RegisterChatRoutes(mux, hub)
+
+	// --- CORREÇÃO AQUI ---
+	// Agora passamos o 'hub' e o 'db'
+	handlers.RegisterChatRoutes(mux, hub, db)
+	// --- FIM DA CORREÇÃO ---
+
 	handlers.RegisterAnnouncementsRoutes(mux, db)
 	handlers.RegisterExercisesRoutes(mux, db)
 
@@ -37,18 +42,15 @@ func main() {
 		w.Write([]byte("API do App Fitness está no ar!"))
 	})
 
-	// --- CONFIGURAÇÃO DO CORS ---
-	// Permite que o nosso frontend em localhost:5173 se comunique com a API.
 	c := cors.New(cors.Options{
 		AllowedOrigins:   []string{"http://localhost:5173"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Authorization", "Content-Type"},
 		AllowCredentials: true,
 	})
-	handler := c.Handler(mux) // "Embrulha" o nosso router com o middleware de CORS.
+	handler := c.Handler(mux)
 
 	log.Printf("Servidor iniciado na porta %s", port)
-	// Usamos o 'handler' com CORS em vez do 'mux' diretamente.
 	err = http.ListenAndServe(":"+port, handler)
 	if err != nil {
 		log.Fatalf("Erro ao iniciar o servidor: %v", err)
