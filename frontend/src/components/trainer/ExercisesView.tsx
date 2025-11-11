@@ -1,10 +1,10 @@
-import { useState, useEffect } from "react"; // Importar hooks
-import { Plus, Search, Loader2, AlertCircle } from "lucide-react"; // Importar ícones
+import { useState, useEffect } from "react";
+import { Plus, Search, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import api from "@/services/api"; // Importar API
+import api from "@/services/api";
 
 // --- NOVO: Interface de Resposta ---
 // Baseado no handler exercises_handler.go
@@ -13,7 +13,6 @@ interface ExerciseResponse {
   name: string;
   muscle_group: string;
   equipment: string;
-  // description não existe no handler, removemos do estado hardcoded
 }
 // --- FIM NOVO ---
 
@@ -32,7 +31,8 @@ const ExercisesView = () => {
       setLoading(true);
       setError("");
       try {
-        const response = await api.get<ExerciseResponse[]>('/exercises');
+        //
+        const response = await api.get<ExerciseResponse[]>('/exercises'); 
         setExercises(response.data);
       } catch (err) {
         console.error("Erro ao buscar biblioteca de exercícios:", err);
@@ -93,7 +93,6 @@ const ExercisesView = () => {
             <CardContent className="space-y-3">
               <Badge>{exercise.muscle_group}</Badge>
               <Badge variant="secondary">{exercise.equipment}</Badge>
-              {/* <p className="text-sm text-muted-foreground">{exercise.description}</p> */}
             </CardContent>
           </Card>
         ))}
@@ -121,7 +120,9 @@ const ExercisesView = () => {
         <Input
           placeholder="Buscar exercícios (nome, grupo, equipamento)..."
           value={searchTerm}
+          // --- CORREÇÃO AQUI ---
           onChange={(e) => setSearchTerm(e.target.value)}
+          // --- FIM DA CORREÇÃO ---
           className="pl-10"
         />
       </div>
