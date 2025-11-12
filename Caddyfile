@@ -1,18 +1,21 @@
-# O Caddy irá escutar na porta 80 (HTTP)
 :80 {
-    # Define o diretório raiz onde os ficheiros do frontend estão
+    # Define o diretório raiz para os ficheiros estáticos
     root * /srv/app
 
-    # Tenta servir o ficheiro pedido (ex: /assets/index.js)
-    # Se não encontrar, serve o index.html (para o React Router funcionar)
-    try_files {path} /index.html
+    # --- CORREÇÃO: Colocar os proxies PRIMEIRO ---
 
-    # Redireciona os pedidos de API (ex: /api/...) para o nosso container do backend (api:8080)
+    # 1. Tratar o WebSocket (para o chat)
+    # (Precisamos disto para o chat funcionar em produção)
+    reverse_proxy /api/ws* api:8080
+
+    # 2. Tratar a API REST (para login, treinos, etc.)
     reverse_proxy /api/* api:8080
 
-    # Ativa a compressão (gzip) para servir os ficheiros mais rápido
-    encode gzip
-
-    # Diz ao Caddy para servir os ficheiros estáticos
+    # 3. Servir o frontend (SPA)
+    # Tenta encontrar o ficheiro, senão devolve o index.html
+    try_files {path} /index.html
     file_server
+
+    # Extras
+    encode gzip
 }

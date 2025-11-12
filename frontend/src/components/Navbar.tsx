@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Dumbbell, Menu } from "lucide-react";
 import { useState } from "react";
+import { Link } from "react-router-dom"; // 1. Importar o Link
 
 const Navbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -37,8 +38,13 @@ const Navbar = () => {
 
           {/* CTA buttons */}
           <div className="hidden md:flex items-center gap-3">
-            <Button variant="ghost">Entrar</Button>
-            <Button variant="gradient">Começar Agora</Button>
+            {/* 2. Adicionar 'asChild' e <Link> */}
+            <Button variant="ghost" asChild>
+              <Link to="/login/trainer">Entrar</Link>
+            </Button>
+            <Button variant="gradient" asChild>
+              <Link to="/login/trainer">Começar Agora</Link>
+            </Button>
           </div>
 
           {/* Mobile menu button */}
@@ -78,11 +84,12 @@ const Navbar = () => {
               Contato
             </a>
             <div className="pt-4 space-y-2">
-              <Button variant="ghost" className="w-full">
-                Entrar
+              {/* 3. Adicionar 'asChild' e <Link> aqui também */}
+              <Button variant="ghost" className="w-full" asChild>
+                <Link to="/login/trainer">Entrar</Link>
               </Button>
-              <Button variant="gradient" className="w-full">
-                Começar Agora
+              <Button variant="gradient" className="w-full" asChild>
+                <Link to="/login/trainer">Começar Agora</Link>
               </Button>
             </div>
           </div>

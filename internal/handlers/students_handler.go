@@ -37,7 +37,11 @@ func RegisterStudentsRoutes(mux *http.ServeMux, db *sql.DB) {
 	mux.Handle("GET /api/students/{id}", middleware.AuthMiddleware(getStudentHandler))
 	mux.Handle("PUT /api/students/{id}", middleware.AuthMiddleware(updateStudentHandler))
 	mux.Handle("DELETE /api/students/{id}", middleware.AuthMiddleware(deleteStudentHandler))
-	mux.HandleFunc("POST /api/students/login", loginStudentHandler)
+
+	// --- CORREÇÃO: Trocado HandleFunc por Handle ---
+	mux.Handle("POST /api/students/login", loginStudentHandler)
+	// --- FIM DA CORREÇÃO ---
+
 	mux.Handle("GET /api/students/me/workouts", middleware.AuthMiddleware(getMyWorkoutsHandler))
 	mux.Handle("GET /api/students/me/workouts/{id}", middleware.AuthMiddleware(getMyWorkoutDetailsHandler))
 	mux.Handle("GET /api/students/me/announcements", middleware.AuthMiddleware(getMyAnnouncementsHandler))

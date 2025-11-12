@@ -1,34 +1,29 @@
-version: '3.8'
-
 services:
   # 1. Serviço da API (Backend Go)
   api:
     build:
-      context: . # Constrói a partir da raiz do projeto
-      dockerfile: Dockerfile # Usa o Dockerfile que criámos
+      context: . 
+      dockerfile: Dockerfile 
     restart: always
     env_file:
-      - .env # Carrega as variáveis de ambiente (JWT_SECRET, DB_HOST, etc.)
+      - .env 
     depends_on:
-      - postgres # Só inicia a API depois da base de dados
+      - postgres 
     networks:
       - appfitness-network
-    # Não expomos a porta 8080 ao público; o Caddy irá acedê-la.
 
   # 2. Serviço do Web Server (Frontend Caddy)
   web:
-    image: caddy:2-alpine # Usamos a imagem oficial do Caddy
+    image: caddy:2-alpine 
     restart: always
     ports:
-      - "80:80"   # Expõe a porta 80 (HTTP) ao público
-      - "443:443" # (O Caddy tratará de HTTPS automaticamente se tiver um domínio)
+      - "80:80"
+      - "443:443" 
     volumes:
-      # Monta a build do nosso frontend (que ainda vamos gerar)
       - ./frontend/dist:/srv/app
-      # Monta o nosso ficheiro de configuração do Caddy
       - ./Caddyfile:/etc/caddy/Caddyfile
     depends_on:
-      - api # Só inicia o web server depois da API
+      - api 
     networks:
       - appfitness-network
 
@@ -37,18 +32,15 @@ services:
     image: postgres:14-alpine
     restart: always
     env_file:
-      - .env # Carrega as passwords a partir do .env
+      - .env # Agora isto contém as variáveis POSTGRES_... corretas
     volumes:
-      # Usa um volume persistente para os dados
       - appfitness-data:/var/lib/postgresql/data
-      # Carrega o ficheiro de inicialização
       - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - appfitness-network
-    # Não expomos mais a porta 5433 ao público por segurança
 
 volumes:
-  appfitness-data: # Define o volume persistente
+  appfitness-data: 
 
 networks:
   appfitness-network:
