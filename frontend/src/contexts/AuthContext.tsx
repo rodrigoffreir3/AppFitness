@@ -1,5 +1,4 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
-import api from '@/services/api'; // <<< GARANTA QUE ESTA LINHA EXISTA E SEJA A ÚNICA DEFINIÇÃO DE 'api'
 
 // Definindo os tipos para o nosso contexto
 interface AuthContextType {

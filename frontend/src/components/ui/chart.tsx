@@ -98,6 +98,13 @@ const ChartTooltipContent = React.forwardRef<
       indicator?: "line" | "dot" | "dashed";
       nameKey?: string;
       labelKey?: string;
+      // --- CORREÇÃO AQUI ---
+      // Adicionamos 'payload', 'label', e 'active' manualmente
+      // porque o Recharts os injeta em tempo de execução.
+      payload?: any[];
+      label?: any;
+      active?: boolean;
+      // --- FIM DA CORREÇÃO ---
     }
 >(
   (
@@ -160,7 +167,8 @@ const ChartTooltipContent = React.forwardRef<
       >
         {!nestLabel ? tooltipLabel : null}
         <div className="grid gap-1.5">
-          {payload.map((item, index) => {
+          {/* Já tínhamos corrigido isto, mas mantemos: */}
+          {payload.map((item: any, index: number) => {
             const key = `${nameKey || item.name || item.dataKey || "value"}`;
             const itemConfig = getPayloadConfigFromPayload(config, item, key);
             const indicatorColor = color || item.payload.fill || item.color;
@@ -230,7 +238,13 @@ const ChartLegend = RechartsPrimitive.Legend;
 const ChartLegendContent = React.forwardRef<
   HTMLDivElement,
   React.ComponentProps<"div"> &
-    Pick<RechartsPrimitive.LegendProps, "payload" | "verticalAlign"> & {
+    // Pick<RechartsPrimitive.LegendProps, "payload" | "verticalAlign"> & { // Linha problemática
+    // --- CORREÇÃO AQUI ---
+    // Removemos o 'Pick' problemático e definimos os tipos manualmente
+    {
+      payload?: any[];
+      verticalAlign?: "top" | "middle" | "bottom";
+    // --- FIM DA CORREÇÃO ---
       hideIcon?: boolean;
       nameKey?: string;
     }
@@ -246,7 +260,8 @@ const ChartLegendContent = React.forwardRef<
       ref={ref}
       className={cn("flex items-center justify-center gap-4", verticalAlign === "top" ? "pb-3" : "pt-3", className)}
     >
-      {payload.map((item) => {
+      {/* Já tínhamos corrigido isto, mas mantemos: */}
+      {payload.map((item: any) => {
         const key = `${nameKey || item.dataKey || "value"}`;
         const itemConfig = getPayloadConfigFromPayload(config, item, key);
 
@@ -274,7 +289,7 @@ const ChartLegendContent = React.forwardRef<
 });
 ChartLegendContent.displayName = "ChartLegend";
 
-// Helper to extract item config from a payload.
+// Helper (sem alterações)
 function getPayloadConfigFromPayload(config: ChartConfig, payload: unknown, key: string) {
   if (typeof payload !== "object" || payload === null) {
     return undefined;
