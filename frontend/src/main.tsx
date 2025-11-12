@@ -1,4 +1,3 @@
-// frontend/src/main.tsx
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
@@ -18,11 +17,12 @@ import TrainerLogin from './pages/auth/TrainerLogin.tsx';
 import StudentLogin from './pages/auth/StudentLogin.tsx';
 import TrainerDashboard from './pages/trainer/Dashboard.tsx';
 import StudentDashboard from './pages/student/Dashboard.tsx';
+import WorkoutDetails from './pages/student/WorkoutDetails.tsx';
 import NotFound from './pages/NotFound.tsx';
 
-// --- NOVA IMPORTAÇÃO ---
-import WorkoutDetails from './pages/student/WorkoutDetails.tsx'; 
-// --- FIM DA NOVA IMPORTAÇÃO ---
+// --- 1. IMPORTAR A NOVA PÁGINA ---
+import TrainerSignUp from './pages/auth/TrainerSignUp.tsx';
+
 
 const router = createBrowserRouter([
   {
@@ -37,9 +37,11 @@ const router = createBrowserRouter([
           { index: true, element: <IndexPage /> },
           { path: 'login/trainer', element: <TrainerLogin /> },
           { path: 'login/student', element: <StudentLogin /> },
+          // --- 2. ADICIONAR A NOVA ROTA ---
+          { path: 'signup/trainer', element: <TrainerSignUp /> }, 
         ]
       },
-      // Rotas do Treinador
+      // Rotas do Treinador (sem alterações)
       {
         path: 'trainer',
         element: (
@@ -49,10 +51,9 @@ const router = createBrowserRouter([
         ),
         children: [
           { path: 'dashboard', element: <TrainerDashboard /> },
-          // Adicione outras rotas do treinador aqui
         ],
       },
-      // Rotas do Aluno
+      // Rotas do Aluno (sem alterações)
       {
         path: 'student',
         element: (
@@ -62,9 +63,7 @@ const router = createBrowserRouter([
         ),
         children: [
           { path: 'dashboard', element: <StudentDashboard /> },
-          // --- NOVA ROTA ADICIONADA ---
           { path: 'workout/:workoutId', element: <WorkoutDetails /> },
-          // --- FIM DA NOVA ROTA ---
         ],
       },
       { path: '*', element: <NotFound /> }

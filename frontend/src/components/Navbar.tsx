@@ -38,13 +38,15 @@ const Navbar = () => {
 
           {/* CTA buttons */}
           <div className="hidden md:flex items-center gap-3">
-            {/* 2. Adicionar 'asChild' e <Link> */}
+            {/* Botão Entrar (aponta para o login) */}
             <Button variant="ghost" asChild>
               <Link to="/login/trainer">Entrar</Link>
             </Button>
+            {/* --- CORREÇÃO AQUI --- */}
             <Button variant="gradient" asChild>
-              <Link to="/login/trainer">Começar Agora</Link>
+              <Link to="/signup/trainer">Começar Agora</Link>
             </Button>
+            {/* --- FIM DA CORREÇÃO --- */}
           </div>
 
           {/* Mobile menu button */}
@@ -62,35 +64,40 @@ const Navbar = () => {
             <a
               href="#recursos"
               className="block py-2 text-foreground/80 hover:text-foreground transition-colors"
+              onClick={() => setMobileMenuOpen(false)} // Fecha o menu ao clicar
             >
               Recursos
             </a>
             <a
               href="#personalizacao"
               className="block py-2 text-foreground/80 hover:text-foreground transition-colors"
+              onClick={() => setMobileMenuOpen(false)} // Fecha o menu ao clicar
             >
               Personalização
             </a>
             <a
               href="#precos"
               className="block py-2 text-foreground/80 hover:text-foreground transition-colors"
+              onClick={() => setMobileMenuOpen(false)} // Fecha o menu ao clicar
             >
               Preços
             </a>
             <a
               href="#contato"
               className="block py-2 text-foreground/80 hover:text-foreground transition-colors"
+              onClick={() => setMobileMenuOpen(false)} // Fecha o menu ao clicar
             >
               Contato
             </a>
             <div className="pt-4 space-y-2">
-              {/* 3. Adicionar 'asChild' e <Link> aqui também */}
               <Button variant="ghost" className="w-full" asChild>
                 <Link to="/login/trainer">Entrar</Link>
               </Button>
+              {/* --- CORREÇÃO AQUI --- */}
               <Button variant="gradient" className="w-full" asChild>
-                <Link to="/login/trainer">Começar Agora</Link>
+                <Link to="/signup/trainer">Começar Agora</Link>
               </Button>
+              {/* --- FIM DA CORREÇÃO --- */}
             </div>
           </div>
         )}

@@ -3,7 +3,7 @@ package handlers
 
 import (
 	"appfitness/internal/middleware"
-	"appfitness/internal/types" // ALTERAÇÃO: Importa o pacote de tipos
+	"appfitness/internal/types"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -21,7 +21,7 @@ func RegisterTrainersRoutes(mux *http.ServeMux, db *sql.DB) {
 	h := &trainersHandler{db: db}
 
 	// --- Rotas Públicas ---
-	// --- CORREÇÃO: Trocado HandleFunc por Handle ---
+	// --- CORREÇÃO: Trocado HandleFunc por Handle e corrigida a rota de login ---
 	mux.Handle("POST /api/trainers", http.HandlerFunc(h.handleCreateTrainer))
 	mux.Handle("POST /api/trainers/login", http.HandlerFunc(h.handleLogin)) // Rota corrigida de /api/login
 	// --- FIM DA CORREÇÃO ---
@@ -45,8 +45,6 @@ type CreateTrainerRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
-
-// ALTERAÇÃO: Removidas LoginRequest e LoginResponse. Agora estão no pacote /types.
 
 type TrainerProfileResponse struct {
 	ID                string `json:"id"`
@@ -158,6 +156,10 @@ func (h *trainersHandler) handleCreateTrainer(w http.ResponseWriter, r *http.Req
 	var newTrainerID string
 	err = h.db.QueryRowContext(r.Context(), query, req.Name, req.Email, string(hashedPassword)).Scan(&newTrainerID)
 	if err != nil {
+		if strings.Contains(err.Error(), "violates unique constraint") {
+			http.Error(w, "O email fornecido já está em uso.", http.StatusConflict)
+			return
+		}
 		log.Printf("Erro ao inserir trainer no banco de dados: %v", err)
 		http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
 		return
@@ -193,17 +195,14 @@ func (h *trainersHandler) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// --- LÓGICA DE BRANDING (NOVA) ---
-	// Buscar o branding associado a este treinador
+	// --- CORREÇÃO: Adicionada lógica de branding (necessária para o AuthContext) ---
 	var branding types.BrandingResponse
 	brandingQuery := `SELECT COALESCE(brand_logo_url, ''), COALESCE(brand_primary_color, '') FROM trainers WHERE id = $1`
-	// Usamos o trainerID que acabámos de autenticar
 	err = h.db.QueryRowContext(r.Context(), brandingQuery, trainerID).Scan(&branding.LogoURL, &branding.PrimaryColor)
 	if err != nil {
-		// Não é um erro fatal, apenas registamos
 		log.Printf("Aviso: não foi possível buscar branding para o trainer ID %s: %v", trainerID, err)
 	}
-	// --- FIM LÓGICA DE BRANDING ---
+	// --- FIM DA CORREÇÃO ---
 
 	claims := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"sub": trainerID,
@@ -218,9 +217,9 @@ func (h *trainersHandler) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 
-	// --- RESPOSTA ATUALIZADA (AGORA INCLUI BRANDING) ---
+	// --- CORREÇÃO: Resposta agora inclui o branding ---
 	json.NewEncoder(w).Encode(types.LoginResponse{
 		Token:    tokenString,
-		Branding: branding, // Envia o branding para o frontend
+		Branding: branding,
 	})
 }

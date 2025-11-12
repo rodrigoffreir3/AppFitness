@@ -1,21 +1,28 @@
 :80 {
-    # Define o diretório raiz para os ficheiros estáticos
+    # Diretório raiz para o frontend (React)
     root * /srv/app
 
-    # --- CORREÇÃO: Colocar os proxies PRIMEIRO ---
+    # --- BLOCO DA API (BACKEND) ---
+    # Diz ao Caddy: "Se o caminho começar com /api/"
+    @api path /api/*
+    # "Então, lida com ele aqui dentro e pára"
+    handle @api {
+        # Redireciona o WebSocket
+        reverse_proxy /api/ws* api:8080
 
-    # 1. Tratar o WebSocket (para o chat)
-    # (Precisamos disto para o chat funcionar em produção)
-    reverse_proxy /api/ws* api:8080
+        # Redireciona o resto da API REST (login, etc.)
+        reverse_proxy /api/* api:8080
+    }
 
-    # 2. Tratar a API REST (para login, treinos, etc.)
-    reverse_proxy /api/* api:8080
+    # --- BLOCO DO FRONTEND (React SPA) ---
+    # "Para tudo o resto, lida aqui"
+    handle {
+        # Tenta servir o ficheiro (ex: /assets/index.js)
+        # Se não encontrar, serve o /index.html (para o React Router funcionar)
+        try_files {path} /index.html
+        file_server
+    }
 
-    # 3. Servir o frontend (SPA)
-    # Tenta encontrar o ficheiro, senão devolve o index.html
-    try_files {path} /index.html
-    file_server
-
-    # Extras
+    # Compressão
     encode gzip
 }

@@ -34,13 +34,13 @@ const Hero = () => {
 
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-fade-in-up" style={{ animationDelay: "0.2s" }}>
-            {/* 2. Adicionar 'asChild' e <Link> */}
+            {/* --- CORREÇÃO AQUI --- */}
             <Button size="lg" variant="hero" className="text-lg px-8 py-6 h-auto" asChild>
-              <Link to="/login/trainer">
+              <Link to="/signup/trainer">
                 Comece Agora <ArrowRight className="ml-2 w-5 h-5" />
               </Link>
             </Button>
-            {/* 3. Mudar para um link âncora 'a' para rolar a página */}
+            {/* --- FIM DA CORREÇÃO --- */}
             <Button size="lg" variant="outline" className="text-lg px-8 py-6 h-auto" asChild>
               <a href="#recursos">Ver Demonstração</a>
             </Button>

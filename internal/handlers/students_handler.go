@@ -68,31 +68,24 @@ type UpdateStudentRequest struct {
 	Email *string `json:"email"`
 }
 
-// --- STRUCT ATUALIZADA ---
-// Agora inclui o TrainerName
 type StudentProfileResponse struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
 	Email       string `json:"email"`
 	TrainerID   string `json:"trainer_id"`
-	TrainerName string `json:"trainer_name"` // Novo campo
+	TrainerName string `json:"trainer_name"`
 }
 
-// --- FIM DA ATUALIZAÇÃO ---
-
-// --- HANDLER ATUALIZADO ---
 func (h *studentsHandler) handleGetMyProfile(w http.ResponseWriter, r *http.Request) {
 	studentID := r.Context().Value(middleware.TrainerIDKey).(string)
 
 	var profile StudentProfileResponse
-	// Query atualizada com LEFT JOIN para buscar o nome do treinador
 	query := `
 		SELECT s.id, s.name, s.email, s.trainer_id, COALESCE(t.name, '') as trainer_name
 		FROM students s
 		LEFT JOIN trainers t ON s.trainer_id = t.id
 		WHERE s.id = $1
 	`
-	// Scan atualizado para incluir o novo campo
 	err := h.db.QueryRowContext(r.Context(), query, studentID).Scan(
 		&profile.ID, &profile.Name, &profile.Email, &profile.TrainerID, &profile.TrainerName,
 	)
@@ -110,9 +103,6 @@ func (h *studentsHandler) handleGetMyProfile(w http.ResponseWriter, r *http.Requ
 	json.NewEncoder(w).Encode(profile)
 }
 
-// --- FIM DA ATUALIZAÇÃO ---
-
-// --- HANDLER DE AVISOS (Existente) ---
 func (h *studentsHandler) handleGetMyAnnouncements(w http.ResponseWriter, r *http.Request) {
 	studentID := r.Context().Value(middleware.TrainerIDKey).(string)
 
@@ -169,9 +159,6 @@ func (h *studentsHandler) handleGetMyAnnouncements(w http.ResponseWriter, r *htt
 	json.NewEncoder(w).Encode(announcements)
 }
 
-// --- FIM HANDLER DE AVISOS ---
-
-// (O restante dos handlers: handleGetMyWorkoutDetails, handleGetMyWorkouts, etc... permanecem iguais)
 func (h *studentsHandler) handleGetMyWorkoutDetails(w http.ResponseWriter, r *http.Request) {
 	studentID := r.Context().Value(middleware.TrainerIDKey).(string)
 	workoutID := r.PathValue("id")
