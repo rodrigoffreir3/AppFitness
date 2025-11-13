@@ -15,13 +15,14 @@ import ProtectedRoute from './components/ProtectedRoute.tsx';
 import IndexPage from './pages/Index.tsx';
 import TrainerLogin from './pages/auth/TrainerLogin.tsx';
 import StudentLogin from './pages/auth/StudentLogin.tsx';
+import TrainerSignUp from './pages/auth/TrainerSignUp.tsx'; // Importação do passo anterior
 import TrainerDashboard from './pages/trainer/Dashboard.tsx';
 import StudentDashboard from './pages/student/Dashboard.tsx';
 import WorkoutDetails from './pages/student/WorkoutDetails.tsx';
 import NotFound from './pages/NotFound.tsx';
 
 // --- 1. IMPORTAR A NOVA PÁGINA ---
-import TrainerSignUp from './pages/auth/TrainerSignUp.tsx';
+import TrainerWorkoutDetails from './pages/trainer/TrainerWorkoutDetails.tsx';
 
 
 const router = createBrowserRouter([
@@ -37,11 +38,10 @@ const router = createBrowserRouter([
           { index: true, element: <IndexPage /> },
           { path: 'login/trainer', element: <TrainerLogin /> },
           { path: 'login/student', element: <StudentLogin /> },
-          // --- 2. ADICIONAR A NOVA ROTA ---
           { path: 'signup/trainer', element: <TrainerSignUp /> }, 
         ]
       },
-      // Rotas do Treinador (sem alterações)
+      // Rotas do Treinador
       {
         path: 'trainer',
         element: (
@@ -51,9 +51,11 @@ const router = createBrowserRouter([
         ),
         children: [
           { path: 'dashboard', element: <TrainerDashboard /> },
+          // --- 2. ADICIONAR A NOVA ROTA ---
+          { path: 'workout/:workoutId', element: <TrainerWorkoutDetails /> },
         ],
       },
-      // Rotas do Aluno (sem alterações)
+      // Rotas do Aluno
       {
         path: 'student',
         element: (

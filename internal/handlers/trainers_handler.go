@@ -22,8 +22,8 @@ func RegisterTrainersRoutes(mux *http.ServeMux, db *sql.DB) {
 
 	// --- Rotas Públicas ---
 	// --- CORREÇÃO: Trocado HandleFunc por Handle e corrigida a rota de login ---
-	mux.Handle("POST /api/trainers", http.HandlerFunc(h.handleCreateTrainer))
-	mux.Handle("POST /api/trainers/login", http.HandlerFunc(h.handleLogin)) // Rota corrigida de /api/login
+	mux.Handle("POST /api/trainers", http.HandlerFunc(h.handleCreateTrainer)) // Corrigido para Handle
+	mux.Handle("POST /api/trainers/login", http.HandlerFunc(h.handleLogin))   // Corrigido para Handle e rota correta
 	// --- FIM DA CORREÇÃO ---
 
 	// --- Rotas Protegidas ---
@@ -171,7 +171,6 @@ func (h *trainersHandler) handleCreateTrainer(w http.ResponseWriter, r *http.Req
 }
 
 func (h *trainersHandler) handleLogin(w http.ResponseWriter, r *http.Request) {
-	// ALTERAÇÃO: Usa o tipo do pacote 'types'
 	var req types.LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Corpo da requisição inválido", http.StatusBadRequest)
@@ -195,14 +194,14 @@ func (h *trainersHandler) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// --- CORREÇÃO: Adicionada lógica de branding (necessária para o AuthContext) ---
+	// --- Lógica de branding (necessária para o AuthContext) ---
 	var branding types.BrandingResponse
 	brandingQuery := `SELECT COALESCE(brand_logo_url, ''), COALESCE(brand_primary_color, '') FROM trainers WHERE id = $1`
 	err = h.db.QueryRowContext(r.Context(), brandingQuery, trainerID).Scan(&branding.LogoURL, &branding.PrimaryColor)
 	if err != nil {
 		log.Printf("Aviso: não foi possível buscar branding para o trainer ID %s: %v", trainerID, err)
 	}
-	// --- FIM DA CORREÇÃO ---
+	// --- FIM ---
 
 	claims := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"sub": trainerID,
@@ -217,7 +216,6 @@ func (h *trainersHandler) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 
-	// --- CORREÇÃO: Resposta agora inclui o branding ---
 	json.NewEncoder(w).Encode(types.LoginResponse{
 		Token:    tokenString,
 		Branding: branding,

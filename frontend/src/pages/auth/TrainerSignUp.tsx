@@ -27,8 +27,10 @@ const TrainerSignUp = () => {
     setError('');
 
     try {
-      // 1. Chamar o endpoint de criação de treinador
-      await api.post('/api/trainers', { name, email, password });
+      // --- CORREÇÃO AQUI ---
+      // Removido o /api/ do início da chamada
+      await api.post('/trainers', { name, email, password });
+      // --- FIM DA CORREÇÃO ---
 
       // 2. Se for bem-sucedido, redirecionar para o login
       navigate('/login/trainer');
