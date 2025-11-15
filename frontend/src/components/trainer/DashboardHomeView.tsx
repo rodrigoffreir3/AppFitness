@@ -16,9 +16,9 @@ import {
 } from "@/components/ui/table";
 import { PlusCircle, UserCog } from 'lucide-react';
 import api from '@/services/api';
-import { useTrainerLayout } from '@/components/layout/TrainerLayout'; // Importar o hook do layout
+import { Link } from 'react-router-dom'; // 1. Importar Link
 
-// --- TIPOS DE DADOS DO BACKEND ---
+// (Interfaces permanecem as mesmas)
 interface TrainerProfile {
   id: string;
   name: string;
@@ -26,40 +26,31 @@ interface TrainerProfile {
   brand_logo_url?: string;
   brand_primary_color?: string;
 }
-
 interface Student {
   id: string;
   name: string;
   email: string;
 }
-// --- FIM DOS TIPOS ---
 
 export default function DashboardHomeView() {
-  // --- ESTADOS PARA GUARDAR OS DADOS DA API ---
   const [trainer, setTrainer] = useState<TrainerProfile | null>(null);
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  // --- FIM DOS ESTADOS ---
 
-  // Hook para mudar a view
-  const { setActiveView } = useTrainerLayout();
+  // 2. Remover o hook 'useTrainerLayout()'
 
-  // --- useEffect PARA BUSCAR OS DADOS QUANDO A PÁGINA CARREGA ---
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       setError('');
       try {
-        // Usamos Promise.all para fazer as duas chamadas em paralelo
         const [profileResponse, studentsResponse] = await Promise.all([
-          api.get<TrainerProfile>('/trainers/me'), // Endpoint: Dados do treinador logado
-          api.get<Student[]>('/students')        // Endpoint: Lista de alunos do treinador
+          api.get<TrainerProfile>('/trainers/me'),
+          api.get<Student[]>('/students')
         ]);
-
         setTrainer(profileResponse.data);
         setStudents(studentsResponse.data);
-
       } catch (err: any) {
         console.error("Erro ao buscar dados do dashboard:", err);
         setError('Não foi possível carregar os dados. Tente atualizar a página.');
@@ -67,36 +58,32 @@ export default function DashboardHomeView() {
         setLoading(false);
       }
     };
-
     fetchData();
-  }, []); // O array vazio [] garante que a busca ocorra apenas uma vez.
-  // --- FIM DO useEffect ---
+  }, []);
 
-
-  // --- RENDERIZAÇÃO ---
   if (loading) {
     return <div className="p-8 text-center text-muted-foreground">Carregando dashboard...</div>;
   }
-
   if (error) {
     return <div className="p-8 text-center text-red-600 bg-red-100 rounded-lg">{error}</div>;
   }
 
   return (
     <div className="flex flex-col gap-8">
-      {/* Saudação Personalizada */}
       <div>
           <h1 className="text-3xl font-bold tracking-tight">Bem-vindo(a), {trainer?.name || 'Treinador'}!</h1>
           <p className="text-muted-foreground">Aqui está um resumo da sua atividade e seus alunos.</p>
       </div>
 
-      {/* Tabela de Alunos */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-xl font-semibold">Meus Alunos</CardTitle>
-          <Button size="sm" className="gap-1" onClick={() => setActiveView('students')}>
-             <PlusCircle className="h-4 w-4" />
-             Adicionar Aluno
+          {/* 3. Mudar o botão para usar Link */}
+          <Button size="sm" className="gap-1" asChild>
+             <Link to="/trainer/dashboard/students">
+               <PlusCircle className="h-4 w-4" />
+               Adicionar Aluno
+             </Link>
           </Button>
         </CardHeader>
         <CardContent>
@@ -115,9 +102,11 @@ export default function DashboardHomeView() {
                     <TableCell className="font-medium">{student.name}</TableCell>
                     <TableCell className="hidden md:table-cell">{student.email}</TableCell>
                     <TableCell className="text-right">
-                      {/* Este botão agora deve navegar para a view de 'students' e focar neste aluno */}
-                      <Button variant="outline" size="sm" onClick={() => setActiveView('students')}>
-                        Ver Detalhes
+                      {/* 4. Mudar o botão para usar Link */}
+                      <Button variant="outline" size="sm" asChild>
+                        <Link to="/trainer/dashboard/students">
+                          Ver Detalhes
+                        </Link>
                       </Button>
                     </TableCell>
                   </TableRow>

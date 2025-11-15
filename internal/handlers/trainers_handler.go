@@ -22,8 +22,8 @@ func RegisterTrainersRoutes(mux *http.ServeMux, db *sql.DB) {
 
 	// --- Rotas Públicas ---
 	// --- CORREÇÃO: Trocado HandleFunc por Handle e corrigida a rota de login ---
-	mux.Handle("POST /api/trainers", http.HandlerFunc(h.handleCreateTrainer)) // Corrigido para Handle
-	mux.Handle("POST /api/trainers/login", http.HandlerFunc(h.handleLogin))   // Corrigido para Handle e rota correta
+	mux.Handle("POST /api/trainers", http.HandlerFunc(h.handleCreateTrainer)) //
+	mux.Handle("POST /api/trainers/login", http.HandlerFunc(h.handleLogin))   // Rota corrigida de /api/login
 	// --- FIM DA CORREÇÃO ---
 
 	// --- Rotas Protegidas ---
@@ -194,14 +194,14 @@ func (h *trainersHandler) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// --- Lógica de branding (necessária para o AuthContext) ---
+	// --- CORREÇÃO: Adicionada lógica de branding (necessária para o AuthContext) ---
 	var branding types.BrandingResponse
 	brandingQuery := `SELECT COALESCE(brand_logo_url, ''), COALESCE(brand_primary_color, '') FROM trainers WHERE id = $1`
 	err = h.db.QueryRowContext(r.Context(), brandingQuery, trainerID).Scan(&branding.LogoURL, &branding.PrimaryColor)
 	if err != nil {
 		log.Printf("Aviso: não foi possível buscar branding para o trainer ID %s: %v", trainerID, err)
 	}
-	// --- FIM ---
+	// --- FIM DA CORREÇÃO ---
 
 	claims := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"sub": trainerID,

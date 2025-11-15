@@ -52,7 +52,7 @@ type studentsHandler struct {
 	db *sql.DB
 }
 
-// Structs de Requisição/Resposta
+// Structs
 type CreateStudentRequest struct {
 	Name     string `json:"name"`
 	Email    string `json:"email"`
@@ -67,7 +67,6 @@ type UpdateStudentRequest struct {
 	Name  *string `json:"name"`
 	Email *string `json:"email"`
 }
-
 type StudentProfileResponse struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
@@ -76,9 +75,9 @@ type StudentProfileResponse struct {
 	TrainerName string `json:"trainer_name"`
 }
 
+// Handlers
 func (h *studentsHandler) handleGetMyProfile(w http.ResponseWriter, r *http.Request) {
 	studentID := r.Context().Value(middleware.TrainerIDKey).(string)
-
 	var profile StudentProfileResponse
 	query := `
 		SELECT s.id, s.name, s.email, s.trainer_id, COALESCE(t.name, '') as trainer_name
@@ -98,14 +97,12 @@ func (h *studentsHandler) handleGetMyProfile(w http.ResponseWriter, r *http.Requ
 		http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
 		return
 	}
-
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(profile)
 }
 
 func (h *studentsHandler) handleGetMyAnnouncements(w http.ResponseWriter, r *http.Request) {
 	studentID := r.Context().Value(middleware.TrainerIDKey).(string)
-
 	var trainerID string
 	queryTrainer := `SELECT trainer_id FROM students WHERE id = $1`
 	err := h.db.QueryRowContext(r.Context(), queryTrainer, studentID).Scan(&trainerID)
@@ -118,14 +115,12 @@ func (h *studentsHandler) handleGetMyAnnouncements(w http.ResponseWriter, r *htt
 		http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
 		return
 	}
-
 	type AnnouncementResponse struct {
 		ID        string `json:"id"`
 		Title     string `json:"title"`
 		Content   string `json:"content"`
 		CreatedAt string `json:"created_at"`
 	}
-
 	queryAnnouncements := `
 		SELECT id, title, content, created_at 
 		FROM announcements 
@@ -139,7 +134,6 @@ func (h *studentsHandler) handleGetMyAnnouncements(w http.ResponseWriter, r *htt
 		return
 	}
 	defer rows.Close()
-
 	var announcements []AnnouncementResponse
 	for rows.Next() {
 		var a AnnouncementResponse
@@ -150,11 +144,9 @@ func (h *studentsHandler) handleGetMyAnnouncements(w http.ResponseWriter, r *htt
 		}
 		announcements = append(announcements, a)
 	}
-
 	if announcements == nil {
 		announcements = []AnnouncementResponse{}
 	}
-
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(announcements)
 }
@@ -162,7 +154,6 @@ func (h *studentsHandler) handleGetMyAnnouncements(w http.ResponseWriter, r *htt
 func (h *studentsHandler) handleGetMyWorkoutDetails(w http.ResponseWriter, r *http.Request) {
 	studentID := r.Context().Value(middleware.TrainerIDKey).(string)
 	workoutID := r.PathValue("id")
-
 	var workout types.WorkoutResponse
 	queryWorkout := `SELECT id, student_id, name, description, is_active FROM workouts WHERE id = $1 AND student_id = $2`
 	err := h.db.QueryRowContext(r.Context(), queryWorkout, workoutID, studentID).Scan(&workout.ID, &workout.StudentID, &workout.Name, &workout.Description, &workout.IsActive)
@@ -175,7 +166,6 @@ func (h *studentsHandler) handleGetMyWorkoutDetails(w http.ResponseWriter, r *ht
 		http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
 		return
 	}
-
 	queryExercises := `
 		SELECT we.id, we.exercise_id, e.name, we.sets, we.reps, we.rest_period_seconds,
 			   we."order", we.notes, we.execution_details
@@ -190,7 +180,6 @@ func (h *studentsHandler) handleGetMyWorkoutDetails(w http.ResponseWriter, r *ht
 		return
 	}
 	defer rows.Close()
-
 	var exercises []types.WorkoutExerciseResponse
 	for rows.Next() {
 		var ex types.WorkoutExerciseResponse
@@ -201,16 +190,13 @@ func (h *studentsHandler) handleGetMyWorkoutDetails(w http.ResponseWriter, r *ht
 		}
 		exercises = append(exercises, ex)
 	}
-
 	if exercises == nil {
 		exercises = []types.WorkoutExerciseResponse{}
 	}
-
 	response := map[string]interface{}{
 		"workout":   workout,
 		"exercises": exercises,
 	}
-
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
@@ -221,7 +207,6 @@ func (h *studentsHandler) handleGetMyWorkouts(w http.ResponseWriter, r *http.Req
 		http.Error(w, "ID do aluno não encontrado no contexto", http.StatusInternalServerError)
 		return
 	}
-
 	query := `SELECT id, student_id, name, description, is_active FROM workouts WHERE student_id = $1 AND is_active = true ORDER BY created_at DESC`
 	rows, err := h.db.QueryContext(r.Context(), query, studentID)
 	if err != nil {
@@ -230,7 +215,6 @@ func (h *studentsHandler) handleGetMyWorkouts(w http.ResponseWriter, r *http.Req
 		return
 	}
 	defer rows.Close()
-
 	var workouts []types.WorkoutResponse
 	for rows.Next() {
 		var workout types.WorkoutResponse
@@ -241,17 +225,14 @@ func (h *studentsHandler) handleGetMyWorkouts(w http.ResponseWriter, r *http.Req
 		}
 		workouts = append(workouts, workout)
 	}
-
 	if err = rows.Err(); err != nil {
 		log.Printf("Erro após iteração de treinos do aluno: %v", err)
 		http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
 		return
 	}
-
 	if workouts == nil {
 		workouts = []types.WorkoutResponse{}
 	}
-
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(workouts)
 }
@@ -262,7 +243,6 @@ func (h *studentsHandler) handleStudentLogin(w http.ResponseWriter, r *http.Requ
 		http.Error(w, "Corpo da requisição inválido", http.StatusBadRequest)
 		return
 	}
-
 	var studentID, trainerID, hashedPassword string
 	query := `SELECT id, trainer_id, password_hash FROM students WHERE email = $1`
 	err := h.db.QueryRowContext(r.Context(), query, req.Email).Scan(&studentID, &trainerID, &hashedPassword)
@@ -275,25 +255,21 @@ func (h *studentsHandler) handleStudentLogin(w http.ResponseWriter, r *http.Requ
 		http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
 		return
 	}
-
 	err = bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(req.Password))
 	if err != nil {
 		http.Error(w, "Email ou senha inválidos", http.StatusUnauthorized)
 		return
 	}
-
 	var branding types.BrandingResponse
 	brandingQuery := `SELECT COALESCE(brand_logo_url, ''), COALESCE(brand_primary_color, '') FROM trainers WHERE id = $1`
 	err = h.db.QueryRowContext(r.Context(), brandingQuery, trainerID).Scan(&branding.LogoURL, &branding.PrimaryColor)
 	if err != nil {
 		log.Printf("Aviso: não foi possível buscar branding para o trainer ID %s: %v", trainerID, err)
 	}
-
 	claims := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"sub": studentID,
 		"exp": time.Now().Add(time.Hour * 8).Unix(),
 	})
-
 	jwtSecret := os.Getenv("JWT_SECRET")
 	tokenString, err := claims.SignedString([]byte(jwtSecret))
 	if err != nil {
@@ -301,12 +277,10 @@ func (h *studentsHandler) handleStudentLogin(w http.ResponseWriter, r *http.Requ
 		http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
 		return
 	}
-
 	response := types.LoginResponse{
 		Token:    tokenString,
 		Branding: branding,
 	}
-
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
