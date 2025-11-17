@@ -4,12 +4,9 @@ import tailwindcssAnimate from "tailwindcss-animate" // 1. Usar import
 const config = {
   darkMode: ["class"],
   content: [
-    // --- 2. Adicionar "src/" aos caminhos ---
     './src/pages/**/*.{ts,tsx}',
     './src/components/**/*.{ts,tsx}',
-    './src/app/**/*.{ts,tsx}',
     './src/**/*.{ts,tsx}',
-    // --- FIM DA CORREÇÃO ---
   ],
   prefix: "",
   theme: {

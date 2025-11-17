@@ -8,23 +8,24 @@ import {
   Settings,
   LogOut,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-// 1. Importar NavLink em vez de Link
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { NavLink } from "react-router-dom";
 
-// 2. Remover as props { activeView, setActiveView }
 const TrainerSidebar = () => {
   const { logout, logoUrl } = useAuth();
   const [isCollapsed, setIsCollapsed] = useState(false);
 
-  // 3. Definir os links de navegação
-  // O 'end: true' no Início é crucial
   const navLinks = [
     { to: "/trainer/dashboard", icon: LayoutDashboard, label: "Início", end: true },
     { to: "/trainer/dashboard/students", icon: Users, label: "Alunos", end: false },
@@ -35,25 +36,23 @@ const TrainerSidebar = () => {
     { to: "/trainer/dashboard/settings", icon: Settings, label: "Personalizar", end: false },
   ];
 
-  const SidebarLink = ({ to, icon: Icon, label, end }: typeof navLinks[0]) => (
+  const SidebarLink = ({ to, icon: Icon, label, end }: (typeof navLinks)[0]) => (
     <TooltipProvider delayDuration={0}>
       <Tooltip>
         <TooltipTrigger asChild>
-          {/* 4. Usar NavLink em vez de Button */}
           <NavLink
             to={to}
-            end={end} // Importante para o "Início"
-            // 5. 'className' agora recebe uma função que nos dá o 'isActive'
+            end={end}
             className={({ isActive }) =>
               cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary hover:bg-muted",
-                isCollapsed && "justify-center px-0",
-                isActive && "bg-primary text-primary-foreground" // Estilo ativo
+                "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:bg-muted hover:text-primary",
+                isCollapsed && "justify-center",
+                isActive && "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
               )
             }
           >
             <Icon className={cn("h-5 w-5", isCollapsed && "h-6 w-6")} />
-            {!isCollapsed && <span>{label}</span>}
+            {!isCollapsed && <span className="font-medium">{label}</span>}
             <span className="sr-only">{label}</span>
           </NavLink>
         </TooltipTrigger>
@@ -63,36 +62,38 @@ const TrainerSidebar = () => {
   );
 
   return (
-    <aside className={cn(
-      "hidden md:flex flex-col h-full bg-card border-r transition-all duration-300 ease-in-out",
-      isCollapsed ? "w-20" : "w-64"
-    )}>
-      {/* ... (Logo/Branding - sem alterações) ... */}
-      <div className={cn("flex items-center h-16 border-b px-6", isCollapsed && "justify-center px-0")}>
-        {logoUrl ? (
-          <img src={logoUrl} alt="Logo" className={cn("h-8 object-contain transition-all", isCollapsed ? "h-8" : "h-8")} />
-        ) : (
-          <div className={cn("flex items-center gap-2", isCollapsed && "gap-0")}>
-            <div className="w-8 h-8 rounded-lg bg-gradient-primary flex items-center justify-center">
-              <Dumbbell className="w-5 h-5 text-primary-foreground" />
-            </div>
-            {!isCollapsed && (
-              <span className="text-lg font-bold bg-gradient-primary bg-clip-text text-transparent">
-                AppFitness
-              </span>
-            )}
-          </div>
-        )}
+    <aside
+      className={cn(
+        "relative hidden h-screen flex-col border-r bg-card md:flex",
+        "transition-all duration-300 ease-in-out",
+        isCollapsed ? "w-20" : "w-64"
+      )}
+    >
+      <div className="flex h-16 items-center border-b px-6">
+        <NavLink to="/trainer/dashboard" className={cn("flex items-center gap-2 font-semibold", isCollapsed && "justify-center")}>
+          {logoUrl ? (
+             <img src={logoUrl} alt="Logo" className={cn("object-contain transition-all", isCollapsed ? "h-10 w-10" : "h-8")} />
+          ) : (
+            <div className="flex items-center gap-2">
+               <div className="w-8 h-8 rounded-lg bg-gradient-primary flex items-center justify-center">
+                 <Dumbbell className="w-5 h-5 text-primary-foreground" />
+               </div>
+               {!isCollapsed && (
+                 <span className="text-lg font-bold bg-gradient-primary bg-clip-text text-transparent">
+                   AppFitness
+                 </span>
+               )}
+             </div>
+          )}
+           <span className="sr-only">AppFitness</span>
+        </NavLink>
       </div>
-
-      <nav className="flex-1 overflow-auto py-6 px-4 space-y-2">
+      <nav className="flex-1 space-y-2 overflow-auto py-4 px-4">
         {navLinks.map((link) => (
           <SidebarLink key={link.to} {...link} />
         ))}
       </nav>
-
-      <div className="mt-auto p-4 border-t">
-        {/* ... (Botão de Logout - sem alterações) ... */}
+      <div className="mt-auto border-t p-4">
         <TooltipProvider delayDuration={0}>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -112,17 +113,15 @@ const TrainerSidebar = () => {
             {isCollapsed && <TooltipContent side="right">Sair</TooltipContent>}
           </Tooltip>
         </TooltipProvider>
-
-        {/* Botão de Colapsar */}
-        <Button
-          variant="outline"
-          size="icon"
-          className="absolute -right-4 top-20"
-          onClick={() => setIsCollapsed(!isCollapsed)}
-        >
-          {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-        </Button>
       </div>
+      <Button
+        variant="outline"
+        size="icon"
+        className="absolute top-1/2 -right-4 h-8 w-8 rounded-full"
+        onClick={() => setIsCollapsed(!isCollapsed)}
+      >
+        {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+      </Button>
     </aside>
   );
 };

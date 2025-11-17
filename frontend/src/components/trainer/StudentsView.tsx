@@ -25,7 +25,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import api from "@/services/api";
 
 // Interface para o Aluno
@@ -95,21 +95,21 @@ const StudentsView = () => {
     setFormLoading(true);
     setError("");
     if (!newStudent.name || !newStudent.email || !newStudent.password) {
-      toast({ title: "Erro de Validação", description: "Nome, Email e Senha Inicial são obrigatórios.", variant: "destructive" });
+      toast.error("Erro de Validação", { description: "Nome, Email e Senha Inicial são obrigatórios." });
       setFormLoading(false);
       return;
     }
     try {
       const apiRequest: CreateStudentRequest = { name: newStudent.name, email: newStudent.email, password: newStudent.password };
       const response = await api.post<Student>('/students', apiRequest);
-      toast({ title: "Aluno adicionado!", description: `${response.data.name} foi cadastrado com sucesso.` });
+      toast.success("Aluno adicionado!", { description: `${response.data.name} foi cadastrado com sucesso.` });
       setNewStudent({ name: "", email: "", password: "", phone: "" });
       setIsAddDialogOpen(false); 
       fetchStudents(); 
     } catch (err: any) {
       let description = "Ocorreu um erro inesperado.";
       if (err.response && err.response.status === 409) { description = "Este email já está em uso."; }
-      toast({ title: "Erro ao cadastrar", description: description, variant: "destructive" });
+      toast.error("Erro ao cadastrar", { description });
     } finally {
       setFormLoading(false);
     }
@@ -126,21 +126,21 @@ const StudentsView = () => {
     if (!editingStudent) return;
     setFormLoading(true);
     if (!editingStudent.name || !editingStudent.email) {
-      toast({ title: "Erro de Validação", description: "Nome e Email são obrigatórios.", variant: "destructive" });
+      toast.error("Erro de Validação", { description: "Nome e Email são obrigatórios." });
       setFormLoading(false);
       return;
     }
     try {
       const apiRequest: UpdateStudentRequest = { name: editingStudent.name, email: editingStudent.email };
-      await api.put(`/api/students/${editingStudent.id}`, apiRequest);
-      toast({ title: "Aluno atualizado!", description: `Os dados de ${editingStudent.name} foram salvos.` });
+      await api.put(`/students/${editingStudent.id}`, apiRequest);
+      toast.success("Aluno atualizado!", { description: `Os dados de ${editingStudent.name} foram salvos.` });
       setIsEditDialogOpen(false);
       setEditingStudent(null);
       fetchStudents();
     } catch (err: any) {
        let description = "Ocorreu um erro inesperado.";
       if (err.response && err.response.status === 409) { description = "Este email já está em uso por outra conta."; }
-      toast({ title: "Erro ao atualizar", description: description, variant: "destructive" });
+      toast.error("Erro ao atualizar", { description });
     } finally {
       setFormLoading(false);
     }
@@ -152,10 +152,9 @@ const StudentsView = () => {
 
     try {
       // Chama o endpoint DELETE
-      await api.delete(`/api/students/${studentToDelete.id}`);
+      await api.delete(`/students/${studentToDelete.id}`);
       
-      toast({
-        title: "Aluno excluído!",
+      toast.success("Aluno excluído!", {
         description: `${studentToDelete.name} foi removido com sucesso.`,
       });
 
@@ -164,10 +163,8 @@ const StudentsView = () => {
 
     } catch (err: any) {
       console.error("Erro ao deletar aluno:", err);
-      toast({
-        title: "Erro ao excluir",
+      toast.error("Erro ao excluir", {
         description: "Não foi possível remover o aluno. Tente novamente.",
-        variant: "destructive",
       });
       setStudentToDelete(null); // Limpa o estado mesmo em caso de erro
     }

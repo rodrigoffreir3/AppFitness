@@ -33,6 +33,9 @@ import WhiteLabelSettings from './components/trainer/WhiteLabelSettings.tsx';
 // Páginas do Aluno
 import StudentDashboard from './pages/student/Dashboard.tsx';
 import WorkoutDetails from './pages/student/WorkoutDetails.tsx';
+import MyWorkoutsView from './components/student/MyWorkoutsView.tsx';
+import StudentChatView from './components/student/StudentChatView.tsx';
+import StudentAnnouncementsView from './components/student/StudentAnnouncementsView.tsx';
 
 
 const router = createBrowserRouter([
@@ -59,14 +62,12 @@ const router = createBrowserRouter([
             <TrainerLayout />
           </ProtectedRoute>
         ),
-        // --- 2. ATUALIZAR AS ROTAS FILHAS ---
         children: [
           {
-            path: 'dashboard', // A base é /trainer/dashboard
+            path: 'dashboard',
             element: <TrainerDashboard />,
-            // Rotas filhas (o que a Sidebar controla)
             children: [
-              { index: true, element: <DashboardHomeView /> }, // A "home"
+              { index: true, element: <DashboardHomeView /> },
               { path: 'students', element: <StudentsView /> },
               { path: 'workouts', element: <WorkoutsView /> },
               { path: 'exercises', element: <ExercisesView /> },
@@ -75,7 +76,6 @@ const router = createBrowserRouter([
               { path: 'settings', element: <WhiteLabelSettings /> },
             ]
           },
-          // A página de detalhes do treino fica separada (como estava)
           { path: 'workout/:workoutId', element: <TrainerWorkoutDetails /> },
         ],
       },
@@ -88,7 +88,15 @@ const router = createBrowserRouter([
           </ProtectedRoute>
         ),
         children: [
-          { path: 'dashboard', element: <StudentDashboard /> },
+          { 
+            path: 'dashboard', 
+            element: <StudentDashboard />,
+            children: [
+              { index: true, element: <MyWorkoutsView /> },
+              { path: 'chat', element: <StudentChatView /> },
+              { path: 'announcements', element: <StudentAnnouncementsView /> },
+            ]
+          },
           { path: 'workout/:workoutId', element: <WorkoutDetails /> },
         ],
       },
