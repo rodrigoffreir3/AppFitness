@@ -2,93 +2,50 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
-
 @layer base {
   :root {
     --background: 0 0% 100%;
     --foreground: 240 10% 3.9%;
-
     --card: 0 0% 100%;
     --card-foreground: 240 10% 3.9%;
-
     --popover: 0 0% 100%;
     --popover-foreground: 240 10% 3.9%;
-
-    /* Primary: Vibrant Purple/Blue for tech & power */
     --primary: 258 90% 66%;
     --primary-foreground: 0 0% 100%;
-    --primary-glow: 258 100% 75%;
-
-    /* Secondary: Energetic Orange for fitness */
     --secondary: 24 95% 60%;
     --secondary-foreground: 0 0% 100%;
-
-    /* Accent: Fresh Green for health */
     --accent: 142 76% 36%;
     --accent-foreground: 0 0% 100%;
-
     --muted: 240 4.8% 95.9%;
     --muted-foreground: 240 3.8% 46.1%;
-
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-
     --border: 240 5.9% 90%;
     --input: 240 5.9% 90%;
     --ring: 258 90% 66%;
-
     --radius: 0.75rem;
-
-    /* Custom gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(258 90% 66%), hsl(220 90% 66%));
-    --gradient-secondary: linear-gradient(135deg, hsl(24 95% 60%), hsl(340 82% 52%));
-    --gradient-accent: linear-gradient(135deg, hsl(142 76% 36%), hsl(158 64% 52%));
-    --gradient-hero: linear-gradient(135deg, hsl(258 90% 66%) 0%, hsl(220 90% 66%) 50%, hsl(24 95% 60%) 100%);
-    
-    /* Shadows */
-    --shadow-sm: 0 1px 2px 0 hsl(240 5.9% 10% / 0.05);
-    --shadow-md: 0 4px 6px -1px hsl(240 5.9% 10% / 0.1);
-    --shadow-lg: 0 10px 15px -3px hsl(240 5.9% 10% / 0.1);
-    --shadow-glow: 0 0 40px hsl(258 90% 66% / 0.3);
-    
-    /* Animations */
-    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .dark {
     --background: 240 10% 3.9%;
     --foreground: 0 0% 98%;
-
     --card: 240 10% 7%;
     --card-foreground: 0 0% 98%;
-
     --popover: 240 10% 7%;
     --popover-foreground: 0 0% 98%;
-
     --primary: 258 90% 66%;
     --primary-foreground: 0 0% 100%;
-    --primary-glow: 258 100% 75%;
-
     --secondary: 24 95% 60%;
     --secondary-foreground: 0 0% 100%;
-
     --accent: 142 76% 36%;
     --accent-foreground: 0 0% 100%;
-
     --muted: 240 3.7% 15.9%;
     --muted-foreground: 240 5% 64.9%;
-
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
-
     --border: 240 3.7% 15.9%;
     --input: 240 3.7% 15.9%;
     --ring: 258 90% 66%;
-
-    --shadow-glow: 0 0 40px hsl(258 90% 66% / 0.4);
   }
 }
 
@@ -96,8 +53,8 @@ All colors MUST be HSL.
   * {
     @apply border-border;
   }
-
   body {
-    @apply bg-background text-foreground;
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
   }
 }

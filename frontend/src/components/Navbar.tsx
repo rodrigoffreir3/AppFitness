@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Dumbbell, Menu } from "lucide-react";
 import { useState } from "react";
+import { Link } from "react-router-dom"; // 1. Importar o Link
 
 const Navbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -37,8 +38,15 @@ const Navbar = () => {
 
           {/* CTA buttons */}
           <div className="hidden md:flex items-center gap-3">
-            <Button variant="ghost">Entrar</Button>
-            <Button variant="gradient">Começar Agora</Button>
+            {/* Botão Entrar (aponta para o login) */}
+            <Button variant="ghost" asChild>
+              <Link to="/login/trainer">Entrar</Link>
+            </Button>
+            {/* --- CORREÇÃO AQUI --- */}
+            <Button variant="gradient" asChild>
+              <Link to="/signup/trainer">Começar Agora</Link>
+            </Button>
+            {/* --- FIM DA CORREÇÃO --- */}
           </div>
 
           {/* Mobile menu button */}
@@ -56,34 +64,40 @@ const Navbar = () => {
             <a
               href="#recursos"
               className="block py-2 text-foreground/80 hover:text-foreground transition-colors"
+              onClick={() => setMobileMenuOpen(false)} // Fecha o menu ao clicar
             >
               Recursos
             </a>
             <a
               href="#personalizacao"
               className="block py-2 text-foreground/80 hover:text-foreground transition-colors"
+              onClick={() => setMobileMenuOpen(false)} // Fecha o menu ao clicar
             >
               Personalização
             </a>
             <a
               href="#precos"
               className="block py-2 text-foreground/80 hover:text-foreground transition-colors"
+              onClick={() => setMobileMenuOpen(false)} // Fecha o menu ao clicar
             >
               Preços
             </a>
             <a
               href="#contato"
               className="block py-2 text-foreground/80 hover:text-foreground transition-colors"
+              onClick={() => setMobileMenuOpen(false)} // Fecha o menu ao clicar
             >
               Contato
             </a>
             <div className="pt-4 space-y-2">
-              <Button variant="ghost" className="w-full">
-                Entrar
+              <Button variant="ghost" className="w-full" asChild>
+                <Link to="/login/trainer">Entrar</Link>
               </Button>
-              <Button variant="gradient" className="w-full">
-                Começar Agora
+              {/* --- CORREÇÃO AQUI --- */}
+              <Button variant="gradient" className="w-full" asChild>
+                <Link to="/signup/trainer">Começar Agora</Link>
               </Button>
+              {/* --- FIM DA CORREÇÃO --- */}
             </div>
           </div>
         )}

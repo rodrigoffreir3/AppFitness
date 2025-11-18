@@ -23,8 +23,9 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
+import { useNavigate } from 'react-router-dom'; // 1. Importar useNavigate
 
-// Interface para a resposta da lista de treinos (com nome do aluno)
+// (Interfaces permanecem as mesmas)
 interface WorkoutWithStudent {
   id: string;
   student_id: string;
@@ -33,28 +34,23 @@ interface WorkoutWithStudent {
   description: string;
   is_active: boolean;
 }
-
-// Interface para a lista de alunos (para o dropdown)
 interface Student {
   id: string;
   name: string;
   email: string;
 }
-
-// Interface para o formulário de novo treino
 interface NewWorkoutForm {
   student_id: string;
   name: string;
   description: string;
 }
-
+// ---
 
 const WorkoutsView = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [workouts, setWorkouts] = useState<WorkoutWithStudent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-
   const [students, setStudents] = useState<Student[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
@@ -64,7 +60,9 @@ const WorkoutsView = () => {
     description: "",
   });
 
-  // Função para buscar treinos e alunos
+  const navigate = useNavigate(); // 2. Instanciar o hook
+
+  // (Funções fetchData e handleCreateWorkout permanecem as mesmas)
   const fetchData = async () => {
     setLoading(true);
     setError("");
@@ -82,15 +80,11 @@ const WorkoutsView = () => {
       setLoading(false);
     }
   };
-
   useEffect(() => {
     fetchData();
   }, []);
-
-  // Handler para criar treino
   const handleCreateWorkout = async () => {
     setFormLoading(true);
-    
     if (!newWorkout.student_id || !newWorkout.name) {
       toast({
         title: "Campos obrigatórios",
@@ -100,19 +94,15 @@ const WorkoutsView = () => {
       setFormLoading(false);
       return;
     }
-
     try {
       const response = await api.post<WorkoutWithStudent>('/workouts', newWorkout);
-
       toast({
         title: "Ficha criada!",
         description: `O treino "${response.data.name}" foi criado com sucesso.`,
       });
-
       setIsDialogOpen(false);
       setNewWorkout({ student_id: "", name: "", description: "" });
       fetchData(); 
-
     } catch (err: any) {
       console.error("Erro ao criar ficha de treino:", err);
       toast({
@@ -124,7 +114,7 @@ const WorkoutsView = () => {
       setFormLoading(false);
     }
   };
-
+  // ---
 
   const filteredWorkouts = workouts.filter((workout) =>
     workout.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -139,8 +129,9 @@ const WorkoutsView = () => {
         </div>
       );
     }
+    // (Restante do renderContent permanece o mesmo)
     if (error) {
-      return (
+       return (
         <div className="flex flex-col items-center justify-center h-64 text-center text-destructive bg-destructive/10 border border-destructive rounded-lg p-6">
           <AlertCircle className="h-8 w-8 mb-4" />
           <p className="font-semibold">Erro ao carregar fichas</p>
@@ -149,7 +140,7 @@ const WorkoutsView = () => {
       );
     }
     if (filteredWorkouts.length === 0) {
-      return (
+       return (
         <div className="text-center text-muted-foreground py-12 border border-dashed rounded-lg">
           <Dumbbell className="mx-auto h-12 w-12 text-gray-400" />
           <h3 className="mt-2 text-sm font-semibold">Nenhuma ficha de treino encontrada</h3>
@@ -172,10 +163,19 @@ const WorkoutsView = () => {
               <Badge variant={workout.is_active ? "default" : "outline"} className={workout.is_active ? "" : "border-gray-400 text-gray-500"}>
                 {workout.is_active ? "Ativo" : "Inativo"}
               </Badge>
-              <Button variant="outline" size="sm" className="w-full mt-2">
+              
+              {/* --- 3. BOTÃO ATUALIZADO --- */}
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="w-full mt-2"
+                onClick={() => navigate(`/trainer/workout/${workout.id}`)} // Navega para a nova rota
+              >
                 <Eye className="mr-2 h-4 w-4" />
                 Ver Detalhes
               </Button>
+              {/* --- FIM DA ATUALIZAÇÃO --- */}
+
             </CardContent>
           </Card>
         ))}
@@ -192,6 +192,7 @@ const WorkoutsView = () => {
           <p className="text-muted-foreground">Crie e gerencie treinos</p>
         </div>
         
+        {/* (Dialog "Nova Ficha" permanece o mesmo) */}
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button>
@@ -211,9 +212,7 @@ const WorkoutsView = () => {
                 <Label htmlFor="student-select">Aluno (Obrigatório)</Label>
                 <Select
                   value={newWorkout.student_id}
-                  // --- CORREÇÃO AQUI ---
                   onValueChange={(value: string) => setNewWorkout(curr => ({ ...curr, student_id: value }))}
-                  // --- FIM DA CORREÇÃO ---
                   disabled={formLoading}
                 >
                   <SelectTrigger id="student-select">

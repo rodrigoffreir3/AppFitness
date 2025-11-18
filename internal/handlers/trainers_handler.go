@@ -3,7 +3,7 @@ package handlers
 
 import (
 	"appfitness/internal/middleware"
-	"appfitness/internal/types" // ALTERAÇÃO: Importa o pacote de tipos
+	"appfitness/internal/types"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -21,8 +21,10 @@ func RegisterTrainersRoutes(mux *http.ServeMux, db *sql.DB) {
 	h := &trainersHandler{db: db}
 
 	// --- Rotas Públicas ---
-	mux.HandleFunc("POST /api/trainers", h.handleCreateTrainer)
-	mux.HandleFunc("POST /api/login", h.handleLogin)
+	// --- CORREÇÃO: Trocado HandleFunc por Handle e corrigida a rota de login ---
+	mux.Handle("POST /api/trainers", http.HandlerFunc(h.handleCreateTrainer)) //
+	mux.Handle("POST /api/trainers/login", http.HandlerFunc(h.handleLogin))   // Rota corrigida de /api/login
+	// --- FIM DA CORREÇÃO ---
 
 	// --- Rotas Protegidas ---
 	getTrainerMeHandler := http.HandlerFunc(h.handleGetTrainerMe)
@@ -43,8 +45,6 @@ type CreateTrainerRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
-
-// ALTERAÇÃO: Removidas LoginRequest e LoginResponse. Agora estão no pacote /types.
 
 type TrainerProfileResponse struct {
 	ID                string `json:"id"`
@@ -156,6 +156,10 @@ func (h *trainersHandler) handleCreateTrainer(w http.ResponseWriter, r *http.Req
 	var newTrainerID string
 	err = h.db.QueryRowContext(r.Context(), query, req.Name, req.Email, string(hashedPassword)).Scan(&newTrainerID)
 	if err != nil {
+		if strings.Contains(err.Error(), "violates unique constraint") {
+			http.Error(w, "O email fornecido já está em uso.", http.StatusConflict)
+			return
+		}
 		log.Printf("Erro ao inserir trainer no banco de dados: %v", err)
 		http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
 		return
@@ -167,7 +171,6 @@ func (h *trainersHandler) handleCreateTrainer(w http.ResponseWriter, r *http.Req
 }
 
 func (h *trainersHandler) handleLogin(w http.ResponseWriter, r *http.Request) {
-	// ALTERAÇÃO: Usa o tipo do pacote 'types'
 	var req types.LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Corpo da requisição inválido", http.StatusBadRequest)
@@ -190,6 +193,16 @@ func (h *trainersHandler) handleLogin(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Email ou senha inválidos", http.StatusUnauthorized)
 		return
 	}
+
+	// --- CORREÇÃO: Adicionada lógica de branding (necessária para o AuthContext) ---
+	var branding types.BrandingResponse
+	brandingQuery := `SELECT COALESCE(brand_logo_url, ''), COALESCE(brand_primary_color, '') FROM trainers WHERE id = $1`
+	err = h.db.QueryRowContext(r.Context(), brandingQuery, trainerID).Scan(&branding.LogoURL, &branding.PrimaryColor)
+	if err != nil {
+		log.Printf("Aviso: não foi possível buscar branding para o trainer ID %s: %v", trainerID, err)
+	}
+	// --- FIM DA CORREÇÃO ---
+
 	claims := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"sub": trainerID,
 		"exp": time.Now().Add(time.Hour * 8).Unix(),
@@ -202,6 +215,9 @@ func (h *trainersHandler) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	// ALTERAÇÃO: Usa o tipo do pacote 'types'
-	json.NewEncoder(w).Encode(types.LoginResponse{Token: tokenString})
+
+	json.NewEncoder(w).Encode(types.LoginResponse{
+		Token:    tokenString,
+		Branding: branding,
+	})
 }

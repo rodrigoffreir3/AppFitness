@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import api from "@/services/api";
-// 1. Importar o hook e os tipos
 import { useChatWebSocket } from '@/hooks/useChatWebSocket';
 import type { SendMessagePayload, ReceivedMessage } from '@/hooks/useChatWebSocket';
 
@@ -29,20 +28,19 @@ const StudentChatView = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   
-  // (O estado 'isSending' será controlado pelo status do hook)
-  
   const viewportRef = useRef<HTMLDivElement>(null);
 
-  // 2. Instanciar o hook
   const { sendMessage, lastMessage, status: wsStatus } = useChatWebSocket();
 
-  // Efeito 1: Buscar perfil e histórico (sem alterações)
+  // Efeito 1: Buscar perfil e histórico
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       setError("");
       try {
-        const profileResponse = await api.get<StudentProfile>('/api/students/me/profile');
+        // --- CORREÇÃO AQUI ---
+        const profileResponse = await api.get<StudentProfile>('/students/me/profile');
+        // --- FIM DA CORREÇÃO ---
         const profileData = profileResponse.data;
         setProfile(profileData);
 
@@ -52,7 +50,9 @@ const StudentChatView = () => {
           return;
         }
 
-        const historyResponse = await api.get<MessageResponse[]>(`/api/chat/history/${profileData.trainer_id}`);
+        // --- CORREÇÃO AQUI ---
+        const historyResponse = await api.get<MessageResponse[]>(`/chat/history/${profileData.trainer_id}`);
+        // --- FIM DA CORREÇÃO ---
         setMessageHistory(historyResponse.data);
 
       } catch (err) {
@@ -65,7 +65,7 @@ const StudentChatView = () => {
     fetchData();
   }, []);
 
-  // Efeito 2: Auto-scroll (sem alterações)
+  // Efeito 2: Auto-scroll
   useEffect(() => {
     if (viewportRef.current) {
       setTimeout(() => {
@@ -76,17 +76,14 @@ const StudentChatView = () => {
     }
   }, [messageHistory, loading]);
 
-  // --- 3. NOVO: Efeito 3: Processar mensagens recebidas do WebSocket ---
+  // Efeito 3: Processar mensagens recebidas do WebSocket
   useEffect(() => {
     if (lastMessage) {
-      // Verificar se a mensagem pertence à conversa ativa
-      // (Neste caso, o aluno só pode falar com o treinador)
       const isRelevant = 
         (lastMessage.sender_id === profile?.trainer_id && lastMessage.receiver_id === profile?.id) ||
         (lastMessage.sender_id === profile?.id && lastMessage.receiver_id === profile?.trainer_id);
 
       if (isRelevant) {
-        // Evitar adicionar a mesma mensagem (otimista) duas vezes
         setMessageHistory(prevHistory => {
           if (prevHistory.find(msg => msg.id === lastMessage.id)) {
             return prevHistory;
@@ -96,38 +93,32 @@ const StudentChatView = () => {
       }
     }
   }, [lastMessage, profile?.id, profile?.trainer_id]);
-  // --- FIM NOVO ---
 
 
-  // --- 4. ATUALIZADO: handleSend ---
+  // handleSend
   const handleSend = () => {
     if (!message.trim() || !profile?.trainer_id || !profile?.id || wsStatus !== 'connected') {
       return;
     }
 
-    // 1. Preparar o payload para o backend (conforme hub.go)
     const payload: SendMessagePayload = {
-      receiver_id: profile.trainer_id, // Enviar para o treinador
+      receiver_id: profile.trainer_id,
       content: message,
     };
 
-    // 2. Enviar pelo WebSocket
     sendMessage(payload);
 
-    // 3. Update Otimista
     const optimisticMessage: MessageResponse = {
       id: new Date().toISOString(),
-      sender_id: profile.id, // Enviado pelo aluno
+      sender_id: profile.id,
       receiver_id: profile.trainer_id,
       content: message,
       created_at: new Date().toISOString(),
     };
     setMessageHistory(prevHistory => [...prevHistory, optimisticMessage]);
 
-    // 4. Limpar o input
     setMessage("");
   };
-  // --- FIM ATUALIZADO ---
 
   const formatTime = (dateString: string) => {
     try {
@@ -151,7 +142,6 @@ const StudentChatView = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             {loading ? "Carregando..." : `Chat com ${profile?.trainer_name || 'Treinador'}`}
-            {/* 5. Indicador de Status do WebSocket */}
             <span 
               className={
                 `h-3 w-3 rounded-full ${
@@ -182,7 +172,6 @@ const StudentChatView = () => {
             ) : (
               <div className="space-y-4">
                 {messageHistory.map((msg) => {
-                  // Compara o sender_id com o ID do aluno logado
                   const isFromStudent = msg.sender_id === profile?.id;
                   return (
                     <div
@@ -208,7 +197,6 @@ const StudentChatView = () => {
             )}
             {/* --- FIM RENDERIZAÇÃO --- */}
           </ScrollArea>
-          {/* 6. Inputs desabilitados com base no status do WS */}
           <div className="p-4 border-t flex gap-2">
             <Input
               placeholder={

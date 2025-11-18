@@ -1,0 +1,16 @@
+# Ignorar a pasta de dependências do frontend (a causa dos 309MB)
+frontend/node_modules
+
+# Ignorar a build do frontend (não é precisa para o backend)
+frontend/dist
+
+# Ignorar cache do Postgres de desenvolvimento
+postgres/data
+
+# Ignorar ficheiros do Git
+.git
+.gitignore
+frontend/.gitignore
+
+# Ignorar ficheiros de ambiente
+.env

@@ -1,4 +1,3 @@
-// frontend/src/main.tsx
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
@@ -12,17 +11,32 @@ import TrainerLayout from './components/layout/TrainerLayout.tsx';
 import StudentLayout from './components/layout/StudentLayout.tsx';
 import ProtectedRoute from './components/ProtectedRoute.tsx';
 
-// Páginas
+// Páginas Públicas
 import IndexPage from './pages/Index.tsx';
 import TrainerLogin from './pages/auth/TrainerLogin.tsx';
 import StudentLogin from './pages/auth/StudentLogin.tsx';
-import TrainerDashboard from './pages/trainer/Dashboard.tsx';
-import StudentDashboard from './pages/student/Dashboard.tsx';
+import TrainerSignUp from './pages/auth/TrainerSignUp.tsx';
 import NotFound from './pages/NotFound.tsx';
 
-// --- NOVA IMPORTAÇÃO ---
-import WorkoutDetails from './pages/student/WorkoutDetails.tsx'; 
-// --- FIM DA NOVA IMPORTAÇÃO ---
+// Páginas do Treinador
+import TrainerDashboard from './pages/trainer/Dashboard.tsx';
+import TrainerWorkoutDetails from './pages/trainer/TrainerWorkoutDetails.tsx';
+// --- 1. IMPORTAR TODAS AS NOSSAS VIEWS ---
+import DashboardHomeView from './components/trainer/DashboardHomeView.tsx';
+import StudentsView from './components/trainer/StudentsView.tsx';
+import WorkoutsView from './components/trainer/WorkoutsView.tsx';
+import ExercisesView from './components/trainer/ExercisesView.tsx';
+import ChatView from './components/trainer/ChatView.tsx';
+import AnnouncementsView from './components/trainer/AnnouncementsView.tsx';
+import WhiteLabelSettings from './components/trainer/WhiteLabelSettings.tsx';
+
+// Páginas do Aluno
+import StudentDashboard from './pages/student/Dashboard.tsx';
+import WorkoutDetails from './pages/student/WorkoutDetails.tsx';
+import MyWorkoutsView from './components/student/MyWorkoutsView.tsx';
+import StudentChatView from './components/student/StudentChatView.tsx';
+import StudentAnnouncementsView from './components/student/StudentAnnouncementsView.tsx';
+
 
 const router = createBrowserRouter([
   {
@@ -37,6 +51,7 @@ const router = createBrowserRouter([
           { index: true, element: <IndexPage /> },
           { path: 'login/trainer', element: <TrainerLogin /> },
           { path: 'login/student', element: <StudentLogin /> },
+          { path: 'signup/trainer', element: <TrainerSignUp /> }, 
         ]
       },
       // Rotas do Treinador
@@ -48,8 +63,20 @@ const router = createBrowserRouter([
           </ProtectedRoute>
         ),
         children: [
-          { path: 'dashboard', element: <TrainerDashboard /> },
-          // Adicione outras rotas do treinador aqui
+          {
+            path: 'dashboard',
+            element: <TrainerDashboard />,
+            children: [
+              { index: true, element: <DashboardHomeView /> },
+              { path: 'students', element: <StudentsView /> },
+              { path: 'workouts', element: <WorkoutsView /> },
+              { path: 'exercises', element: <ExercisesView /> },
+              { path: 'chat', element: <ChatView /> },
+              { path: 'announcements', element: <AnnouncementsView /> },
+              { path: 'settings', element: <WhiteLabelSettings /> },
+            ]
+          },
+          { path: 'workout/:workoutId', element: <TrainerWorkoutDetails /> },
         ],
       },
       // Rotas do Aluno
@@ -61,10 +88,16 @@ const router = createBrowserRouter([
           </ProtectedRoute>
         ),
         children: [
-          { path: 'dashboard', element: <StudentDashboard /> },
-          // --- NOVA ROTA ADICIONADA ---
+          { 
+            path: 'dashboard', 
+            element: <StudentDashboard />,
+            children: [
+              { index: true, element: <MyWorkoutsView /> },
+              { path: 'chat', element: <StudentChatView /> },
+              { path: 'announcements', element: <StudentAnnouncementsView /> },
+            ]
+          },
           { path: 'workout/:workoutId', element: <WorkoutDetails /> },
-          // --- FIM DA NOVA ROTA ---
         ],
       },
       { path: '*', element: <NotFound /> }

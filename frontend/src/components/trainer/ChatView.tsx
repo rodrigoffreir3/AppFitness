@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import api from "@/services/api";
-// 1. Importar o nosso novo hook e os tipos dele
 import { useChatWebSocket } from '@/hooks/useChatWebSocket';
 import type { SendMessagePayload, ReceivedMessage } from '@/hooks/useChatWebSocket';
 
@@ -39,19 +38,18 @@ const ChatView = () => {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [errorHistory, setErrorHistory] = useState("");
 
-  // (Removido o estado 'isSending', pois o hook 'wsStatus' o substitui)
-
   const viewportRef = useRef<HTMLDivElement>(null);
 
   // 2. Instanciar o hook
   const { sendMessage, lastMessage, status: wsStatus } = useChatWebSocket();
 
-  // Efeito 1: Buscar alunos e o perfil do próprio treinador (sem alterações)
+  // Efeito 1: Buscar alunos e o perfil do próprio treinador
   useEffect(() => {
     const fetchData = async () => {
       setLoadingStudents(true);
       setErrorStudents("");
       try {
+        // [CORRIGIDO: Removido /api/ das chamadas]
         const [studentsResponse, profileResponse] = await Promise.all([
           api.get<Student[]>('/students'), 
           api.get<TrainerProfile>('/trainers/me')
@@ -73,7 +71,7 @@ const ChatView = () => {
     fetchData();
   }, []);
 
-  // Efeito 2: Buscar histórico de mensagens (sem alterações)
+  // Efeito 2: Buscar histórico de mensagens
   useEffect(() => {
     const fetchHistory = async () => {
       if (!selectedStudentId) return; 
@@ -81,7 +79,10 @@ const ChatView = () => {
       setErrorHistory("");
       setMessageHistory([]); 
       try {
-        const response = await api.get<MessageResponse[]>(`/api/chat/history/${selectedStudentId}`);
+        // --- CORREÇÃO AQUI ---
+        // Removido o /api/ do início da chamada
+        const response = await api.get<MessageResponse[]>(`/chat/history/${selectedStudentId}`);
+        // --- FIM DA CORREÇÃO ---
         setMessageHistory(response.data);
       } catch (err) {
         console.error(`Erro ao buscar histórico para ${selectedStudentId}:`, err);
@@ -93,7 +94,7 @@ const ChatView = () => {
     fetchHistory();
   }, [selectedStudentId]);
 
-  // Efeito 3: Auto-scroll para o final das mensagens (sem alterações)
+  // Efeito 3: Auto-scroll
   useEffect(() => {
     if (viewportRef.current) {
       setTimeout(() => {
@@ -104,16 +105,14 @@ const ChatView = () => {
     }
   }, [messageHistory, loadingHistory]);
 
-  // --- NOVO: Efeito 4: Processar mensagens recebidas do WebSocket ---
+  // Efeito 4: Processar mensagens recebidas do WebSocket
   useEffect(() => {
     if (lastMessage) {
-      // Verificar se a mensagem pertence à conversa ativa
       const isRelevant = 
         (lastMessage.sender_id === selectedStudentId && lastMessage.receiver_id === trainerId) ||
         (lastMessage.sender_id === trainerId && lastMessage.receiver_id === selectedStudentId);
       
       if (isRelevant) {
-        // Evitar adicionar a mesma mensagem (otimista) duas vezes
         setMessageHistory(prevHistory => {
           if (prevHistory.find(msg => msg.id === lastMessage.id)) {
             return prevHistory;
@@ -123,28 +122,23 @@ const ChatView = () => {
       }
     }
   }, [lastMessage, selectedStudentId, trainerId]);
-  // --- FIM NOVO ---
 
 
-  // --- 4. ATUALIZADO: handleSend ---
+  // handleSend (Atualizado)
   const handleSend = () => {
-    // Não enviar se a mensagem estiver vazia, ou se não houver destinatário, ou se o WS não estiver ligado
     if (!message.trim() || !selectedStudentId || !trainerId || wsStatus !== 'connected') {
       return;
     }
     
-    // 1. Preparar o payload para o backend (conforme hub.go)
     const payload: SendMessagePayload = {
       receiver_id: selectedStudentId,
       content: message,
     };
     
-    // 2. Enviar pelo WebSocket
     sendMessage(payload);
 
-    // 3. Update Otimista: Adicionar a mensagem à UI imediatamente
     const optimisticMessage: MessageResponse = {
-      id: new Date().toISOString(), // ID temporário (backend irá gerar um UUID real)
+      id: new Date().toISOString(), 
       sender_id: trainerId,
       receiver_id: selectedStudentId,
       content: message,
@@ -152,10 +146,8 @@ const ChatView = () => {
     };
     setMessageHistory(prevHistory => [...prevHistory, optimisticMessage]);
 
-    // 4. Limpar o input
     setMessage("");
   };
-  // --- FIM ATUALIZADO ---
 
   const selectedStudentName = students.find((s) => s.id === selectedStudentId)?.name || "Selecione uma conversa";
   
@@ -178,7 +170,7 @@ const ChatView = () => {
       </div>
 
       <div className="grid md:grid-cols-3 gap-4 h-[600px]">
-        {/* Card da Lista de Alunos (Sidebar) - Sem alterações */}
+        {/* Card da Lista de Alunos (Sidebar) */}
         <Card className="md:col-span-1">
           <CardHeader>
             <CardTitle>Conversas</CardTitle>
@@ -216,7 +208,6 @@ const ChatView = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               {loadingStudents ? "Carregando..." : selectedStudentName}
-              {/* 5. Indicador de Status do WebSocket */}
               <span 
                 className={
                   `h-3 w-3 rounded-full ${
@@ -231,7 +222,7 @@ const ChatView = () => {
           </CardHeader>
           <CardContent className="flex-1 flex flex-col p-0">
             <ScrollArea className="flex-1 p-4" viewportRef={viewportRef}>
-              {/* Renderização do Histórico (sem alterações) */}
+              {/* Renderização do Histórico */}
               {loadingHistory ? (
                 <div className="flex justify-center items-center h-full"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
               ) : errorHistory ? (
@@ -254,7 +245,6 @@ const ChatView = () => {
                 </div>
               )}
             </ScrollArea>
-            {/* 6. Inputs desabilitados com base no status do WS */}
             <div className="p-4 border-t flex gap-2">
               <Input
                 placeholder={

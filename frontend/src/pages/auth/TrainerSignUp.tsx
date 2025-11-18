@@ -3,11 +3,8 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useAuth } from '@/contexts/AuthContext';
 import { Dumbbell, AlertCircle, Loader2 } from 'lucide-react';
 import api from '@/services/api';
-
-// --- CORREÇÃO: Importações do Card movidas para o topo ---
 import {
   Card,
   CardHeader,
@@ -15,21 +12,14 @@ import {
   CardDescription,
   CardContent,
 } from '@/components/ui/card';
-// --- FIM DA CORREÇÃO ---
 
-// Interface para os dados de branding que vêm do backend
-interface Branding {
-  logo_url: string;
-  primary_color: string;
-}
-
-const TrainerLogin = () => {
+const TrainerSignUp = () => {
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-  const { login } = useAuth(); // O hook de autenticação
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,25 +27,20 @@ const TrainerLogin = () => {
     setError('');
 
     try {
-      // A chamada de API (agora correta para /trainers/login)
-      const response = await api.post<{ token: string; branding: Branding }>(
-        '/trainers/login', //
-        { email, password }
-      );
+      // --- CORREÇÃO AQUI ---
+      // Removido o /api/ do início da chamada
+      await api.post('/trainers', { name, email, password });
+      // --- FIM DA CORREÇÃO ---
 
-      const { token, branding } = response.data;
-      
-      // A chamada de login com 4 argumentos (que está correta)
-      //
-      login(token, 'trainer', branding.logo_url, branding.primary_color);
-      
-      navigate('/trainer/dashboard');
+      // 2. Se for bem-sucedido, redirecionar para o login
+      navigate('/login/trainer');
+
     } catch (err: any) {
-      console.error("Erro no login:", err);
-      if (err.response && (err.response.status === 401 || err.response.status === 404)) {
-        setError('Email ou senha inválidos.');
+      console.error("Erro no cadastro:", err);
+      if (err.response && err.response.status === 409) {
+        setError('Este email já está em uso.');
       } else {
-        setError('Não foi possível conectar ao servidor.');
+        setError('Não foi possível realizar o cadastro.');
       }
     } finally {
       setIsLoading(false);
@@ -71,8 +56,8 @@ const TrainerLogin = () => {
               <Dumbbell className="w-7 h-7 text-primary-foreground" />
             </div>
           </div>
-          <CardTitle className="text-2xl font-bold">Login do Treinador</CardTitle>
-          <CardDescription>Acesse sua plataforma de gestão</CardDescription>
+          <CardTitle className="text-2xl font-bold">Criar Conta de Treinador</CardTitle>
+          <CardDescription>Comece a gerir os seus alunos hoje</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -82,6 +67,18 @@ const TrainerLogin = () => {
                 <p>{error}</p>
               </div>
             )}
+            <div className="space-y-2">
+              <Label htmlFor="name">Nome Completo</Label>
+              <Input
+                id="name"
+                type="text"
+                placeholder="Seu nome profissional"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                disabled={isLoading}
+              />
+            </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -99,7 +96,7 @@ const TrainerLogin = () => {
               <Input
                 id="password"
                 type="password"
-                placeholder="••••••••"
+                placeholder="Pelo menos 6 caracteres"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -108,13 +105,13 @@ const TrainerLogin = () => {
             </div>
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              {isLoading ? 'Entrando...' : 'Entrar'}
+              {isLoading ? 'A criar conta...' : 'Criar Conta'}
             </Button>
           </form>
           <div className="mt-4 text-center text-sm">
-            É um aluno?{' '}
-            <Link to="/login/student" className="underline text-primary">
-              Acesse aqui
+            Já tem uma conta?{' '}
+            <Link to="/login/trainer" className="underline text-primary">
+              Faça login
             </Link>
           </div>
         </CardContent>
@@ -123,6 +120,4 @@ const TrainerLogin = () => {
   );
 };
 
-// --- CORREÇÃO: As importações do Card foram REMOVIDAS daqui ---
-
-export default TrainerLogin;
+export default TrainerSignUp;

@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Palette, Users, MessageSquare, Dumbbell } from "lucide-react";
+import { Link } from "react-router-dom"; // 1. Importar o Link
 
 const Hero = () => {
   return (
@@ -33,11 +34,15 @@ const Hero = () => {
 
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-fade-in-up" style={{ animationDelay: "0.2s" }}>
-            <Button size="lg" variant="hero" className="text-lg px-8 py-6 h-auto">
-              Comece Agora <ArrowRight className="ml-2 w-5 h-5" />
+            {/* --- CORREÇÃO AQUI --- */}
+            <Button size="lg" variant="hero" className="text-lg px-8 py-6 h-auto" asChild>
+              <Link to="/signup/trainer">
+                Comece Agora <ArrowRight className="ml-2 w-5 h-5" />
+              </Link>
             </Button>
-            <Button size="lg" variant="outline" className="text-lg px-8 py-6 h-auto">
-              Ver Demonstração
+            {/* --- FIM DA CORREÇÃO --- */}
+            <Button size="lg" variant="outline" className="text-lg px-8 py-6 h-auto" asChild>
+              <a href="#recursos">Ver Demonstração</a>
             </Button>
           </div>
 

@@ -1,0 +1,28 @@
+:80 {
+    # Diretório raiz para o frontend (React)
+    root * /srv/app
+
+    # --- BLOCO DA API (BACKEND) ---
+    # Diz ao Caddy: "Se o caminho começar com /api/"
+    @api path /api/*
+    # "Então, lida com ele aqui dentro e pára"
+    handle @api {
+        # Redireciona o WebSocket
+        reverse_proxy /api/ws* api:8080
+
+        # Redireciona o resto da API REST (login, etc.)
+        reverse_proxy /api/* api:8080
+    }
+
+    # --- BLOCO DO FRONTEND (React SPA) ---
+    # "Para tudo o resto, lida aqui"
+    handle {
+        # Tenta servir o ficheiro (ex: /assets/index.js)
+        # Se não encontrar, serve o /index.html (para o React Router funcionar)
+        try_files {path} /index.html
+        file_server
+    }
+
+    # Compressão
+    encode gzip
+}

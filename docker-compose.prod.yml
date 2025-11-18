@@ -1,0 +1,47 @@
+services:
+  # 1. Serviço da API (Backend Go)
+  api:
+    build:
+      context: . 
+      dockerfile: Dockerfile 
+    restart: always
+    env_file:
+      - .env 
+    depends_on:
+      - postgres 
+    networks:
+      - appfitness-network
+
+  # 2. Serviço do Web Server (Frontend Caddy)
+  web:
+    image: caddy:2-alpine 
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443" 
+    volumes:
+      - ./frontend/dist:/srv/app
+      - ./Caddyfile:/etc/caddy/Caddyfile
+    depends_on:
+      - api 
+    networks:
+      - appfitness-network
+
+  # 3. Serviço da Base de Dados (PostgreSQL)
+  postgres:
+    image: postgres:14-alpine
+    restart: always
+    env_file:
+      - .env # Agora isto contém as variáveis POSTGRES_... corretas
+    volumes:
+      - appfitness-data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - appfitness-network
+
+volumes:
+  appfitness-data: 
+
+networks:
+  appfitness-network:
+    driver: bridge
