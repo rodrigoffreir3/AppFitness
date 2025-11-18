@@ -7,11 +7,23 @@ import (
 	"appfitness/internal/handlers"
 	"log"
 	"net/http"
+	"os" // Importa o pacote os
 
+	"github.com/joho/godotenv" // Importa o godotenv
 	"github.com/rs/cors"
 )
 
 func main() {
+	// Carrega as variáveis de ambiente do arquivo .env, sobrescrevendo as existentes
+	err := godotenv.Overload()
+	if err != nil {
+		// Não é um erro fatal, podemos continuar se as variáveis estiverem no sistema
+		log.Println("Aviso: Não foi possível carregar o arquivo .env. Usando variáveis de ambiente do sistema.")
+	}
+
+	// DEBUG: Imprime o valor de DB_HOST
+	log.Printf("DEBUG: DB_HOST is set to: %s", os.Getenv("DB_HOST"))
+
 	db, err := database.Connect()
 	if err != nil {
 		log.Fatalf("Não foi possível conectar ao banco de dados: %v", err)
