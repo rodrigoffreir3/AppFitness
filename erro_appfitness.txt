@@ -1,101 +1,19 @@
-[plugin:vite:css] [postcss] C:/Users/Pichau/Desktop/appfitness/frontend/src/index.css:1:1: The `border-border` class does not exist. If `border-border` is a custom class, make sure it is defined within a `@layer` directive.
-C:/Users/Pichau/Desktop/appfitness/frontend/src/index.css:1:0
-1  |  @tailwind base;
-   |  ^
-2  |  @tailwind components;
-3  |  @tailwind utilities;
-    at Input.error (C:\Users\Pichau\Desktop\appfitness\frontend\node_modules\postcss\lib\input.js:135:16)
-    at AtRule.error (C:\Users\Pichau\Desktop\appfitness\frontend\node_modules\postcss\lib\node.js:146:32)
-    at processApply (C:\Users\Pichau\Desktop\appfitness\frontend\node_modules\tailwindcss\lib\lib\expandApplyAtRules.js:380:29)
-    at C:\Users\Pichau\Desktop\appfitness\frontend\node_modules\tailwindcss\lib\lib\expandApplyAtRules.js:551:9
-    at C:\Users\Pichau\Desktop\appfitness\frontend\node_modules\tailwindcss\lib\processTailwindFeatures.js:55:50
-    at async plugins (C:\Users\Pichau\Desktop\appfitness\frontend\node_modules\tailwindcss\lib\plugin.js:38:17)
-    at async LazyResult.runAsync (C:\Users\Pichau\Desktop\appfitness\frontend\node_modules\postcss\lib\lazy-result.js:293:11)
-    at async compileCSS (file:///C:/Users/Pichau/Desktop/appfitness/frontend/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:36898:21)
-    at async TransformPluginContext.transform (file:///C:/Users/Pichau/Desktop/appfitness/frontend/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:36171:11)
-    at async PluginContainer.transform (file:///C:/Users/Pichau/Desktop/appfitness/frontend/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:49099:18)
-    at async loadAndTransform (file:///C:/Users/Pichau/Desktop/appfitness/frontend/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:51978:27)
-    at async viteTransformMiddleware (file:///C:/Users/Pichau/Desktop/appfitness/frontend/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:62106:24
-Click outside, press Esc key, or fix the code to dismiss.
-You can also disable this overlay by setting server.hmr.overlay to false in vite.config.ts.
+npm install
+npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+npm warn deprecated @humanwhocodes/config-array@0.13.0: Use @eslint/config-array instead
+npm warn deprecated rimraf@3.0.2: Rimraf versions prior to v4 are no longer supported
+npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
+npm warn deprecated @humanwhocodes/object-schema@2.0.3: Use @eslint/object-schema instead
+npm warn deprecated eslint@8.57.1: This version is no longer supported. Please see https://eslint.org/version-support for other options.
 
+added 379 packages, and audited 380 packages in 45s
 
-erro2:
-[plugin:vite:css] [postcss] C:/Users/Pichau/Desktop/appfitness/frontend/src/index.css:1:1: The `bg-background` class does not exist. If `bg-background` is a custom class, make sure it is defined within a `@layer` directive.
-C:/Users/Pichau/Desktop/appfitness/frontend/src/index.css:1:0
-1  |  @tailwind base;
-   |  ^
-2  |  @tailwind components;
-3  |  @tailwind utilities;
-    at Input.error (C:\Users\Pichau\Desktop\appfitness\frontend\node_modules\postcss\lib\input.js:135:16)
-    at AtRule.error (C:\Users\Pichau\Desktop\appfitness\frontend\node_modules\postcss\lib\node.js:146:32)
-    at processApply (C:\Users\Pichau\Desktop\appfitness\frontend\node_modules\tailwindcss\lib\lib\expandApplyAtRules.js:380:29)
-    at C:\Users\Pichau\Desktop\appfitness\frontend\node_modules\tailwindcss\lib\lib\expandApplyAtRules.js:551:9
-    at C:\Users\Pichau\Desktop\appfitness\frontend\node_modules\tailwindcss\lib\processTailwindFeatures.js:55:50
-    at async plugins (C:\Users\Pichau\Desktop\appfitness\frontend\node_modules\tailwindcss\lib\plugin.js:38:17)
-    at async LazyResult.runAsync (C:\Users\Pichau\Desktop\appfitness\frontend\node_modules\postcss\lib\lazy-result.js:293:11)
-    at async compileCSS (file:///C:/Users/Pichau/Desktop/appfitness/frontend/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:36898:21)
-    at async TransformPluginContext.transform (file:///C:/Users/Pichau/Desktop/appfitness/frontend/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:36171:11)
-    at async PluginContainer.transform (file:///C:/Users/Pichau/Desktop/appfitness/frontend/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:49099:18)
-    at async loadAndTransform (file:///C:/Users/Pichau/Desktop/appfitness/frontend/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:51978:27)
-    at async viteTransformMiddleware (file:///C:/Users/Pichau/Desktop/appfitness/frontend/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:62106:24
-Click outside, press Esc key, or fix the code to dismiss.
-You can also disable this overlay by setting server.hmr.overlay to false in vite.config.ts.
+66 packages are looking for funding
+  run `npm fund` for details
 
-erro3:
-[plugin:vite:css] [postcss] C:/Users/Pichau/Desktop/appfitness/frontend/src/index.css:1:1: The `border-border` class does not exist. If `border-border` is a custom class, make sure it is defined within a `@layer` directive.
-C:/Users/Pichau/Desktop/appfitness/frontend/src/index.css:1:0
-1  |  @tailwind base;
-   |  ^
-2  |  @tailwind components;
-3  |  @tailwind utilities;
-    at Input.error (C:\Users\Pichau\Desktop\appfitness\frontend\node_modules\postcss\lib\input.js:135:16)
-    at AtRule.error (C:\Users\Pichau\Desktop\appfitness\frontend\node_modules\postcss\lib\node.js:146:32)
-    at processApply (C:\Users\Pichau\Desktop\appfitness\frontend\node_modules\tailwindcss\lib\lib\expandApplyAtRules.js:380:29)
-    at C:\Users\Pichau\Desktop\appfitness\frontend\node_modules\tailwindcss\lib\lib\expandApplyAtRules.js:551:9
-    at C:\Users\Pichau\Desktop\appfitness\frontend\node_modules\tailwindcss\lib\processTailwindFeatures.js:55:50
-    at async plugins (C:\Users\Pichau\Desktop\appfitness\frontend\node_modules\tailwindcss\lib\plugin.js:38:17)
-    at async LazyResult.runAsync (C:\Users\Pichau\Desktop\appfitness\frontend\node_modules\postcss\lib\lazy-result.js:293:11)
-    at async compileCSS (file:///C:/Users/Pichau/Desktop/appfitness/frontend/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:36898:21)
-    at async TransformPluginContext.transform (file:///C:/Users/Pichau/Desktop/appfitness/frontend/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:36171:11)
-    at async PluginContainer.transform (file:///C:/Users/Pichau/Desktop/appfitness/frontend/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:49099:18)
-    at async loadAndTransform (file:///C:/Users/Pichau/Desktop/appfitness/frontend/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:51978:27)
-    at async viteTransformMiddleware (file:///C:/Users/Pichau/Desktop/appfitness/frontend/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:62106:24
-Click outside, press Esc key, or fix the code to dismiss.
-You can also disable this overlay by setting server.hmr.overlay to false in vite.config.ts.
+2 moderate severity vulnerabilities
 
-https://github.com/rodrigoffreir3/AppFitness.git
+To address all issues (including breaking changes), run:
+  npm audit fix --force
 
-erro4:
-[plugin:vite:css] [postcss] C:/Users/Pichau/Desktop/appfitness/frontend/src/index.css:1:1: The `bg-background` class does not exist. If `bg-background` is a custom class, make sure it is defined within a `@layer` directive.
-C:/Users/Pichau/Desktop/appfitness/frontend/src/index.css:1:0
-1  |  @tailwind base;
-   |  ^
-2  |  @tailwind components;
-3  |  @tailwind utilities;
-    at Input.error (C:\Users\Pichau\Desktop\appfitness\frontend\node_modules\postcss\lib\input.js:135:16)
-    at AtRule.error (C:\Users\Pichau\Desktop\appfitness\frontend\node_modules\postcss\lib\node.js:146:32)
-    at processApply (C:\Users\Pichau\Desktop\appfitness\frontend\node_modules\tailwindcss\lib\lib\expandApplyAtRules.js:380:29)
-    at C:\Users\Pichau\Desktop\appfitness\frontend\node_modules\tailwindcss\lib\lib\expandApplyAtRules.js:551:9
-    at C:\Users\Pichau\Desktop\appfitness\frontend\node_modules\tailwindcss\lib\processTailwindFeatures.js:55:50
-    at async plugins (C:\Users\Pichau\Desktop\appfitness\frontend\node_modules\tailwindcss\lib\plugin.js:38:17)
-    at async LazyResult.runAsync (C:\Users\Pichau\Desktop\appfitness\frontend\node_modules\postcss\lib\lazy-result.js:293:11)
-    at async compileCSS (file:///C:/Users/Pichau/Desktop/appfitness/frontend/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:36898:21)
-    at async TransformPluginContext.transform (file:///C:/Users/Pichau/Desktop/appfitness/frontend/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:36171:11)
-    at async PluginContainer.transform (file:///C:/Users/Pichau/Desktop/appfitness/frontend/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:49099:18)
-    at async loadAndTransform (file:///C:/Users/Pichau/Desktop/appfitness/frontend/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:51978:27)
-    at async viteTransformMiddleware (file:///C:/Users/Pichau/Desktop/appfitness/frontend/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:62106:24
-Click outside, press Esc key, or fix the code to dismiss.
-You can also disable this overlay by setting server.hmr.overlay to false in vite.config.ts.
-
-erro5:
-Error: The following dependencies are imported but could not be resolved:
-
-  @radix-ui/react-alert-dialog (imported by C:/Users/Pichau/Desktop/appfitness/frontend/src/components/ui/alert-dialog.tsx)
-  @radix-ui/react-dialog (imported by C:/Users/Pichau/Desktop/appfitness/frontend/src/components/ui/dialog.tsx)
-  @radix-ui/react-select (imported by C:/Users/Pichau/Desktop/appfitness/frontend/src/components/ui/select.tsx)
-
-Are they installed?
-    at file:///C:/Users/Pichau/Desktop/appfitness/frontend/node_modules/vite/dist/node/chunks/dep-D_zLpgQd.js:50669:15
-    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
-    at async file:///C:/Users/Pichau/Desktop/appfitness/frontend/node_modules/vite/dist/node/chunks/dep-D_zLpgQd.js:50174:26
+Run `npm audit` for details.

@@ -5,7 +5,7 @@ module.exports = {
     './pages/**/*.{ts,tsx}',
     './components/**/*.{ts,tsx}',
     './app/**/*.{ts,tsx}',
-    './src/**/*.{ts,tsx}', // Garante que lê tudo em src/
+    './src/**/*.{ts,tsx}', // Garante que lê a pasta src
     './index.html',
   ],
   prefix: "",
