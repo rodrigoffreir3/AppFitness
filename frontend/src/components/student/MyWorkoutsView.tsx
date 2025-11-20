@@ -1,28 +1,53 @@
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Eye, AlertCircle, Loader2, Dumbbell } from "lucide-react";
-import { WorkoutResponse } from '@/pages/student/Dashboard';
-import { useNavigate } from 'react-router-dom'; // 1. Importar o hook useNavigate
+import { useNavigate } from 'react-router-dom'; // Importar useNavigate
+import api from '@/services/api';
 
-// 1. Definir as props que o componente receberá
-interface MyWorkoutsViewProps {
-  workouts: WorkoutResponse[];
-  isLoading: boolean;
-  error: string;
+// Interface dos dados que vêm da API
+interface WorkoutResponse {
+  id: string;
+  student_id: string;
+  name: string;
+  description: string;
+  is_active: boolean;
 }
 
-const MyWorkoutsView = ({ workouts, isLoading, error }: MyWorkoutsViewProps) => {
-  const navigate = useNavigate(); // 2. Instanciar o hook
+const MyWorkoutsView = () => {
+  const navigate = useNavigate();
+  
+  // Estados Internos (o componente agora é autónomo)
+  const [workouts, setWorkouts] = useState<WorkoutResponse[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  // 3. Criar a função de navegação
+  // Buscar Dados
+  useEffect(() => {
+    const fetchWorkouts = async () => {
+      setIsLoading(true);
+      setError('');
+      try {
+        // Endpoint: /students/me/workouts
+        const response = await api.get<WorkoutResponse[]>('/students/me/workouts');
+        setWorkouts(response.data);
+      } catch (err) {
+        console.error("Erro ao buscar treinos:", err);
+        setError('Não foi possível carregar seus treinos.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchWorkouts();
+  }, []);
+
   const handleViewDetails = (workoutId: string) => {
-    navigate(`/student/workout/${workoutId}`); // Navega para a rota de detalhes
+    navigate(`/student/workout/${workoutId}`);
   };
 
-  // 2. Lógica de renderização condicional baseada nas props
-
-  // Estado de Carregamento
+  // Renderização
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center h-64">
@@ -32,7 +57,6 @@ const MyWorkoutsView = ({ workouts, isLoading, error }: MyWorkoutsViewProps) => 
     );
   }
 
-  // Estado de Erro
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center h-64 text-center text-destructive bg-destructive/10 border border-destructive rounded-lg p-6">
@@ -43,7 +67,6 @@ const MyWorkoutsView = ({ workouts, isLoading, error }: MyWorkoutsViewProps) => 
     );
   }
 
-  // Estado Normal (com ou sem treinos)
   return (
     <div className="space-y-6">
       <div>
@@ -65,11 +88,10 @@ const MyWorkoutsView = ({ workouts, isLoading, error }: MyWorkoutsViewProps) => 
                 </Badge>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* 4. Adicionar o onClick ao botão */}
                 <Button 
                   variant="outline" 
                   className="w-full"
-                  onClick={() => handleViewDetails(workout.id)} // Passa o ID do treino
+                  onClick={() => handleViewDetails(workout.id)}
                 >
                   <Eye className="mr-2 h-4 w-4" />
                   Ver Detalhes do Treino
@@ -79,7 +101,6 @@ const MyWorkoutsView = ({ workouts, isLoading, error }: MyWorkoutsViewProps) => 
           ))}
         </div>
       ) : (
-        // Mensagem para quando não há treinos
         <div className="text-center text-muted-foreground py-12 border border-dashed rounded-lg">
            <Dumbbell className="mx-auto h-12 w-12 text-gray-400" />
            <h3 className="mt-2 text-sm font-semibold">Nenhum treino ativo encontrado</h3>

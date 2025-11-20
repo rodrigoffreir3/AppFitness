@@ -1,12 +1,12 @@
-import type { Config } from "tailwindcss"
-import tailwindcssAnimate from "tailwindcss-animate" // 1. Usar import
-
-const config = {
+/** @type {import('tailwindcss').Config} */
+module.exports = {
   darkMode: ["class"],
   content: [
-    './src/pages/**/*.{ts,tsx}',
-    './src/components/**/*.{ts,tsx}',
-    './src/**/*.{ts,tsx}',
+    './pages/**/*.{ts,tsx}',
+    './components/**/*.{ts,tsx}',
+    './app/**/*.{ts,tsx}',
+    './src/**/*.{ts,tsx}', // Esta linha garante que ele lê os seus arquivos
+    './index.html',
   ],
   prefix: "",
   theme: {
@@ -52,6 +52,16 @@ const config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        sidebar: {
+          DEFAULT: "hsl(var(--sidebar-background))",
+          foreground: "hsl(var(--sidebar-foreground))",
+          primary: "hsl(var(--sidebar-primary))",
+          "primary-foreground": "hsl(var(--sidebar-primary-foreground))",
+          accent: "hsl(var(--sidebar-accent))",
+          "accent-foreground": "hsl(var(--sidebar-accent-foreground))",
+          border: "hsl(var(--sidebar-border))",
+          ring: "hsl(var(--sidebar-ring))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -74,8 +84,5 @@ const config = {
       },
     },
   },
-  // 3. Usar a variável importada
-  plugins: [tailwindcssAnimate],
-} satisfies Config
-
-export default config
+  plugins: [require("tailwindcss-animate")],
+}

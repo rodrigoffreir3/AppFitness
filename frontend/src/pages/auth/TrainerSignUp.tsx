@@ -27,14 +27,9 @@ const TrainerSignUp = () => {
     setError('');
 
     try {
-      // --- CORREÇÃO AQUI ---
-      // Removido o /api/ do início da chamada
+      // Chama o endpoint de criação (api.ts já tem baseURL /api configurada no proxy)
       await api.post('/trainers', { name, email, password });
-      // --- FIM DA CORREÇÃO ---
-
-      // 2. Se for bem-sucedido, redirecionar para o login
       navigate('/login/trainer');
-
     } catch (err: any) {
       console.error("Erro no cadastro:", err);
       if (err.response && err.response.status === 409) {
@@ -56,7 +51,7 @@ const TrainerSignUp = () => {
               <Dumbbell className="w-7 h-7 text-primary-foreground" />
             </div>
           </div>
-          <CardTitle className="text-2xl font-bold">Criar Conta de Treinador</CardTitle>
+          <CardTitle className="text-2xl font-bold">Criar Conta</CardTitle>
           <CardDescription>Comece a gerir os seus alunos hoje</CardDescription>
         </CardHeader>
         <CardContent>
@@ -69,50 +64,22 @@ const TrainerSignUp = () => {
             )}
             <div className="space-y-2">
               <Label htmlFor="name">Nome Completo</Label>
-              <Input
-                id="name"
-                type="text"
-                placeholder="Seu nome profissional"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-                disabled={isLoading}
-              />
+              <Input id="name" type="text" value={name} onChange={(e) => setName(e.target.value)} required disabled={isLoading} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="email@exemplo.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                disabled={isLoading}
-              />
+              <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required disabled={isLoading} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Senha</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Pelo menos 6 caracteres"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                disabled={isLoading}
-              />
+              <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required disabled={isLoading} />
             </div>
             <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              {isLoading ? 'A criar conta...' : 'Criar Conta'}
+              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Criar Conta'}
             </Button>
           </form>
           <div className="mt-4 text-center text-sm">
-            Já tem uma conta?{' '}
-            <Link to="/login/trainer" className="underline text-primary">
-              Faça login
-            </Link>
+            Já tem uma conta? <Link to="/login/trainer" className="underline text-primary">Faça login</Link>
           </div>
         </CardContent>
       </Card>

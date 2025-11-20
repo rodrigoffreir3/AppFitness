@@ -18,10 +18,9 @@ import StudentLogin from './pages/auth/StudentLogin.tsx';
 import TrainerSignUp from './pages/auth/TrainerSignUp.tsx';
 import NotFound from './pages/NotFound.tsx';
 
-// Páginas do Treinador
+// Páginas e Views do Treinador
 import TrainerDashboard from './pages/trainer/Dashboard.tsx';
 import TrainerWorkoutDetails from './pages/trainer/TrainerWorkoutDetails.tsx';
-// --- 1. IMPORTAR TODAS AS NOSSAS VIEWS ---
 import DashboardHomeView from './components/trainer/DashboardHomeView.tsx';
 import StudentsView from './components/trainer/StudentsView.tsx';
 import WorkoutsView from './components/trainer/WorkoutsView.tsx';
@@ -30,7 +29,7 @@ import ChatView from './components/trainer/ChatView.tsx';
 import AnnouncementsView from './components/trainer/AnnouncementsView.tsx';
 import WhiteLabelSettings from './components/trainer/WhiteLabelSettings.tsx';
 
-// Páginas do Aluno
+// Páginas e Views do Aluno
 import StudentDashboard from './pages/student/Dashboard.tsx';
 import WorkoutDetails from './pages/student/WorkoutDetails.tsx';
 import MyWorkoutsView from './components/student/MyWorkoutsView.tsx';
@@ -65,7 +64,7 @@ const router = createBrowserRouter([
         children: [
           {
             path: 'dashboard',
-            element: <TrainerDashboard />,
+            element: <TrainerDashboard />, // Agora age apenas como um <Outlet />
             children: [
               { index: true, element: <DashboardHomeView /> },
               { path: 'students', element: <StudentsView /> },
@@ -90,9 +89,14 @@ const router = createBrowserRouter([
         children: [
           { 
             path: 'dashboard', 
-            element: <StudentDashboard />,
+            element: <StudentDashboard />, // Agora age apenas como um <Outlet />
             children: [
-              { index: true, element: <MyWorkoutsView /> },
+              // Correção: MyWorkoutsView precisa de props se não foi refatorado ainda.
+              // Mas como estamos mudando para rotas, o ideal é que MyWorkoutsView busque seus dados
+              // ou receba via Outlet context. Por enquanto, vamos assumir que ele buscará seus dados
+              // ou faremos o wrap necessário no Dashboard.tsx.
+              // Para simplificar a migração AGORA, vamos instanciar os componentes diretamente.
+              { index: true, element: <MyWorkoutsView /> }, 
               { path: 'chat', element: <StudentChatView /> },
               { path: 'announcements', element: <StudentAnnouncementsView /> },
             ]

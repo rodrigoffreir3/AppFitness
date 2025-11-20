@@ -5,36 +5,34 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
+import api from "@/services/api"; // Importar API
+import { useAuth } from "@/contexts/AuthContext"; // Importar AuthContext
 
 const StudentLogin = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      // TODO: Integrar com seu backend
-      // const response = await axios.post('YOUR_BACKEND_URL/api/students/login', { email, password });
-      // localStorage.setItem('student_token', response.data.token);
+      // POST para /api/students/login (via proxy)
+      const response = await api.post('/students/login', { email, password });
       
-      toast({
-        title: "Login realizado com sucesso!",
-        description: "Redirecionando para seu painel...",
-      });
+      const { token, branding } = response.data;
       
-      setTimeout(() => {
-        navigate("/student/dashboard");
-      }, 1000);
+      // Salva token e branding
+      login(token, 'student', branding?.logo_url, branding?.primary_color);
+      
+      toast({ title: "Login realizado!", description: "A redirecionar..." });
+      navigate("/student/dashboard");
     } catch (error) {
-      toast({
-        title: "Erro no login",
-        description: "Email ou senha incorretos",
-        variant: "destructive",
-      });
+      console.error(error);
+      toast({ title: "Erro no login", description: "Email ou senha incorretos", variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -45,33 +43,17 @@ const StudentLogin = () => {
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold text-center">Área do Aluno</CardTitle>
-          <CardDescription className="text-center">
-            Entre para acessar seus treinos
-          </CardDescription>
+          <CardDescription className="text-center">Entre para acessar seus treinos</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="seu@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
+              <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required disabled={loading} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Senha</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
+              <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required disabled={loading} />
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "Entrando..." : "Entrar"}
