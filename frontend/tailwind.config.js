@@ -5,7 +5,7 @@ module.exports = {
     './pages/**/*.{ts,tsx}',
     './components/**/*.{ts,tsx}',
     './app/**/*.{ts,tsx}',
-    './src/**/*.{ts,tsx}', // Esta linha garante que ele lê os seus arquivos
+    './src/**/*.{ts,tsx}', // Garante que lê tudo em src/
     './index.html',
   ],
   prefix: "",
