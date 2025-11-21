@@ -18,12 +18,17 @@ module.exports = {
       },
     },
     extend: {
-      // --- ADICIONE ISTO AQUI ---
+      // --- GRADIENTES CORRIGIDOS E SUAVIZADOS ---
       backgroundImage: {
-        // Define os gradientes usando as variáveis HSL do White Label
-        'gradient-primary': 'linear-gradient(to right, hsl(var(--primary)), hsl(var(--secondary)))',
-        'gradient-hero': 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)))',
-        'gradient-secondary': 'linear-gradient(to right, hsl(var(--secondary)), hsl(var(--primary)))',
+        // Gradiente suave: Da cor primária para uma versão transparente dela mesma (30% opacidade)
+        // Isso evita o "branco estourado" e cria um efeito elegante
+        'gradient-hero': 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.3))', 
+        
+        // Gradiente padrão (ex: logos e botões menores)
+        'gradient-primary': 'linear-gradient(to right, hsl(var(--primary)), hsl(var(--primary) / 0.8))',
+        
+        // Gradiente secundário
+        'gradient-secondary': 'linear-gradient(to right, hsl(var(--secondary)), hsl(var(--secondary) / 0.8))',
       },
       // ---------------------------
       colors: {
@@ -85,7 +90,6 @@ module.exports = {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
-        // Adicionei animações sutis que vi sendo usadas no Hero.tsx
         "float": {
           "0%, 100%": { transform: "translateY(0)" },
           "50%": { transform: "translateY(-20px)" },

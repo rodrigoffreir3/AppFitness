@@ -7,11 +7,13 @@ interface AuthContextType {
   primaryColor: string | null;
   login: (token: string, userType: 'trainer' | 'student', logoUrl?: string, primaryColor?: string) => void;
   logout: () => void;
+  updateBranding: (logo?: string, color?: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// --- FUNÇÃO AUXILIAR: Converte HEX (#ffffff) para HSL (0 0% 100%) ---
+// Função auxiliar para converter HEX (#ffffff) para HSL (0 0% 100%)
+// Isso é CRÍTICO para o Tailwind funcionar com opacidade (ex: bg-primary/10)
 const hexToHSL = (hex: string): string => {
   let r = 0, g = 0, b = 0;
   if (hex.length === 4) {
@@ -46,7 +48,7 @@ const hexToHSL = (hex: string): string => {
   s = +(s * 100).toFixed(1);
   l = +(l * 100).toFixed(1);
 
-  // Retorna no formato que o Tailwind espera (sem 'hsl()', apenas números)
+  // Retorna APENAS os números, sem 'hsl()', conforme esperado pelo Tailwind
   return `${h} ${s}% ${l}%`;
 };
 
@@ -56,15 +58,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [primaryColor, setPrimaryColor] = useState<string | null>(null);
 
-  // Função para aplicar a cor ao CSS
+  // Aplica a cor ao CSS Root convertendo para HSL
   const applyThemeColor = (colorHex: string) => {
     try {
       const hslValue = hexToHSL(colorHex);
       document.documentElement.style.setProperty('--primary', hslValue);
-      // Opcional: Ajustar também o 'ring' para foco
+      // Também ajustamos o ring para focar com a cor certa
       document.documentElement.style.setProperty('--ring', hslValue);
     } catch (e) {
-      console.error("Erro ao converter cor HEX para HSL:", e);
+      console.error("Erro ao aplicar cor:", e);
     }
   };
 
@@ -84,7 +86,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (storedLogo) setLogoUrl(storedLogo);
       if (storedColor) {
         setPrimaryColor(storedColor);
-        applyThemeColor(storedColor); // Aplica convertendo para HSL
+        applyThemeColor(storedColor);
       }
     }
   }, []);
@@ -97,6 +99,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setUserType(type);
     setIsAuthenticated(true);
 
+    // Usa a função unificada para salvar e aplicar
+    updateBranding(logo, color);
+  };
+
+  // Nova função exposta para atualizar a marca sem precisar relogar
+  const updateBranding = (logo?: string, color?: string) => {
     if (logo) {
       localStorage.setItem('appLogoUrl', logo);
       setLogoUrl(logo);
@@ -104,7 +112,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (color) {
       localStorage.setItem('appPrimaryColor', color);
       setPrimaryColor(color);
-      applyThemeColor(color); // Aplica convertendo para HSL
+      applyThemeColor(color);
     }
   };
 
@@ -119,9 +127,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setLogoUrl(null);
     setPrimaryColor(null);
     
-    // Remove a propriedade inline para voltar à cor definida no index.css
+    // Remove as variáveis CSS injetadas para voltar ao padrão (roxo do index.css)
     document.documentElement.style.removeProperty('--primary');
     document.documentElement.style.removeProperty('--ring');
+
+    // Força um reload para garantir limpeza total de qualquer estado residual
+    window.location.href = '/'; 
   };
 
   const value = {
@@ -131,6 +142,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     primaryColor,
     login,
     logout,
+    updateBranding, // Exportando a nova função
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

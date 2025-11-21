@@ -4,40 +4,35 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
-import api from "@/services/api"; // Importar API
-import { Loader2, AlertCircle } from "lucide-react"; // Importar ícones
+import api from "@/services/api";
+import { Loader2, AlertCircle } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext"; // Importando o hook
 
-// --- NOVO: Interfaces baseadas no trainers_handler.go ---
-// Resposta do GET /api/trainers/me
 interface TrainerProfile {
   name: string;
-  email: string; // Apenas para exibição, não editável aqui
+  email: string;
   brand_logo_url: string;
   brand_primary_color: string;
 }
 
-// Requisição do PUT /api/trainers/me
 interface UpdateTrainerRequest {
   name: string;
   brand_logo_url: string;
   brand_primary_color: string;
 }
-// --- FIM NOVO ---
 
 const WhiteLabelSettings = () => {
-  // --- ESTADOS ATUALIZADOS ---
+  const { updateBranding } = useAuth(); // Pegando a função de atualização
   const [settings, setSettings] = useState<UpdateTrainerRequest>({
     name: "",
     brand_logo_url: "",
-    brand_primary_color: "#3b82f6", // Cor padrão
+    brand_primary_color: "#3b82f6",
   });
-  const [email, setEmail] = useState(""); // Email não é editável, mas bom exibir
-  const [loading, setLoading] = useState(true); // Para carregar os dados
-  const [saving, setSaving] = useState(false); // Para o botão de salvar
+  const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  // --- FIM ESTADOS ATUALIZADOS ---
 
-  // --- NOVO: useEffect para buscar dados ---
   useEffect(() => {
     const fetchSettings = async () => {
       setLoading(true);
@@ -61,21 +56,19 @@ const WhiteLabelSettings = () => {
 
     fetchSettings();
   }, []);
-  // --- FIM NOVO ---
 
-  // --- ATUALIZADO: handleSave ---
   const handleSave = async () => {
     setSaving(true);
     try {
-      // O endpoint PUT /api/trainers/me aceita name, brand_logo_url, brand_primary_color
       await api.put('/api/trainers/me', settings);
+      
+      // Atualiza o contexto (e o CSS) imediatamente
+      updateBranding(settings.brand_logo_url, settings.brand_primary_color);
       
       toast({
         title: "Configurações salvas!",
         description: "Sua marca foi personalizada com sucesso.",
       });
-      
-      // Opcional: atualizar o AuthContext com as novas cores/logo
       
     } catch (err) {
       console.error("Erro ao salvar configurações:", err);
@@ -88,7 +81,6 @@ const WhiteLabelSettings = () => {
       setSaving(false);
     }
   };
-  // --- FIM ATUALIZADO ---
 
   if (loading) {
     return (
@@ -115,7 +107,6 @@ const WhiteLabelSettings = () => {
         <p className="text-muted-foreground">Configure a identidade visual da sua plataforma</p>
       </div>
 
-      {/* --- NOVO: Card de Informações Básicas --- */}
       <Card>
         <CardHeader>
           <CardTitle>Informações Básicas</CardTitle>
@@ -136,12 +127,11 @@ const WhiteLabelSettings = () => {
             <Input
               id="email"
               value={email}
-              disabled // Email não deve ser alterado por aqui
+              disabled
             />
           </div>
         </CardContent>
       </Card>
-      {/* --- FIM NOVO --- */}
 
       <Card>
         <CardHeader>
@@ -164,7 +154,7 @@ const WhiteLabelSettings = () => {
                 src={settings.brand_logo_url}
                 alt="Preview da logo"
                 className="h-16 object-contain"
-                onError={(e) => e.currentTarget.style.display = 'none'} // Esconde se a URL quebrar
+                onError={(e) => e.currentTarget.style.display = 'none'}
               />
             </div>
           )}
@@ -186,7 +176,7 @@ const WhiteLabelSettings = () => {
                   type="color"
                   value={settings.brand_primary_color}
                   onChange={(e) => setSettings({ ...settings, brand_primary_color: e.target.value })}
-                  className="w-20 h-10"
+                  className="w-20 h-10 cursor-pointer"
                 />
                 <Input
                   value={settings.brand_primary_color}
@@ -195,9 +185,6 @@ const WhiteLabelSettings = () => {
                 />
               </div>
             </div>
-            
-            {/* O campo "Cor Secundária" foi removido por não existir no backend */}
-
           </div>
         </CardContent>
       </Card>

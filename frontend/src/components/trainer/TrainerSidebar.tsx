@@ -45,7 +45,8 @@ const TrainerSidebar = () => {
             end={end}
             className={({ isActive }) =>
               cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:bg-muted hover:text-primary",
+                // CORREÇÃO: Usando text-slate-600 para garantir contraste
+                "flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 transition-all hover:bg-primary/10 hover:text-primary",
                 isCollapsed && "justify-center",
                 isActive && "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
               )
@@ -101,7 +102,7 @@ const TrainerSidebar = () => {
                 variant="ghost"
                 onClick={logout}
                 className={cn(
-                  "w-full justify-start gap-3 text-muted-foreground hover:text-destructive",
+                  "w-full justify-start gap-3 text-slate-600 hover:text-destructive hover:bg-destructive/10",
                   isCollapsed && "justify-center px-0"
                 )}
               >
@@ -117,7 +118,7 @@ const TrainerSidebar = () => {
       <Button
         variant="outline"
         size="icon"
-        className="absolute top-1/2 -right-4 h-8 w-8 rounded-full"
+        className="absolute top-1/2 -right-4 h-8 w-8 rounded-full bg-background border shadow-md"
         onClick={() => setIsCollapsed(!isCollapsed)}
       >
         {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
