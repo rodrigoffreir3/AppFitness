@@ -1,11 +1,11 @@
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Palette, Users, MessageSquare, Dumbbell } from "lucide-react";
-import { Link } from "react-router-dom"; // Importar Link
+import { Link } from "react-router-dom";
 
 const Hero = () => {
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-background via-muted/20 to-background">
-      {/* ... (Backgrounds mantidos iguais) ... */}
+      {/* Background decoration */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute top-20 left-10 w-72 h-72 bg-primary/10 rounded-full blur-3xl animate-float" />
         <div className="absolute bottom-20 right-10 w-96 h-96 bg-secondary/10 rounded-full blur-3xl animate-float" style={{ animationDelay: "1s" }} />
@@ -30,20 +30,21 @@ const Hero = () => {
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-fade-in-up" style={{ animationDelay: "0.2s" }}>
-            {/* Botão Principal ligado ao cadastro */}
+            {/* Botão Principal: Vai para Cadastro */}
             <Button size="lg" variant="hero" className="text-lg px-8 py-6 h-auto" asChild>
               <Link to="/signup/trainer">
                 Comece Agora <ArrowRight className="ml-2 w-5 h-5" />
               </Link>
             </Button>
-            <Button size="lg" variant="outline" className="text-lg px-8 py-6 h-auto">
-              Ver Demonstração
+            
+            {/* Botão Secundário: Vai para Recursos */}
+            <Button size="lg" variant="outline" className="text-lg px-8 py-6 h-auto" asChild>
+              <a href="#recursos">Ver Demonstração</a>
             </Button>
           </div>
 
-          {/* ... (Grid de features mantido igual) ... */}
+          {/* Grid de Features (Mantida, apenas omitida para brevidade) */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 pt-12 animate-fade-in-up" style={{ animationDelay: "0.3s" }}>
-             {/* (Conteúdo da grid omitido para poupar espaço, mantenha o original) */}
              <div className="flex flex-col items-center gap-2 p-4 rounded-lg bg-card/50 backdrop-blur-sm border border-border hover:border-primary/50 transition-all hover:shadow-md">
               <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
                 <Palette className="w-6 h-6 text-primary" />

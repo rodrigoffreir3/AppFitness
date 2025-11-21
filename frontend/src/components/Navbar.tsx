@@ -1,7 +1,13 @@
 import { Button } from "@/components/ui/button";
-import { Dumbbell, Menu } from "lucide-react";
+import { Dumbbell, Menu, User, Users } from "lucide-react";
 import { useState } from "react";
-import { Link } from "react-router-dom"; // Importar Link
+import { Link } from "react-router-dom";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const Navbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -10,6 +16,7 @@ const Navbar = () => {
     <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-lg border-b border-border">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
+          {/* Logo */}
           <div className="flex items-center gap-2">
             <div className="w-10 h-10 rounded-lg bg-gradient-primary flex items-center justify-center">
               <Dumbbell className="w-6 h-6 text-primary-foreground" />
@@ -19,6 +26,7 @@ const Navbar = () => {
             </span>
           </div>
 
+          {/* Links Desktop */}
           <div className="hidden md:flex items-center gap-8">
             <a href="#recursos" className="text-foreground/80 hover:text-foreground transition-colors">Recursos</a>
             <a href="#personalizacao" className="text-foreground/80 hover:text-foreground transition-colors">Personalização</a>
@@ -26,28 +34,53 @@ const Navbar = () => {
             <a href="#contato" className="text-foreground/80 hover:text-foreground transition-colors">Contato</a>
           </div>
 
+          {/* Botões Desktop */}
           <div className="hidden md:flex items-center gap-3">
-            {/* Botão Entrar -> Login Treinador */}
-            <Button variant="ghost" asChild>
-              <Link to="/login/trainer">Entrar</Link>
-            </Button>
-            {/* Botão Começar Agora -> Cadastro Treinador */}
+            {/* Dropdown de Login Melhorado */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost">Entrar</Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem asChild>
+                  <Link to="/login/trainer" className="cursor-pointer flex items-center gap-2">
+                    <User className="w-4 h-4" />
+                    Sou Treinador
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/login/student" className="cursor-pointer flex items-center gap-2">
+                    <Users className="w-4 h-4" />
+                    Sou Aluno
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* CTA */}
             <Button variant="gradient" asChild>
               <Link to="/signup/trainer">Começar Agora</Link>
             </Button>
           </div>
 
+          {/* Mobile Toggle */}
           <button className="md:hidden" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
             <Menu className="w-6 h-6" />
           </button>
         </div>
 
+        {/* Mobile Menu */}
         {mobileMenuOpen && (
           <div className="md:hidden py-4 space-y-4 border-t border-border animate-fade-in">
-            <div className="pt-4 space-y-2">
-              <Button variant="ghost" className="w-full" asChild onClick={() => setMobileMenuOpen(false)}>
-                <Link to="/login/trainer">Entrar</Link>
+            <div className="flex flex-col gap-2 pt-4">
+              <p className="px-4 text-sm font-semibold text-muted-foreground">Login</p>
+              <Button variant="ghost" className="w-full justify-start" asChild onClick={() => setMobileMenuOpen(false)}>
+                <Link to="/login/trainer">Sou Treinador</Link>
               </Button>
+              <Button variant="ghost" className="w-full justify-start" asChild onClick={() => setMobileMenuOpen(false)}>
+                <Link to="/login/student">Sou Aluno</Link>
+              </Button>
+              <div className="h-px bg-border my-2 mx-4" />
               <Button variant="gradient" className="w-full" asChild onClick={() => setMobileMenuOpen(false)}>
                 <Link to="/signup/trainer">Começar Agora</Link>
               </Button>

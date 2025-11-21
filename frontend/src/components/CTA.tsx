@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Check } from "lucide-react";
+import { Link } from "react-router-dom";
 
 const CTA = () => {
   return (
@@ -24,11 +25,16 @@ const CTA = () => {
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Button size="lg" variant="hero" className="text-lg px-10 py-7 h-auto">
-              Comece Gratuitamente <ArrowRight className="ml-2 w-5 h-5" />
+            {/* Fluxo de "Comece Grátis" vai para Cadastro de Treinador */}
+            <Button size="lg" variant="hero" className="text-lg px-10 py-7 h-auto" asChild>
+              <Link to="/signup/trainer">
+                Comece Gratuitamente <ArrowRight className="ml-2 w-5 h-5" />
+              </Link>
             </Button>
-            <Button size="lg" variant="outline" className="text-lg px-10 py-7 h-auto">
-              Falar com Especialista
+            
+            {/* Contato simples via email por enquanto */}
+            <Button size="lg" variant="outline" className="text-lg px-10 py-7 h-auto" asChild>
+              <a href="mailto:contato@appfitness.com">Falar com Especialista</a>
             </Button>
           </div>
 
