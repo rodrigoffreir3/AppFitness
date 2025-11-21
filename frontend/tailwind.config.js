@@ -5,7 +5,7 @@ module.exports = {
     './pages/**/*.{ts,tsx}',
     './components/**/*.{ts,tsx}',
     './app/**/*.{ts,tsx}',
-    './src/**/*.{ts,tsx}', // Garante que lê a pasta src
+    './src/**/*.{ts,tsx}',
     './index.html',
   ],
   prefix: "",
@@ -18,6 +18,14 @@ module.exports = {
       },
     },
     extend: {
+      // --- ADICIONE ISTO AQUI ---
+      backgroundImage: {
+        // Define os gradientes usando as variáveis HSL do White Label
+        'gradient-primary': 'linear-gradient(to right, hsl(var(--primary)), hsl(var(--secondary)))',
+        'gradient-hero': 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)))',
+        'gradient-secondary': 'linear-gradient(to right, hsl(var(--secondary)), hsl(var(--primary)))',
+      },
+      // ---------------------------
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -77,10 +85,21 @@ module.exports = {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
+        // Adicionei animações sutis que vi sendo usadas no Hero.tsx
+        "float": {
+          "0%, 100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(-20px)" },
+        },
+        "fade-in-up": {
+          "0%": { opacity: "0", transform: "translateY(20px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "float": "float 6s ease-in-out infinite",
+        "fade-in-up": "fade-in-up 0.8s ease-out forwards",
       },
     },
   },

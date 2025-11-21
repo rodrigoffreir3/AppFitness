@@ -1,7 +1,5 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
-// import api from '@/services/api'; // <--- Esta linha foi removida (estava a causar um aviso no build)
 
-// --- 1. ATUALIZAR O TIPO DO CONTEXTO ---
 interface AuthContextType {
   isAuthenticated: boolean;
   userType: 'trainer' | 'student' | null;
@@ -13,17 +11,64 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// --- FUNÇÃO AUXILIAR: Converte HEX (#ffffff) para HSL (0 0% 100%) ---
+const hexToHSL = (hex: string): string => {
+  let r = 0, g = 0, b = 0;
+  if (hex.length === 4) {
+    r = parseInt("0x" + hex[1] + hex[1]);
+    g = parseInt("0x" + hex[2] + hex[2]);
+    b = parseInt("0x" + hex[3] + hex[3]);
+  } else if (hex.length === 7) {
+    r = parseInt("0x" + hex[1] + hex[2]);
+    g = parseInt("0x" + hex[3] + hex[4]);
+    b = parseInt("0x" + hex[5] + hex[6]);
+  }
+  r /= 255;
+  g /= 255;
+  b /= 255;
+  const cmin = Math.min(r, g, b),
+    cmax = Math.max(r, g, b),
+    delta = cmax - cmin;
+  let h = 0,
+    s = 0,
+    l = 0;
+
+  if (delta === 0) h = 0;
+  else if (cmax === r) h = ((g - b) / delta) % 6;
+  else if (cmax === g) h = (b - r) / delta + 2;
+  else h = (r - g) / delta + 4;
+
+  h = Math.round(h * 60);
+  if (h < 0) h += 360;
+
+  l = (cmax + cmin) / 2;
+  s = delta === 0 ? 0 : delta / (1 - Math.abs(2 * l - 1));
+  s = +(s * 100).toFixed(1);
+  l = +(l * 100).toFixed(1);
+
+  // Retorna no formato que o Tailwind espera (sem 'hsl()', apenas números)
+  return `${h} ${s}% ${l}%`;
+};
+
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userType, setUserType] = useState<'trainer' | 'student' | null>(null);
-
-  // --- 2. ADICIONAR ESTADOS PARA O BRANDING ---
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [primaryColor, setPrimaryColor] = useState<string | null>(null);
 
-  // --- 3. ATUALIZAR O useEffect PARA CARREGAR TUDO ---
+  // Função para aplicar a cor ao CSS
+  const applyThemeColor = (colorHex: string) => {
+    try {
+      const hslValue = hexToHSL(colorHex);
+      document.documentElement.style.setProperty('--primary', hslValue);
+      // Opcional: Ajustar também o 'ring' para foco
+      document.documentElement.style.setProperty('--ring', hslValue);
+    } catch (e) {
+      console.error("Erro ao converter cor HEX para HSL:", e);
+    }
+  };
+
   useEffect(() => {
-    // Tenta carregar o token de treinador ou aluno
     const trainerToken = localStorage.getItem('trainerAuthToken');
     const studentToken = localStorage.getItem('studentAuthToken');
     const storedLogo = localStorage.getItem('appLogoUrl');
@@ -36,19 +81,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setIsAuthenticated(true);
       setUserType(type);
       
-      // Aplicar branding guardado
       if (storedLogo) setLogoUrl(storedLogo);
       if (storedColor) {
         setPrimaryColor(storedColor);
-        // Aplica a cor ao CSS root (para o tailwind usar)
-        document.documentElement.style.setProperty('--primary', storedColor);
+        applyThemeColor(storedColor); // Aplica convertendo para HSL
       }
     }
   }, []);
 
-  // --- 4. ATUALIZAR A FUNÇÃO LOGIN PARA ACEITAR 4 ARGUMENTOS ---
   const login = (token: string, type: 'trainer' | 'student', logo?: string, color?: string) => {
-    // Guardar o token
     localStorage.setItem(
       type === 'trainer' ? 'trainerAuthToken' : 'studentAuthToken',
       token
@@ -56,7 +97,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setUserType(type);
     setIsAuthenticated(true);
 
-    // Guardar o branding
     if (logo) {
       localStorage.setItem('appLogoUrl', logo);
       setLogoUrl(logo);
@@ -64,28 +104,26 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (color) {
       localStorage.setItem('appPrimaryColor', color);
       setPrimaryColor(color);
-      // Aplica a cor imediatamente
-      document.documentElement.style.setProperty('--primary', color);
+      applyThemeColor(color); // Aplica convertendo para HSL
     }
   };
 
-  // --- 5. ATUALIZAR O LOGOUT PARA LIMPAR TUDO ---
   const logout = () => {
     localStorage.removeItem('trainerAuthToken');
     localStorage.removeItem('studentAuthToken');
     localStorage.removeItem('appLogoUrl');
-    localStorage.removeItem('appPrimaryColor'); // Limpar branding
+    localStorage.removeItem('appPrimaryColor');
     
     setIsAuthenticated(false);
     setUserType(null);
-    setLogoUrl(null); // Limpar estado
+    setLogoUrl(null);
     setPrimaryColor(null);
     
-    // Resetar a cor para o padrão
+    // Remove a propriedade inline para voltar à cor definida no index.css
     document.documentElement.style.removeProperty('--primary');
+    document.documentElement.style.removeProperty('--ring');
   };
 
-  // --- 6. PASSAR OS NOVOS VALORES ---
   const value = {
     isAuthenticated,
     userType,
