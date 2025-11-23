@@ -6,27 +6,30 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { toast } from "@/hooks/use-toast";
 import api from "@/services/api";
 import { Loader2, AlertCircle } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext"; // Importando o hook
+import { useAuth } from "@/contexts/AuthContext";
 
 interface TrainerProfile {
   name: string;
   email: string;
   brand_logo_url: string;
   brand_primary_color: string;
+  brand_secondary_color: string;
 }
 
 interface UpdateTrainerRequest {
   name: string;
   brand_logo_url: string;
   brand_primary_color: string;
+  brand_secondary_color: string;
 }
 
 const WhiteLabelSettings = () => {
-  const { updateBranding } = useAuth(); // Pegando a função de atualização
+  const { updateBranding } = useAuth();
   const [settings, setSettings] = useState<UpdateTrainerRequest>({
     name: "",
     brand_logo_url: "",
     brand_primary_color: "#3b82f6",
+    brand_secondary_color: "#000000",
   });
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(true);
@@ -38,14 +41,19 @@ const WhiteLabelSettings = () => {
       setLoading(true);
       setError("");
       try {
+        // O axios já adiciona /api automaticamente aqui
         const response = await api.get<TrainerProfile>('/trainers/me');
         const data = response.data;
         setSettings({
           name: data.name || "",
           brand_logo_url: data.brand_logo_url || "",
           brand_primary_color: data.brand_primary_color || "#3b82f6",
+          brand_secondary_color: data.brand_secondary_color || "#000000",
         });
         setEmail(data.email || "");
+        
+        // Sincroniza o contexto para garantir que o que está na tela é o que está no banco
+        updateBranding(data.brand_logo_url, data.brand_primary_color, data.brand_secondary_color);
       } catch (err) {
         console.error("Erro ao buscar configurações:", err);
         setError("Não foi possível carregar suas configurações.");
@@ -60,21 +68,25 @@ const WhiteLabelSettings = () => {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await api.put('/api/trainers/me', settings);
+      // CORREÇÃO AQUI: Removido o '/api' extra. 
+      // O axios transformará '/trainers/me' em '/api/trainers/me' corretamente.
+      await api.put('/trainers/me', settings);
       
-      // Atualiza o contexto (e o CSS) imediatamente
-      updateBranding(settings.brand_logo_url, settings.brand_primary_color);
+      updateBranding(
+        settings.brand_logo_url, 
+        settings.brand_primary_color,
+        settings.brand_secondary_color
+      );
       
       toast({
-        title: "Configurações salvas!",
-        description: "Sua marca foi personalizada com sucesso.",
+        title: "Sucesso!",
+        description: "Identidade visual atualizada.",
       });
-      
     } catch (err) {
       console.error("Erro ao salvar configurações:", err);
       toast({
         title: "Erro ao salvar",
-        description: "Não foi possível salvar suas configurações. Tente novamente.",
+        description: "Não foi possível salvar. Tente novamente.",
         variant: "destructive",
       });
     } finally {
@@ -149,7 +161,7 @@ const WhiteLabelSettings = () => {
             />
           </div>
           {settings.brand_logo_url && (
-            <div className="border rounded-lg p-4 bg-muted">
+            <div className="border rounded-lg p-4 bg-muted flex justify-center">
               <img
                 src={settings.brand_logo_url}
                 alt="Preview da logo"
@@ -164,34 +176,54 @@ const WhiteLabelSettings = () => {
       <Card>
         <CardHeader>
           <CardTitle>Cores</CardTitle>
-          <CardDescription>Defina a cor primária da sua marca.</CardDescription>
+          <CardDescription>Escolha as cores principais do seu App.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="primaryColor">Cor Primária</Label>
-              <div className="flex gap-2 items-center mt-2">
-                <Input
-                  id="primaryColor"
-                  type="color"
-                  value={settings.brand_primary_color}
-                  onChange={(e) => setSettings({ ...settings, brand_primary_color: e.target.value })}
-                  className="w-20 h-10 cursor-pointer"
-                />
-                <Input
-                  value={settings.brand_primary_color}
-                  onChange={(e) => setSettings({ ...settings, brand_primary_color: e.target.value })}
-                  placeholder="#3b82f6"
-                />
-              </div>
+        <CardContent className="grid gap-6 sm:grid-cols-2">
+          {/* Cor Primária */}
+          <div>
+            <Label htmlFor="primaryColor">Cor Primária</Label>
+            <div className="flex gap-2 items-center mt-2">
+              <Input
+                id="primaryColor"
+                type="color"
+                value={settings.brand_primary_color}
+                onChange={(e) => setSettings({ ...settings, brand_primary_color: e.target.value })}
+                className="w-12 h-10 p-1 cursor-pointer"
+              />
+              <Input
+                value={settings.brand_primary_color}
+                onChange={(e) => setSettings({ ...settings, brand_primary_color: e.target.value })}
+                placeholder="#3b82f6"
+              />
             </div>
+            <p className="text-xs text-muted-foreground mt-1">Cabeçalho, Botões, Destaques.</p>
+          </div>
+
+          {/* Cor Secundária */}
+          <div>
+            <Label htmlFor="secondaryColor">Cor Secundária</Label>
+            <div className="flex gap-2 items-center mt-2">
+              <Input
+                id="secondaryColor"
+                type="color"
+                value={settings.brand_secondary_color}
+                onChange={(e) => setSettings({ ...settings, brand_secondary_color: e.target.value })}
+                className="w-12 h-10 p-1 cursor-pointer"
+              />
+              <Input
+                value={settings.brand_secondary_color}
+                onChange={(e) => setSettings({ ...settings, brand_secondary_color: e.target.value })}
+                placeholder="#000000"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">Rodapé, Detalhes, Bordas.</p>
           </div>
         </CardContent>
       </Card>
 
       <Button onClick={handleSave} className="w-full" disabled={saving}>
         {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-        {saving ? "Salvando..." : "Salvar Configurações"}
+        {saving ? "Salvar Alterações" : "Salvar Configurações"}
       </Button>
     </div>
   );

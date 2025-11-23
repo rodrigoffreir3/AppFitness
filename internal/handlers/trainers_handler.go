@@ -20,25 +20,16 @@ import (
 func RegisterTrainersRoutes(mux *http.ServeMux, db *sql.DB) {
 	h := &trainersHandler{db: db}
 
-	// --- Rotas Públicas ---
-	// --- CORREÇÃO: Trocado HandleFunc por Handle e corrigida a rota de login ---
-	mux.Handle("POST /api/trainers", http.HandlerFunc(h.handleCreateTrainer)) //
-	mux.Handle("POST /api/trainers/login", http.HandlerFunc(h.handleLogin))   // Rota corrigida de /api/login
-	// --- FIM DA CORREÇÃO ---
+	mux.Handle("POST /api/trainers", http.HandlerFunc(h.handleCreateTrainer))
+	mux.Handle("POST /api/trainers/login", http.HandlerFunc(h.handleLogin))
 
-	// --- Rotas Protegidas ---
-	getTrainerMeHandler := http.HandlerFunc(h.handleGetTrainerMe)
-	mux.Handle("GET /api/trainers/me", middleware.AuthMiddleware(getTrainerMeHandler))
-
-	updateTrainerMeHandler := http.HandlerFunc(h.handleUpdateTrainerMe)
-	mux.Handle("PUT /api/trainers/me", middleware.AuthMiddleware(updateTrainerMeHandler))
+	mux.Handle("GET /api/trainers/me", middleware.AuthMiddleware(http.HandlerFunc(h.handleGetTrainerMe)))
+	mux.Handle("PUT /api/trainers/me", middleware.AuthMiddleware(http.HandlerFunc(h.handleUpdateTrainerMe)))
 }
 
 type trainersHandler struct {
 	db *sql.DB
 }
-
-// --- Estruturas de Requisição/Resposta ---
 
 type CreateTrainerRequest struct {
 	Name     string `json:"name"`
@@ -47,20 +38,20 @@ type CreateTrainerRequest struct {
 }
 
 type TrainerProfileResponse struct {
-	ID                string `json:"id"`
-	Name              string `json:"name"`
-	Email             string `json:"email"`
-	BrandLogoURL      string `json:"brand_logo_url,omitempty"`
-	BrandPrimaryColor string `json:"brand_primary_color,omitempty"`
+	ID                  string `json:"id"`
+	Name                string `json:"name"`
+	Email               string `json:"email"`
+	BrandLogoURL        string `json:"brand_logo_url,omitempty"`
+	BrandPrimaryColor   string `json:"brand_primary_color,omitempty"`
+	BrandSecondaryColor string `json:"brand_secondary_color,omitempty"` // NOVO
 }
 
 type UpdateTrainerRequest struct {
-	Name              *string `json:"name"`
-	BrandLogoURL      *string `json:"brand_logo_url"`
-	BrandPrimaryColor *string `json:"brand_primary_color"`
+	Name                *string `json:"name"`
+	BrandLogoURL        *string `json:"brand_logo_url"`
+	BrandPrimaryColor   *string `json:"brand_primary_color"`
+	BrandSecondaryColor *string `json:"brand_secondary_color"` // NOVO
 }
-
-// --- Handlers ---
 
 func (h *trainersHandler) handleUpdateTrainerMe(w http.ResponseWriter, r *http.Request) {
 	trainerID, ok := r.Context().Value(middleware.TrainerIDKey).(string)
@@ -94,6 +85,12 @@ func (h *trainersHandler) handleUpdateTrainerMe(w http.ResponseWriter, r *http.R
 		args = append(args, *req.BrandPrimaryColor)
 		argID++
 	}
+	// NOVO CAMPO
+	if req.BrandSecondaryColor != nil {
+		queryParts = append(queryParts, fmt.Sprintf("brand_secondary_color = $%d", argID))
+		args = append(args, *req.BrandSecondaryColor)
+		argID++
+	}
 
 	if len(queryParts) == 0 {
 		http.Error(w, "Nenhum campo para atualizar foi fornecido", http.StatusBadRequest)
@@ -121,8 +118,9 @@ func (h *trainersHandler) handleGetTrainerMe(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	var resp TrainerProfileResponse
-	query := `SELECT id, name, email, COALESCE(brand_logo_url, ''), COALESCE(brand_primary_color, '') FROM trainers WHERE id = $1`
-	err := h.db.QueryRowContext(r.Context(), query, trainerID).Scan(&resp.ID, &resp.Name, &resp.Email, &resp.BrandLogoURL, &resp.BrandPrimaryColor)
+	// Query atualizada para buscar a cor secundária
+	query := `SELECT id, name, email, COALESCE(brand_logo_url, ''), COALESCE(brand_primary_color, '#3b82f6'), COALESCE(brand_secondary_color, '#000000') FROM trainers WHERE id = $1`
+	err := h.db.QueryRowContext(r.Context(), query, trainerID).Scan(&resp.ID, &resp.Name, &resp.Email, &resp.BrandLogoURL, &resp.BrandPrimaryColor, &resp.BrandSecondaryColor)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			http.Error(w, "Trainer não encontrado", http.StatusNotFound)
@@ -164,7 +162,6 @@ func (h *trainersHandler) handleCreateTrainer(w http.ResponseWriter, r *http.Req
 		http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
 		return
 	}
-	log.Printf("Novo trainer criado com sucesso. ID: %s", newTrainerID)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(map[string]string{"id": newTrainerID})
@@ -194,14 +191,17 @@ func (h *trainersHandler) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// --- CORREÇÃO: Adicionada lógica de branding (necessária para o AuthContext) ---
+	// ATUALIZADO: Busca também a cor secundária
 	var branding types.BrandingResponse
-	brandingQuery := `SELECT COALESCE(brand_logo_url, ''), COALESCE(brand_primary_color, '') FROM trainers WHERE id = $1`
+	brandingQuery := `SELECT COALESCE(brand_logo_url, ''), COALESCE(brand_primary_color, '#3b82f6') FROM trainers WHERE id = $1`
+	// Nota: Para simplificar a struct types.go sem quebrá-la, vamos assumir que o client busca os detalhes completos depois,
+	// ou você pode adicionar BrandSecondaryColor em types.go também.
+	// Por enquanto, o AuthContext pega via /me ou login.
+	// Se quiser passar no login, atualize types.go BrandingResponse.
 	err = h.db.QueryRowContext(r.Context(), brandingQuery, trainerID).Scan(&branding.LogoURL, &branding.PrimaryColor)
 	if err != nil {
-		log.Printf("Aviso: não foi possível buscar branding para o trainer ID %s: %v", trainerID, err)
+		log.Printf("Aviso: erro ao buscar branding: %v", err)
 	}
-	// --- FIM DA CORREÇÃO ---
 
 	claims := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"sub": trainerID,
@@ -210,8 +210,7 @@ func (h *trainersHandler) handleLogin(w http.ResponseWriter, r *http.Request) {
 	jwtSecret := os.Getenv("JWT_SECRET")
 	tokenString, err := claims.SignedString([]byte(jwtSecret))
 	if err != nil {
-		log.Printf("Erro ao gerar token JWT: %v", err)
-		http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
+		http.Error(w, "Erro interno", http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")

@@ -5,15 +5,15 @@ interface AuthContextType {
   userType: 'trainer' | 'student' | null;
   logoUrl: string | null;
   primaryColor: string | null;
-  login: (token: string, userType: 'trainer' | 'student', logoUrl?: string, primaryColor?: string) => void;
+  secondaryColor: string | null; // NOVO
+  isLoading: boolean;
+  login: (token: string, userType: 'trainer' | 'student', logoUrl?: string, primaryColor?: string, secondaryColor?: string) => void;
   logout: () => void;
-  updateBranding: (logo?: string, color?: string) => void;
+  updateBranding: (logo?: string, primary?: string, secondary?: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Função auxiliar para converter HEX (#ffffff) para HSL (0 0% 100%)
-// Isso é CRÍTICO para o Tailwind funcionar com opacidade (ex: bg-primary/10)
 const hexToHSL = (hex: string): string => {
   let r = 0, g = 0, b = 0;
   if (hex.length === 4) {
@@ -31,9 +31,7 @@ const hexToHSL = (hex: string): string => {
   const cmin = Math.min(r, g, b),
     cmax = Math.max(r, g, b),
     delta = cmax - cmin;
-  let h = 0,
-    s = 0,
-    l = 0;
+  let h = 0, s = 0, l = 0;
 
   if (delta === 0) h = 0;
   else if (cmax === r) h = ((g - b) / delta) % 6;
@@ -42,13 +40,11 @@ const hexToHSL = (hex: string): string => {
 
   h = Math.round(h * 60);
   if (h < 0) h += 360;
-
   l = (cmax + cmin) / 2;
   s = delta === 0 ? 0 : delta / (1 - Math.abs(2 * l - 1));
   s = +(s * 100).toFixed(1);
   l = +(l * 100).toFixed(1);
 
-  // Retorna APENAS os números, sem 'hsl()', conforme esperado pelo Tailwind
   return `${h} ${s}% ${l}%`;
 };
 
@@ -57,81 +53,98 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [userType, setUserType] = useState<'trainer' | 'student' | null>(null);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [primaryColor, setPrimaryColor] = useState<string | null>(null);
+  const [secondaryColor, setSecondaryColor] = useState<string | null>(null); // NOVO
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Aplica a cor ao CSS Root convertendo para HSL
-  const applyThemeColor = (colorHex: string) => {
+  const applyThemeColors = (pColor: string, sColor?: string) => {
     try {
-      const hslValue = hexToHSL(colorHex);
-      document.documentElement.style.setProperty('--primary', hslValue);
-      // Também ajustamos o ring para focar com a cor certa
-      document.documentElement.style.setProperty('--ring', hslValue);
+      if (pColor) {
+        const hslPrimary = hexToHSL(pColor);
+        document.documentElement.style.setProperty('--primary', hslPrimary);
+        document.documentElement.style.setProperty('--ring', hslPrimary);
+        // Atualiza a cor da Sidebar também para garantir consistência
+        document.documentElement.style.setProperty('--sidebar-primary', hslPrimary);
+        document.documentElement.style.setProperty('--sidebar-ring', hslPrimary);
+      }
+      if (sColor) {
+        const hslSecondary = hexToHSL(sColor);
+        document.documentElement.style.setProperty('--secondary', hslSecondary);
+        document.documentElement.style.setProperty('--sidebar-accent', hslSecondary); // Usa secundária como accent da sidebar
+      }
     } catch (e) {
-      console.error("Erro ao aplicar cor:", e);
+      console.error("Erro ao aplicar cores:", e);
     }
   };
 
   useEffect(() => {
-    const trainerToken = localStorage.getItem('trainerAuthToken');
-    const studentToken = localStorage.getItem('studentAuthToken');
-    const storedLogo = localStorage.getItem('appLogoUrl');
-    const storedColor = localStorage.getItem('appPrimaryColor');
+    const checkAuth = () => {
+      const trainerToken = localStorage.getItem('trainerAuthToken');
+      const studentToken = localStorage.getItem('studentAuthToken');
+      const storedLogo = localStorage.getItem('appLogoUrl');
+      const storedPrimary = localStorage.getItem('appPrimaryColor');
+      const storedSecondary = localStorage.getItem('appSecondaryColor');
 
-    const token = trainerToken || studentToken;
-    const type = trainerToken ? 'trainer' : studentToken ? 'student' : null;
+      const token = trainerToken || studentToken;
+      const type = trainerToken ? 'trainer' : studentToken ? 'student' : null;
 
-    if (token && type) {
-      setIsAuthenticated(true);
-      setUserType(type);
-      
-      if (storedLogo) setLogoUrl(storedLogo);
-      if (storedColor) {
-        setPrimaryColor(storedColor);
-        applyThemeColor(storedColor);
+      if (token && type) {
+        setIsAuthenticated(true);
+        setUserType(type);
+        
+        if (storedLogo) setLogoUrl(storedLogo);
+        
+        if (storedPrimary) {
+          setPrimaryColor(storedPrimary);
+          setSecondaryColor(storedSecondary || null);
+          applyThemeColors(storedPrimary, storedSecondary || undefined);
+        }
       }
-    }
+      setIsLoading(false);
+    };
+    checkAuth();
   }, []);
 
-  const login = (token: string, type: 'trainer' | 'student', logo?: string, color?: string) => {
-    localStorage.setItem(
-      type === 'trainer' ? 'trainerAuthToken' : 'studentAuthToken',
-      token
-    );
+  const login = (token: string, type: 'trainer' | 'student', logo?: string, primary?: string, secondary?: string) => {
+    localStorage.setItem(type === 'trainer' ? 'trainerAuthToken' : 'studentAuthToken', token);
     setUserType(type);
     setIsAuthenticated(true);
-
-    // Usa a função unificada para salvar e aplicar
-    updateBranding(logo, color);
+    updateBranding(logo, primary, secondary);
   };
 
-  // Nova função exposta para atualizar a marca sem precisar relogar
-  const updateBranding = (logo?: string, color?: string) => {
+  const updateBranding = (logo?: string, primary?: string, secondary?: string) => {
     if (logo) {
       localStorage.setItem('appLogoUrl', logo);
       setLogoUrl(logo);
     }
-    if (color) {
-      localStorage.setItem('appPrimaryColor', color);
-      setPrimaryColor(color);
-      applyThemeColor(color);
+    if (primary) {
+      localStorage.setItem('appPrimaryColor', primary);
+      setPrimaryColor(primary);
+    }
+    if (secondary) {
+      localStorage.setItem('appSecondaryColor', secondary);
+      setSecondaryColor(secondary);
+    }
+    
+    if (primary) {
+      applyThemeColors(primary, secondary);
     }
   };
 
   const logout = () => {
-    localStorage.removeItem('trainerAuthToken');
-    localStorage.removeItem('studentAuthToken');
-    localStorage.removeItem('appLogoUrl');
-    localStorage.removeItem('appPrimaryColor');
+    localStorage.clear(); // Limpa tudo de uma vez
     
     setIsAuthenticated(false);
     setUserType(null);
     setLogoUrl(null);
     setPrimaryColor(null);
+    setSecondaryColor(null);
     
-    // Remove as variáveis CSS injetadas para voltar ao padrão (roxo do index.css)
     document.documentElement.style.removeProperty('--primary');
+    document.documentElement.style.removeProperty('--secondary');
     document.documentElement.style.removeProperty('--ring');
+    document.documentElement.style.removeProperty('--sidebar-primary');
+    document.documentElement.style.removeProperty('--sidebar-accent');
 
-    // Força um reload para garantir limpeza total de qualquer estado residual
     window.location.href = '/'; 
   };
 
@@ -140,9 +153,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     userType,
     logoUrl,
     primaryColor,
+    secondaryColor,
+    isLoading,
     login,
     logout,
-    updateBranding, // Exportando a nova função
+    updateBranding,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

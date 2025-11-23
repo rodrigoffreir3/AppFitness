@@ -24,7 +24,6 @@ const StudentSidebar = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const location = useLocation();
 
-  // Links de navegação do aluno
   const navLinks = [
     { to: "/student/dashboard", icon: LayoutDashboard, label: "Meus Treinos", end: true },
     { to: "/student/dashboard/chat", icon: MessageSquare, label: "Chat", end: false },
@@ -38,18 +37,18 @@ const StudentSidebar = () => {
         isCollapsed ? "w-20" : "w-64"
       )}
     >
-      {/* Cabeçalho / Logo */}
-      <div className="flex h-16 items-center border-b px-6 overflow-hidden">
+      {/* Cabeçalho com Cor Primária */}
+      <div className="flex h-16 items-center border-b px-6 overflow-hidden bg-primary text-primary-foreground">
         <div className={cn("flex items-center gap-2 font-semibold", isCollapsed && "justify-center w-full")}>
           {logoUrl ? (
             <img src={logoUrl} alt="Logo" className={cn("object-contain transition-all", isCollapsed ? "h-10 w-10" : "h-8")} />
           ) : (
             <div className="flex items-center gap-2 whitespace-nowrap">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shrink-0">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-foreground/20 text-primary-foreground shrink-0">
                 <Dumbbell className="h-5 w-5" />
               </div>
               {!isCollapsed && (
-                <span className="text-lg font-bold text-primary">
+                <span className="text-lg font-bold">
                   AppFitness
                 </span>
               )}
@@ -73,7 +72,8 @@ const StudentSidebar = () => {
                     variant={isActive ? "default" : "ghost"}
                     className={cn(
                       "w-full justify-start gap-3 mb-1",
-                      isCollapsed && "justify-center px-2"
+                      isCollapsed && "justify-center px-2",
+                      !isActive && "text-muted-foreground hover:text-primary"
                     )}
                     asChild
                   >
@@ -91,8 +91,8 @@ const StudentSidebar = () => {
         })}
       </nav>
 
-      {/* Rodapé */}
-      <div className="mt-auto border-t p-4">
+      {/* Rodapé com Cor Primária */}
+      <div className="mt-auto border-t p-4 bg-primary text-primary-foreground">
         <TooltipProvider delayDuration={0}>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -100,7 +100,7 @@ const StudentSidebar = () => {
                 variant="ghost"
                 onClick={logout}
                 className={cn(
-                  "w-full justify-start gap-3 text-muted-foreground hover:text-destructive",
+                  "w-full justify-start gap-3 text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground",
                   isCollapsed && "justify-center px-2"
                 )}
               >
