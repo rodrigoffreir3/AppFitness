@@ -40,35 +40,40 @@ const TrainerSidebar = () => {
   return (
     <aside
       className={cn(
-        "relative hidden h-screen flex-col border-r bg-card md:flex",
-        "transition-all duration-300 ease-in-out",
+        "relative hidden h-screen flex-col border-r bg-card md:flex transition-all duration-300 ease-in-out",
         isCollapsed ? "w-20" : "w-64"
       )}
     >
-      {/* Cabeçalho com Cor Primária */}
-      <div className="flex h-16 items-center border-b px-6 overflow-hidden bg-primary text-primary-foreground">
-        <NavLink to="/trainer/dashboard" className={cn("flex items-center gap-2 font-semibold", isCollapsed && "justify-center w-full")}>
+      {/* Cabeçalho: Cor Primária */}
+      <div className="flex h-20 items-center border-b px-4 overflow-hidden bg-primary text-primary-foreground transition-all">
+        <NavLink to="/trainer/dashboard" className={cn("flex items-center gap-2 font-semibold w-full h-full", isCollapsed && "justify-center")}>
           {logoUrl ? (
-             <img src={logoUrl} alt="Logo" className={cn("object-contain transition-all", isCollapsed ? "h-10 w-10" : "h-8")} />
+             // LOGO MAIOR: Ajustada para ocupar mais espaço
+             <img 
+               src={logoUrl} 
+               alt="Logo" 
+               className={cn(
+                 "object-contain transition-all max-h-[85%]", 
+                 isCollapsed ? "w-10" : "w-auto max-w-full"
+               )} 
+             />
           ) : (
             <div className="flex items-center gap-2 whitespace-nowrap">
-               {/* Ícone com fundo branco/transparente para contraste sobre a cor primária */}
-               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-foreground/20 text-primary-foreground shrink-0">
-                 <Dumbbell className="h-5 w-5" />
+               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/20 text-primary-foreground shrink-0 backdrop-blur-sm">
+                 <Dumbbell className="h-6 w-6" />
                </div>
                {!isCollapsed && (
-                 <span className="text-lg font-bold">
+                 <span className="text-xl font-bold">
                    AppFitness
                  </span>
                )}
              </div>
           )}
-           <span className="sr-only">AppFitness</span>
         </NavLink>
       </div>
 
       {/* Navegação */}
-      <nav className="flex-1 space-y-2 overflow-x-hidden overflow-y-auto py-4 px-4">
+      <nav className="flex-1 space-y-2 overflow-x-hidden overflow-y-auto py-4 px-3">
         {navLinks.map((link) => {
           const isActive = link.end 
             ? location.pathname === link.to 
@@ -79,16 +84,22 @@ const TrainerSidebar = () => {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
-                    variant={isActive ? "default" : "ghost"}
+                    // Removemos 'variant' para controlar as classes manualmente e ter as cores exatas
                     className={cn(
-                      "w-full justify-start gap-3 transition-all",
+                      "w-full justify-start gap-3 mb-1 transition-all duration-200 border-none",
                       isCollapsed && "justify-center px-2",
-                      !isActive && "text-muted-foreground hover:text-primary"
+                      
+                      // ESTADO ATIVO: Fundo Branco, Texto Primário, Sombra Suave
+                      isActive 
+                        ? "bg-white text-primary shadow-md hover:bg-white/90 font-bold" 
+                        
+                      // ESTADO INATIVO: Texto Muted, Hover Secundário
+                        : "bg-transparent text-muted-foreground hover:bg-secondary hover:text-secondary-foreground"
                     )}
                     asChild
                   >
                     <NavLink to={link.to}>
-                      <link.icon className={cn("h-4 w-4 shrink-0", isCollapsed && "h-5 w-5")} />
+                      <link.icon className={cn("h-5 w-5 shrink-0", isCollapsed && "h-6 w-6")} />
                       {!isCollapsed && <span>{link.label}</span>}
                       <span className="sr-only">{link.label}</span>
                     </NavLink>
@@ -101,8 +112,8 @@ const TrainerSidebar = () => {
         })}
       </nav>
 
-      {/* Rodapé com Cor Primária (Estilo 'Sólido' para combinar com cabeçalho) */}
-      <div className="mt-auto border-t p-4 bg-primary text-primary-foreground">
+      {/* Rodapé: Cor Secundária */}
+      <div className="mt-auto border-t p-4 bg-secondary text-secondary-foreground">
         <TooltipProvider delayDuration={0}>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -110,11 +121,11 @@ const TrainerSidebar = () => {
                 variant="ghost"
                 onClick={logout}
                 className={cn(
-                  "w-full justify-start gap-3 text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground",
+                  "w-full justify-start gap-3 hover:bg-white/10 hover:text-white",
                   isCollapsed && "justify-center px-2"
                 )}
               >
-                <LogOut className={cn("h-4 w-4 shrink-0", isCollapsed && "h-5 w-5")} />
+                <LogOut className={cn("h-5 w-5 shrink-0", isCollapsed && "h-6 w-6")} />
                 {!isCollapsed && <span>Sair</span>}
                 <span className="sr-only">Sair</span>
               </Button>
@@ -128,7 +139,7 @@ const TrainerSidebar = () => {
       <Button
         variant="outline"
         size="icon"
-        className="absolute top-1/2 -right-4 h-8 w-8 rounded-full shadow-md z-50 bg-background border-border"
+        className="absolute top-1/2 -right-4 h-8 w-8 rounded-full shadow-md z-50 bg-background border-border hover:bg-muted"
         onClick={() => setIsCollapsed(!isCollapsed)}
       >
         {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}

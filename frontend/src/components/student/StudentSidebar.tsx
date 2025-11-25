@@ -37,18 +37,25 @@ const StudentSidebar = () => {
         isCollapsed ? "w-20" : "w-64"
       )}
     >
-      {/* Cabeçalho com Cor Primária */}
-      <div className="flex h-16 items-center border-b px-6 overflow-hidden bg-primary text-primary-foreground">
-        <div className={cn("flex items-center gap-2 font-semibold", isCollapsed && "justify-center w-full")}>
+      {/* Cabeçalho: Cor Primária (Maior altura para logo) */}
+      <div className="flex h-20 items-center border-b px-4 overflow-hidden bg-primary text-primary-foreground">
+        <div className={cn("flex items-center gap-2 font-semibold w-full h-full", isCollapsed && "justify-center")}>
           {logoUrl ? (
-            <img src={logoUrl} alt="Logo" className={cn("object-contain transition-all", isCollapsed ? "h-10 w-10" : "h-8")} />
+            <img 
+              src={logoUrl} 
+              alt="Logo" 
+              className={cn(
+                "object-contain transition-all max-h-[85%]", 
+                isCollapsed ? "w-10" : "w-auto max-w-full"
+              )} 
+            />
           ) : (
             <div className="flex items-center gap-2 whitespace-nowrap">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-foreground/20 text-primary-foreground shrink-0">
-                <Dumbbell className="h-5 w-5" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/20 text-primary-foreground shrink-0 backdrop-blur-sm">
+                <Dumbbell className="h-6 w-6" />
               </div>
               {!isCollapsed && (
-                <span className="text-lg font-bold">
+                <span className="text-xl font-bold">
                   AppFitness
                 </span>
               )}
@@ -69,16 +76,17 @@ const StudentSidebar = () => {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
-                    variant={isActive ? "default" : "ghost"}
                     className={cn(
-                      "w-full justify-start gap-3 mb-1",
+                      "w-full justify-start gap-3 mb-1 transition-all duration-200 border-none",
                       isCollapsed && "justify-center px-2",
-                      !isActive && "text-muted-foreground hover:text-primary"
+                      isActive 
+                        ? "bg-white text-primary shadow-md hover:bg-white/90 font-bold" 
+                        : "bg-transparent text-muted-foreground hover:bg-secondary hover:text-secondary-foreground"
                     )}
                     asChild
                   >
                     <NavLink to={link.to}>
-                      <link.icon className={cn("h-4 w-4 shrink-0", isCollapsed && "h-5 w-5")} />
+                      <link.icon className={cn("h-5 w-5 shrink-0", isCollapsed && "h-6 w-6")} />
                       {!isCollapsed && <span>{link.label}</span>}
                       <span className="sr-only">{link.label}</span>
                     </NavLink>
@@ -91,8 +99,8 @@ const StudentSidebar = () => {
         })}
       </nav>
 
-      {/* Rodapé com Cor Primária */}
-      <div className="mt-auto border-t p-4 bg-primary text-primary-foreground">
+      {/* Rodapé: Cor Secundária */}
+      <div className="mt-auto border-t p-4 bg-secondary text-secondary-foreground">
         <TooltipProvider delayDuration={0}>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -100,11 +108,11 @@ const StudentSidebar = () => {
                 variant="ghost"
                 onClick={logout}
                 className={cn(
-                  "w-full justify-start gap-3 text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground",
+                  "w-full justify-start gap-3 hover:bg-white/10 hover:text-white",
                   isCollapsed && "justify-center px-2"
                 )}
               >
-                <LogOut className={cn("h-4 w-4 shrink-0", isCollapsed && "h-5 w-5")} />
+                <LogOut className={cn("h-5 w-5 shrink-0", isCollapsed && "h-6 w-6")} />
                 {!isCollapsed && <span>Sair</span>}
                 <span className="sr-only">Sair</span>
               </Button>

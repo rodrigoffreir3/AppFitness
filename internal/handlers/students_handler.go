@@ -38,9 +38,7 @@ func RegisterStudentsRoutes(mux *http.ServeMux, db *sql.DB) {
 	mux.Handle("PUT /api/students/{id}", middleware.AuthMiddleware(updateStudentHandler))
 	mux.Handle("DELETE /api/students/{id}", middleware.AuthMiddleware(deleteStudentHandler))
 
-	// --- CORREÇÃO: Trocado HandleFunc por Handle ---
 	mux.Handle("POST /api/students/login", loginStudentHandler)
-	// --- FIM DA CORREÇÃO ---
 
 	mux.Handle("GET /api/students/me/workouts", middleware.AuthMiddleware(getMyWorkoutsHandler))
 	mux.Handle("GET /api/students/me/workouts/{id}", middleware.AuthMiddleware(getMyWorkoutDetailsHandler))
@@ -260,12 +258,17 @@ func (h *studentsHandler) handleStudentLogin(w http.ResponseWriter, r *http.Requ
 		http.Error(w, "Email ou senha inválidos", http.StatusUnauthorized)
 		return
 	}
+
+	// --- CORREÇÃO DE BRANDING PARA O ALUNO ---
 	var branding types.BrandingResponse
-	brandingQuery := `SELECT COALESCE(brand_logo_url, ''), COALESCE(brand_primary_color, '') FROM trainers WHERE id = $1`
-	err = h.db.QueryRowContext(r.Context(), brandingQuery, trainerID).Scan(&branding.LogoURL, &branding.PrimaryColor)
+	// Adicionada a coluna brand_secondary_color
+	brandingQuery := `SELECT COALESCE(brand_logo_url, ''), COALESCE(brand_primary_color, '#3b82f6'), COALESCE(brand_secondary_color, '#000000') FROM trainers WHERE id = $1`
+	err = h.db.QueryRowContext(r.Context(), brandingQuery, trainerID).Scan(&branding.LogoURL, &branding.PrimaryColor, &branding.SecondaryColor)
 	if err != nil {
 		log.Printf("Aviso: não foi possível buscar branding para o trainer ID %s: %v", trainerID, err)
 	}
+	// --- FIM DA CORREÇÃO ---
+
 	claims := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"sub": studentID,
 		"exp": time.Now().Add(time.Hour * 8).Unix(),

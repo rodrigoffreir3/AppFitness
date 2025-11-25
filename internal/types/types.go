@@ -1,25 +1,22 @@
 // internal/types/types.go
 package types
 
-// Requisição para login (usada por trainers e students)
 type LoginRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
 
-// Resposta de branding do treinador
 type BrandingResponse struct {
-	LogoURL      string `json:"logo_url,omitempty"`
-	PrimaryColor string `json:"primary_color,omitempty"`
+	LogoURL        string `json:"logo_url,omitempty"`
+	PrimaryColor   string `json:"primary_color,omitempty"`
+	SecondaryColor string `json:"secondary_color,omitempty"` // NOVO
 }
 
-// Resposta de login (usada por trainers e students)
 type LoginResponse struct {
 	Token    string           `json:"token"`
 	Branding BrandingResponse `json:"branding,omitempty"`
 }
 
-// Resposta para um treino (usada em múltiplos handlers)
 type WorkoutResponse struct {
 	ID          string `json:"id"`
 	StudentID   string `json:"student_id"`
@@ -28,7 +25,6 @@ type WorkoutResponse struct {
 	IsActive    bool   `json:"is_active"`
 }
 
-// Resposta para um exercício dentro de um treino
 type WorkoutExerciseResponse struct {
 	ID                string `json:"id"`
 	ExerciseID        string `json:"exercise_id"`

@@ -25,8 +25,14 @@ const StudentLogin = () => {
       
       const { token, branding } = response.data;
       
-      // Salva token e branding
-      login(token, 'student', branding?.logo_url, branding?.primary_color);
+      // Salva token e branding (Incluindo a cor secundária)
+      login(
+        token, 
+        'student', 
+        branding?.logo_url, 
+        branding?.primary_color, 
+        branding?.secondary_color
+      );
       
       toast({ title: "Login realizado!", description: "A redirecionar..." });
       navigate("/student/dashboard");
