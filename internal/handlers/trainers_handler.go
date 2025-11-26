@@ -37,20 +37,32 @@ type CreateTrainerRequest struct {
 	Password string `json:"password"`
 }
 
+// Resposta completa do perfil do treinador (incluindo dados privados de assinatura)
 type TrainerProfileResponse struct {
 	ID                  string `json:"id"`
 	Name                string `json:"name"`
 	Email               string `json:"email"`
 	BrandLogoURL        string `json:"brand_logo_url,omitempty"`
 	BrandPrimaryColor   string `json:"brand_primary_color,omitempty"`
-	BrandSecondaryColor string `json:"brand_secondary_color,omitempty"` // NOVO
+	BrandSecondaryColor string `json:"brand_secondary_color,omitempty"`
+	// Dados de Pagamento para o Aluno
+	PaymentPixKey       string `json:"payment_pix_key,omitempty"`
+	PaymentLinkURL      string `json:"payment_link_url,omitempty"`
+	PaymentInstructions string `json:"payment_instructions,omitempty"`
+	// Dados de Assinatura (Privado)
+	SubscriptionStatus string     `json:"subscription_status"`
+	SubscriptionExp    *time.Time `json:"subscription_expires_at,omitempty"`
 }
 
 type UpdateTrainerRequest struct {
 	Name                *string `json:"name"`
 	BrandLogoURL        *string `json:"brand_logo_url"`
 	BrandPrimaryColor   *string `json:"brand_primary_color"`
-	BrandSecondaryColor *string `json:"brand_secondary_color"` // NOVO
+	BrandSecondaryColor *string `json:"brand_secondary_color"`
+	// Novos campos de pagamento
+	PaymentPixKey       *string `json:"payment_pix_key"`
+	PaymentLinkURL      *string `json:"payment_link_url"`
+	PaymentInstructions *string `json:"payment_instructions"`
 }
 
 func (h *trainersHandler) handleUpdateTrainerMe(w http.ResponseWriter, r *http.Request) {
@@ -70,27 +82,22 @@ func (h *trainersHandler) handleUpdateTrainerMe(w http.ResponseWriter, r *http.R
 	args := []interface{}{}
 	argID := 1
 
-	if req.Name != nil {
-		queryParts = append(queryParts, fmt.Sprintf("name = $%d", argID))
-		args = append(args, *req.Name)
-		argID++
+	// Helper para adicionar campos dinamicamente
+	addSet := func(field string, val *string) {
+		if val != nil {
+			queryParts = append(queryParts, fmt.Sprintf("%s = $%d", field, argID))
+			args = append(args, *val)
+			argID++
+		}
 	}
-	if req.BrandLogoURL != nil {
-		queryParts = append(queryParts, fmt.Sprintf("brand_logo_url = $%d", argID))
-		args = append(args, *req.BrandLogoURL)
-		argID++
-	}
-	if req.BrandPrimaryColor != nil {
-		queryParts = append(queryParts, fmt.Sprintf("brand_primary_color = $%d", argID))
-		args = append(args, *req.BrandPrimaryColor)
-		argID++
-	}
-	// NOVO CAMPO
-	if req.BrandSecondaryColor != nil {
-		queryParts = append(queryParts, fmt.Sprintf("brand_secondary_color = $%d", argID))
-		args = append(args, *req.BrandSecondaryColor)
-		argID++
-	}
+
+	addSet("name", req.Name)
+	addSet("brand_logo_url", req.BrandLogoURL)
+	addSet("brand_primary_color", req.BrandPrimaryColor)
+	addSet("brand_secondary_color", req.BrandSecondaryColor)
+	addSet("payment_pix_key", req.PaymentPixKey)
+	addSet("payment_link_url", req.PaymentLinkURL)
+	addSet("payment_instructions", req.PaymentInstructions)
 
 	if len(queryParts) == 0 {
 		http.Error(w, "Nenhum campo para atualizar foi fornecido", http.StatusBadRequest)
@@ -118,9 +125,27 @@ func (h *trainersHandler) handleGetTrainerMe(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	var resp TrainerProfileResponse
-	// Query atualizada para buscar a cor secundária
-	query := `SELECT id, name, email, COALESCE(brand_logo_url, ''), COALESCE(brand_primary_color, '#3b82f6'), COALESCE(brand_secondary_color, '#000000') FROM trainers WHERE id = $1`
-	err := h.db.QueryRowContext(r.Context(), query, trainerID).Scan(&resp.ID, &resp.Name, &resp.Email, &resp.BrandLogoURL, &resp.BrandPrimaryColor, &resp.BrandSecondaryColor)
+
+	query := `
+		SELECT 
+			id, name, email, 
+			COALESCE(brand_logo_url, ''), 
+			COALESCE(brand_primary_color, '#3b82f6'), 
+			COALESCE(brand_secondary_color, '#000000'),
+			COALESCE(payment_pix_key, ''),
+			COALESCE(payment_link_url, ''),
+			COALESCE(payment_instructions, ''),
+			COALESCE(subscription_status, 'trial'),
+			subscription_expires_at
+		FROM trainers WHERE id = $1
+	`
+	err := h.db.QueryRowContext(r.Context(), query, trainerID).Scan(
+		&resp.ID, &resp.Name, &resp.Email,
+		&resp.BrandLogoURL, &resp.BrandPrimaryColor, &resp.BrandSecondaryColor,
+		&resp.PaymentPixKey, &resp.PaymentLinkURL, &resp.PaymentInstructions,
+		&resp.SubscriptionStatus, &resp.SubscriptionExp,
+	)
+
 	if err != nil {
 		if err == sql.ErrNoRows {
 			http.Error(w, "Trainer não encontrado", http.StatusNotFound)
@@ -150,9 +175,16 @@ func (h *trainersHandler) handleCreateTrainer(w http.ResponseWriter, r *http.Req
 		http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
 		return
 	}
-	query := `INSERT INTO trainers (name, email, password_hash) VALUES ($1, $2, $3) RETURNING id`
+	// Define trial de 7 dias
+	trialExpires := time.Now().Add(24 * 7 * time.Hour)
+
+	query := `
+		INSERT INTO trainers (name, email, password_hash, subscription_status, subscription_expires_at) 
+		VALUES ($1, $2, $3, 'trial', $4) 
+		RETURNING id
+	`
 	var newTrainerID string
-	err = h.db.QueryRowContext(r.Context(), query, req.Name, req.Email, string(hashedPassword)).Scan(&newTrainerID)
+	err = h.db.QueryRowContext(r.Context(), query, req.Name, req.Email, string(hashedPassword), trialExpires).Scan(&newTrainerID)
 	if err != nil {
 		if strings.Contains(err.Error(), "violates unique constraint") {
 			http.Error(w, "O email fornecido já está em uso.", http.StatusConflict)
@@ -191,16 +223,24 @@ func (h *trainersHandler) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// ATUALIZADO: Busca também a cor secundária
 	var branding types.BrandingResponse
-	brandingQuery := `SELECT COALESCE(brand_logo_url, ''), COALESCE(brand_primary_color, '#3b82f6') FROM trainers WHERE id = $1`
-	// Nota: Para simplificar a struct types.go sem quebrá-la, vamos assumir que o client busca os detalhes completos depois,
-	// ou você pode adicionar BrandSecondaryColor em types.go também.
-	// Por enquanto, o AuthContext pega via /me ou login.
-	// Se quiser passar no login, atualize types.go BrandingResponse.
-	err = h.db.QueryRowContext(r.Context(), brandingQuery, trainerID).Scan(&branding.LogoURL, &branding.PrimaryColor)
+	// Query atualizada para buscar branding + dados de pagamento
+	brandingQuery := `
+		SELECT 
+			COALESCE(brand_logo_url, ''), 
+			COALESCE(brand_primary_color, '#3b82f6'), 
+			COALESCE(brand_secondary_color, '#000000'),
+			COALESCE(payment_pix_key, ''),
+			COALESCE(payment_link_url, ''),
+			COALESCE(payment_instructions, '')
+		FROM trainers WHERE id = $1
+	`
+	err = h.db.QueryRowContext(r.Context(), brandingQuery, trainerID).Scan(
+		&branding.LogoURL, &branding.PrimaryColor, &branding.SecondaryColor,
+		&branding.PaymentPixKey, &branding.PaymentLinkURL, &branding.PaymentInstructions,
+	)
 	if err != nil {
-		log.Printf("Aviso: erro ao buscar branding: %v", err)
+		log.Printf("Aviso: erro ao buscar detalhes do trainer ID %s: %v", trainerID, err)
 	}
 
 	claims := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{

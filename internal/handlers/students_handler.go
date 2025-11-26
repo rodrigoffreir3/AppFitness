@@ -259,15 +259,25 @@ func (h *studentsHandler) handleStudentLogin(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// --- CORREÇÃO DE BRANDING PARA O ALUNO ---
 	var branding types.BrandingResponse
-	// Adicionada a coluna brand_secondary_color
-	brandingQuery := `SELECT COALESCE(brand_logo_url, ''), COALESCE(brand_primary_color, '#3b82f6'), COALESCE(brand_secondary_color, '#000000') FROM trainers WHERE id = $1`
-	err = h.db.QueryRowContext(r.Context(), brandingQuery, trainerID).Scan(&branding.LogoURL, &branding.PrimaryColor, &branding.SecondaryColor)
+	// Query ATUALIZADA para incluir Pix/Link do Treinador para o Aluno ver
+	brandingQuery := `
+		SELECT 
+			COALESCE(brand_logo_url, ''), 
+			COALESCE(brand_primary_color, '#3b82f6'), 
+			COALESCE(brand_secondary_color, '#000000'),
+			COALESCE(payment_pix_key, ''),
+			COALESCE(payment_link_url, ''),
+			COALESCE(payment_instructions, '')
+		FROM trainers WHERE id = $1
+	`
+	err = h.db.QueryRowContext(r.Context(), brandingQuery, trainerID).Scan(
+		&branding.LogoURL, &branding.PrimaryColor, &branding.SecondaryColor,
+		&branding.PaymentPixKey, &branding.PaymentLinkURL, &branding.PaymentInstructions,
+	)
 	if err != nil {
-		log.Printf("Aviso: não foi possível buscar branding para o trainer ID %s: %v", trainerID, err)
+		log.Printf("Aviso: não foi possível buscar branding/pagamento para o trainer ID %s: %v", trainerID, err)
 	}
-	// --- FIM DA CORREÇÃO ---
 
 	claims := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"sub": studentID,

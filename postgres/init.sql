@@ -2,13 +2,27 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- Tabela: trainers (Os Personais / Tenants)
+-- ATUALIZADO: Agora inclui colunas de marca, pagamento e assinatura
 CREATE TABLE trainers (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
+    
+    -- Identidade Visual
     brand_logo_url TEXT,
     brand_primary_color VARCHAR(7),
+    brand_secondary_color VARCHAR(7) DEFAULT '#000000',
+
+    -- Dados de Pagamento (Para o Aluno ver)
+    payment_pix_key TEXT,
+    payment_link_url TEXT,
+    payment_instructions TEXT,
+
+    -- Status da Assinatura (Controle da Plataforma)
+    subscription_status VARCHAR(20) DEFAULT 'trial', -- trial, active, past_due, cancelled
+    subscription_expires_at TIMESTAMPTZ,
+
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -56,12 +70,33 @@ CREATE TABLE workout_exercises (
     execution_details TEXT
 );
 
+-- Tabela: chat_messages (Histórico do Chat Privado)
+CREATE TABLE chat_messages (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    sender_id UUID NOT NULL,
+    receiver_id UUID NOT NULL,
+    content TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Tabela: announcements (Mural de Avisos)
+CREATE TABLE announcements (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    trainer_id UUID NOT NULL REFERENCES trainers(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    content TEXT,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Índices para otimizar as buscas por chaves estrangeiras
 CREATE INDEX ON students (trainer_id);
 CREATE INDEX ON workouts (student_id);
 CREATE INDEX ON workouts (trainer_id);
 CREATE INDEX ON workout_exercises (workout_id);
 CREATE INDEX ON workout_exercises (exercise_id);
+CREATE INDEX ON chat_messages (sender_id, receiver_id);
+CREATE INDEX ON chat_messages (created_at DESC);
+CREATE INDEX ON announcements (trainer_id);
 
 -- Inserindo dados iniciais na tabela de exercícios
 INSERT INTO exercises (name, muscle_group, equipment) VALUES
@@ -112,27 +147,3 @@ INSERT INTO exercises (name, muscle_group, equipment) VALUES
 ('Abdominal Infra (Elevação de Pernas)', 'Abdômen', 'Peso Corporal'),
 ('Prancha Abdominal', 'Abdômen', 'Peso Corporal'),
 ('Abdominal Oblíquo (Bicicleta)', 'Abdômen', 'Peso Corporal');
-
--- Tabela: chat_messages (Histórico do Chat Privado)
-CREATE TABLE chat_messages (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    sender_id UUID NOT NULL,
-    receiver_id UUID NOT NULL,
-    content TEXT NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX ON chat_messages (sender_id, receiver_id);
-CREATE INDEX ON chat_messages (created_at DESC);
-
--- Tabela: announcements (Mural de Avisos)
-CREATE TABLE announcements (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    trainer_id UUID NOT NULL REFERENCES trainers(id) ON DELETE CASCADE,
-    title TEXT NOT NULL,
-    content TEXT,
-    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX ON announcements (trainer_id);
-
