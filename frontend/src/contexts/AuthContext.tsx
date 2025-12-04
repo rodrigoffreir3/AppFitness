@@ -1,19 +1,28 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 
+// Interface unificada para os dados de marca e pagamento
+export interface BrandingData {
+  logo_url?: string;
+  primary_color?: string;
+  secondary_color?: string;
+  payment_pix_key?: string;
+  payment_link_url?: string;
+  payment_instructions?: string;
+}
+
 interface AuthContextType {
   isAuthenticated: boolean;
   userType: 'trainer' | 'student' | null;
-  logoUrl: string | null;
-  primaryColor: string | null;
-  secondaryColor: string | null; // NOVO
+  branding: BrandingData; // Objeto único com tudo
   isLoading: boolean;
-  login: (token: string, userType: 'trainer' | 'student', logoUrl?: string, primaryColor?: string, secondaryColor?: string) => void;
+  login: (token: string, userType: 'trainer' | 'student', branding: BrandingData) => void;
   logout: () => void;
-  updateBranding: (logo?: string, primary?: string, secondary?: string) => void;
+  updateBranding: (newBranding: BrandingData) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Helper HEX -> HSL
 const hexToHSL = (hex: string): string => {
   let r = 0, g = 0, b = 0;
   if (hex.length === 4) {
@@ -51,25 +60,22 @@ const hexToHSL = (hex: string): string => {
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userType, setUserType] = useState<'trainer' | 'student' | null>(null);
-  const [logoUrl, setLogoUrl] = useState<string | null>(null);
-  const [primaryColor, setPrimaryColor] = useState<string | null>(null);
-  const [secondaryColor, setSecondaryColor] = useState<string | null>(null); // NOVO
   const [isLoading, setIsLoading] = useState(true);
+  const [branding, setBranding] = useState<BrandingData>({});
 
-  const applyThemeColors = (pColor: string, sColor?: string) => {
+  const applyThemeColors = (pColor?: string, sColor?: string) => {
     try {
       if (pColor) {
         const hslPrimary = hexToHSL(pColor);
         document.documentElement.style.setProperty('--primary', hslPrimary);
         document.documentElement.style.setProperty('--ring', hslPrimary);
-        // Atualiza a cor da Sidebar também para garantir consistência
         document.documentElement.style.setProperty('--sidebar-primary', hslPrimary);
         document.documentElement.style.setProperty('--sidebar-ring', hslPrimary);
       }
       if (sColor) {
         const hslSecondary = hexToHSL(sColor);
         document.documentElement.style.setProperty('--secondary', hslSecondary);
-        document.documentElement.style.setProperty('--sidebar-accent', hslSecondary); // Usa secundária como accent da sidebar
+        document.documentElement.style.setProperty('--sidebar-accent', hslSecondary);
       }
     } catch (e) {
       console.error("Erro ao aplicar cores:", e);
@@ -80,9 +86,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const checkAuth = () => {
       const trainerToken = localStorage.getItem('trainerAuthToken');
       const studentToken = localStorage.getItem('studentAuthToken');
-      const storedLogo = localStorage.getItem('appLogoUrl');
-      const storedPrimary = localStorage.getItem('appPrimaryColor');
-      const storedSecondary = localStorage.getItem('appSecondaryColor');
+      
+      // Carrega Branding do LocalStorage
+      const storedBrandingJSON = localStorage.getItem('appBranding');
+      const storedBranding: BrandingData = storedBrandingJSON ? JSON.parse(storedBrandingJSON) : {};
 
       const token = trainerToken || studentToken;
       const type = trainerToken ? 'trainer' : studentToken ? 'student' : null;
@@ -90,54 +97,36 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (token && type) {
         setIsAuthenticated(true);
         setUserType(type);
-        
-        if (storedLogo) setLogoUrl(storedLogo);
-        
-        if (storedPrimary) {
-          setPrimaryColor(storedPrimary);
-          setSecondaryColor(storedSecondary || null);
-          applyThemeColors(storedPrimary, storedSecondary || undefined);
-        }
+        setBranding(storedBranding);
+        applyThemeColors(storedBranding.primary_color, storedBranding.secondary_color);
       }
       setIsLoading(false);
     };
     checkAuth();
   }, []);
 
-  const login = (token: string, type: 'trainer' | 'student', logo?: string, primary?: string, secondary?: string) => {
+  const login = (token: string, type: 'trainer' | 'student', newBranding: BrandingData) => {
     localStorage.setItem(type === 'trainer' ? 'trainerAuthToken' : 'studentAuthToken', token);
     setUserType(type);
     setIsAuthenticated(true);
-    updateBranding(logo, primary, secondary);
+    updateBranding(newBranding);
   };
 
-  const updateBranding = (logo?: string, primary?: string, secondary?: string) => {
-    if (logo) {
-      localStorage.setItem('appLogoUrl', logo);
-      setLogoUrl(logo);
-    }
-    if (primary) {
-      localStorage.setItem('appPrimaryColor', primary);
-      setPrimaryColor(primary);
-    }
-    if (secondary) {
-      localStorage.setItem('appSecondaryColor', secondary);
-      setSecondaryColor(secondary);
-    }
-    
-    if (primary) {
-      applyThemeColors(primary, secondary);
-    }
+  const updateBranding = (newBranding: BrandingData) => {
+    // Mescla com o que já existe para não perder dados parciais
+    setBranding(prev => {
+      const updated = { ...prev, ...newBranding };
+      localStorage.setItem('appBranding', JSON.stringify(updated));
+      applyThemeColors(updated.primary_color, updated.secondary_color);
+      return updated;
+    });
   };
 
   const logout = () => {
-    localStorage.clear(); // Limpa tudo de uma vez
-    
+    localStorage.clear();
     setIsAuthenticated(false);
     setUserType(null);
-    setLogoUrl(null);
-    setPrimaryColor(null);
-    setSecondaryColor(null);
+    setBranding({});
     
     document.documentElement.style.removeProperty('--primary');
     document.documentElement.style.removeProperty('--secondary');
@@ -151,9 +140,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const value = {
     isAuthenticated,
     userType,
-    logoUrl,
-    primaryColor,
-    secondaryColor,
+    branding, // Expõe todo o objeto (logo, cores, pix, link)
     isLoading,
     login,
     logout,

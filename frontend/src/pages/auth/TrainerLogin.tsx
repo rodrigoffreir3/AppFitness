@@ -3,25 +3,10 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useAuth } from '@/contexts/AuthContext';
 import { Dumbbell, AlertCircle, Loader2 } from 'lucide-react';
 import api from '@/services/api';
-
-// --- CORREÇÃO: Importações do Card movidas para o topo ---
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-} from '@/components/ui/card';
-// --- FIM DA CORREÇÃO ---
-
-// Interface para os dados de branding que vêm do backend
-interface Branding {
-  logo_url: string;
-  primary_color: string;
-}
+import { useAuth } from '@/contexts/AuthContext';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 
 const TrainerLogin = () => {
   const [email, setEmail] = useState('');
@@ -29,7 +14,7 @@ const TrainerLogin = () => {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-  const { login } = useAuth(); // O hook de autenticação
+  const { login } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,17 +22,11 @@ const TrainerLogin = () => {
     setError('');
 
     try {
-      // A chamada de API (agora correta para /trainers/login)
-      const response = await api.post<{ token: string; branding: Branding }>(
-        '/trainers/login', //
-        { email, password }
-      );
-
+      const response = await api.post('/trainers/login', { email, password });
       const { token, branding } = response.data;
       
-      // A chamada de login com 4 argumentos (que está correta)
-      //
-      login(token, 'trainer', branding.logo_url, branding.primary_color);
+      // O objeto 'branding' da API já casa com a interface do AuthContext
+      login(token, 'trainer', branding);
       
       navigate('/trainer/dashboard');
     } catch (err: any) {
@@ -84,45 +63,23 @@ const TrainerLogin = () => {
             )}
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="email@exemplo.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                disabled={isLoading}
-              />
+              <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required disabled={isLoading} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Senha</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                disabled={isLoading}
-              />
+              <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required disabled={isLoading} />
             </div>
             <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              {isLoading ? 'Entrando...' : 'Entrar'}
+              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Entrar'}
             </Button>
           </form>
           <div className="mt-4 text-center text-sm">
-            É um aluno?{' '}
-            <Link to="/login/student" className="underline text-primary">
-              Acesse aqui
-            </Link>
+            É um aluno? <Link to="/login/student" className="underline text-primary">Acesse aqui</Link>
           </div>
         </CardContent>
       </Card>
     </div>
   );
 };
-
-// --- CORREÇÃO: As importações do Card foram REMOVIDAS daqui ---
 
 export default TrainerLogin;

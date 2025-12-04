@@ -23,7 +23,8 @@ import {
 import { NavLink, useLocation } from "react-router-dom";
 
 const TrainerSidebar = () => {
-  const { logout, logoUrl } = useAuth();
+  // ATUALIZAÇÃO: Usando 'branding' em vez de 'logoUrl' direto
+  const { logout, branding } = useAuth();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const location = useLocation();
 
@@ -47,10 +48,10 @@ const TrainerSidebar = () => {
       {/* Cabeçalho: Cor Primária */}
       <div className="flex h-20 items-center border-b px-4 overflow-hidden bg-primary text-primary-foreground transition-all">
         <NavLink to="/trainer/dashboard" className={cn("flex items-center gap-2 font-semibold w-full h-full", isCollapsed && "justify-center")}>
-          {logoUrl ? (
+          {branding?.logo_url ? (
              // LOGO MAIOR: Ajustada para ocupar mais espaço
              <img 
-               src={logoUrl} 
+               src={branding.logo_url} 
                alt="Logo" 
                className={cn(
                  "object-contain transition-all max-h-[85%]", 

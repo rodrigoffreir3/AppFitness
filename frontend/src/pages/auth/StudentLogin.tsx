@@ -5,8 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
-import api from "@/services/api"; // Importar API
-import { useAuth } from "@/contexts/AuthContext"; // Importar AuthContext
+import api from "@/services/api";
+import { useAuth } from "@/contexts/AuthContext";
 
 const StudentLogin = () => {
   const [email, setEmail] = useState("");
@@ -20,19 +20,11 @@ const StudentLogin = () => {
     setLoading(true);
 
     try {
-      // POST para /api/students/login (via proxy)
       const response = await api.post('/students/login', { email, password });
-      
       const { token, branding } = response.data;
       
-      // Salva token e branding (Incluindo a cor secundária)
-      login(
-        token, 
-        'student', 
-        branding?.logo_url, 
-        branding?.primary_color, 
-        branding?.secondary_color
-      );
+      // Agora passamos o objeto branding completo (incluindo pix, link, cores)
+      login(token, 'student', branding);
       
       toast({ title: "Login realizado!", description: "A redirecionar..." });
       navigate("/student/dashboard");
