@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Outlet, NavLink, useLocation } from 'react-router-dom';
 import StudentSidebar from '@/components/student/StudentSidebar';
 import { useAuth } from '@/contexts/AuthContext';
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { 
   Menu, 
@@ -15,10 +15,10 @@ import {
 import { cn } from '@/lib/utils';
 
 const StudentLayout: React.FC = () => {
-  const { logoUrl, logout } = useAuth();
+  // CORREÇÃO: Usando 'branding'
+  const { branding, logout } = useAuth();
   const location = useLocation();
   
-  // ESTADO PARA CONTROLAR O MENU MOBILE
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
   const navLinks = [
@@ -37,7 +37,6 @@ const StudentLayout: React.FC = () => {
           isActive ? "bg-primary text-primary-foreground" : "text-muted-foreground"
         )}
         asChild
-        // FECHA AO CLICAR
         onClick={() => setIsMobileOpen(false)}
       >
         <NavLink to={to}>
@@ -53,11 +52,11 @@ const StudentLayout: React.FC = () => {
       
       {/* --- MOBILE HEADER --- */}
       <div className="md:hidden h-16 bg-primary text-primary-foreground flex items-center justify-between px-4 shrink-0 shadow-md z-50">
-        {/* Logo Mobile AUMENTADA */}
         <div className="flex items-center gap-2 font-bold text-lg h-full py-2">
-          {logoUrl ? (
+          {/* CORREÇÃO: Verificando branding.logo_url */}
+          {branding?.logo_url ? (
             <img 
-              src={logoUrl} 
+              src={branding.logo_url} 
               alt="Logo" 
               className="h-12 w-auto object-contain bg-white/90 rounded-md p-1" 
             />
@@ -77,6 +76,10 @@ const StudentLayout: React.FC = () => {
           </SheetTrigger>
           
           <SheetContent side="left" className="w-72 p-0 flex flex-col border-r-0">
+            {/* CORREÇÃO: Título Oculto para Acessibilidade */}
+            <SheetTitle className="sr-only">Menu do Aluno</SheetTitle>
+            <SheetDescription className="sr-only">Navegação principal do aluno</SheetDescription>
+
             <div className="h-16 bg-primary text-primary-foreground flex items-center px-6 font-bold text-lg shadow-sm">
               Menu
             </div>

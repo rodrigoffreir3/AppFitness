@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Outlet, NavLink, useLocation } from 'react-router-dom';
 import TrainerSidebar from '@/components/trainer/TrainerSidebar';
 import { useAuth } from '@/contexts/AuthContext';
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { 
   Menu, 
@@ -11,17 +11,16 @@ import {
   Users, 
   BookCopy, 
   MessageCircle, 
-  Megaphone,
+  Bell, // CORREÇÃO: Usando Bell (Sino) para Avisos
   Settings, 
   LogOut 
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const TrainerLayout: React.FC = () => {
-  const { logoUrl, logout } = useAuth();
+  const { branding, logout } = useAuth();
   const location = useLocation();
   
-  // ESTADO PARA CONTROLAR O MENU MOBILE
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
   const navLinks = [
@@ -30,7 +29,7 @@ const TrainerLayout: React.FC = () => {
     { to: "/trainer/dashboard/workouts", icon: Dumbbell, label: "Fichas de Treino", end: false },
     { to: "/trainer/dashboard/exercises", icon: BookCopy, label: "Exercícios", end: false },
     { to: "/trainer/dashboard/chat", icon: MessageCircle, label: "Chat", end: false },
-    { to: "/trainer/dashboard/announcements", icon: Megaphone, label: "Avisos", end: false },
+    { to: "/trainer/dashboard/announcements", icon: Bell, label: "Avisos", end: false }, // CORREÇÃO: Ícone Bell
     { to: "/trainer/dashboard/settings", icon: Settings, label: "Personalizar", end: false },
   ];
 
@@ -44,7 +43,6 @@ const TrainerLayout: React.FC = () => {
           isActive ? "bg-primary text-primary-foreground" : "text-muted-foreground"
         )}
         asChild
-        // AQUI ESTÁ A MÁGICA: FECHA O MENU AO CLICAR
         onClick={() => setIsMobileOpen(false)}
       >
         <NavLink to={to}>
@@ -60,13 +58,11 @@ const TrainerLayout: React.FC = () => {
       
       {/* --- MOBILE HEADER --- */}
       <div className="md:hidden h-16 bg-primary text-primary-foreground flex items-center justify-between px-4 shrink-0 shadow-md z-50">
-        {/* Logo Mobile - AUMENTADA */}
         <div className="flex items-center gap-2 font-bold text-lg h-full py-2">
-          {logoUrl ? (
+          {branding?.logo_url ? (
             <img 
-              src={logoUrl} 
+              src={branding.logo_url} 
               alt="Logo" 
-              // AUMENTADA: h-12 (48px) ocupa 75% do header (64px). 'object-contain' garante que não distorça.
               className="h-12 w-auto object-contain bg-white/90 rounded-md p-1" 
             />
           ) : (
@@ -77,7 +73,6 @@ const TrainerLayout: React.FC = () => {
           )}
         </div>
 
-        {/* Menu Mobile Controlado */}
         <Sheet open={isMobileOpen} onOpenChange={setIsMobileOpen}>
           <SheetTrigger asChild>
             <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary-foreground/20 h-10 w-10">
@@ -86,19 +81,19 @@ const TrainerLayout: React.FC = () => {
           </SheetTrigger>
           
           <SheetContent side="left" className="w-72 p-0 flex flex-col border-r-0">
-            {/* Cabeçalho do Menu */}
+            <SheetTitle className="sr-only">Menu de Navegação</SheetTitle>
+            <SheetDescription className="sr-only">Menu principal da aplicação</SheetDescription>
+
             <div className="h-16 bg-primary text-primary-foreground flex items-center px-6 font-bold text-lg shadow-sm">
               Menu
             </div>
 
-            {/* Navegação */}
             <div className="flex-1 overflow-y-auto py-4 px-4">
               {navLinks.map((link) => (
                 <MobileLink key={link.to} {...link} />
               ))}
             </div>
 
-            {/* Rodapé */}
             <div className="p-4 border-t bg-secondary/10">
               <Button 
                 variant="ghost" 
