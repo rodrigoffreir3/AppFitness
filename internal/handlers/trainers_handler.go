@@ -243,9 +243,10 @@ func (h *trainersHandler) handleLogin(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Aviso: erro ao buscar detalhes do trainer ID %s: %v", trainerID, err)
 	}
 
+	// --- ATUALIZADO: Token expira em 72 horas ---
 	claims := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"sub": trainerID,
-		"exp": time.Now().Add(time.Hour * 8).Unix(),
+		"exp": time.Now().Add(time.Hour * 72).Unix(),
 	})
 	jwtSecret := os.Getenv("JWT_SECRET")
 	tokenString, err := claims.SignedString([]byte(jwtSecret))
