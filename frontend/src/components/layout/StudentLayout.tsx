@@ -10,22 +10,41 @@ import {
   LayoutDashboard, 
   MessageSquare, 
   Bell, 
-  LogOut 
+  LogOut,
+  CreditCard,
+  Copy,
+  ExternalLink
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+// Imports para o Modal de Pagamento
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
 
 const StudentLayout: React.FC = () => {
-  // CORREÇÃO: Usando 'branding'
   const { branding, logout } = useAuth();
   const location = useLocation();
   
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [isPaymentOpen, setIsPaymentOpen] = useState(false); // Estado do Modal
 
   const navLinks = [
     { to: "/student/dashboard", icon: LayoutDashboard, label: "Meus Treinos", end: true },
     { to: "/student/dashboard/chat", icon: MessageSquare, label: "Chat", end: false },
     { to: "/student/dashboard/announcements", icon: Bell, label: "Avisos", end: false },
   ];
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success("Copiado para a área de transferência!");
+  };
 
   const MobileLink = ({ to, icon: Icon, label, end }: any) => {
     const isActive = end ? location.pathname === to : location.pathname.startsWith(to);
@@ -53,7 +72,6 @@ const StudentLayout: React.FC = () => {
       {/* --- MOBILE HEADER --- */}
       <div className="md:hidden h-16 bg-primary text-primary-foreground flex items-center justify-between px-4 shrink-0 shadow-md z-50">
         <div className="flex items-center gap-2 font-bold text-lg h-full py-2">
-          {/* CORREÇÃO: Verificando branding.logo_url */}
           {branding?.logo_url ? (
             <img 
               src={branding.logo_url} 
@@ -76,7 +94,6 @@ const StudentLayout: React.FC = () => {
           </SheetTrigger>
           
           <SheetContent side="left" className="w-72 p-0 flex flex-col border-r-0">
-            {/* CORREÇÃO: Título Oculto para Acessibilidade */}
             <SheetTitle className="sr-only">Menu do Aluno</SheetTitle>
             <SheetDescription className="sr-only">Navegação principal do aluno</SheetDescription>
 
@@ -85,9 +102,23 @@ const StudentLayout: React.FC = () => {
             </div>
 
             <div className="flex-1 overflow-y-auto py-4 px-4">
+              {/* Links de Navegação */}
               {navLinks.map((link) => (
                 <MobileLink key={link.to} {...link} />
               ))}
+
+              {/* Botão de Assinatura (ADICIONADO NO MOBILE) */}
+              <Button
+                variant="ghost"
+                className="w-full justify-start gap-3 mb-1 text-muted-foreground"
+                onClick={() => {
+                  setIsMobileOpen(false); // Fecha o menu
+                  setIsPaymentOpen(true); // Abre o modal
+                }}
+              >
+                <CreditCard className="h-5 w-5" />
+                Assinatura
+              </Button>
             </div>
 
             <div className="p-4 border-t bg-secondary/10">
@@ -114,6 +145,60 @@ const StudentLayout: React.FC = () => {
             <Outlet />
          </div>
       </main>
+
+      {/* --- MODAL DE PAGAMENTO (REPLICADO AQUI PARA FUNCIONAR NO MOBILE) --- */}
+      <Dialog open={isPaymentOpen} onOpenChange={setIsPaymentOpen}>
+        <DialogContent className="sm:max-w-md w-[90%] rounded-lg">
+          <DialogHeader>
+            <DialogTitle>Dados de Pagamento</DialogTitle>
+            <DialogDescription>
+              Utilize os dados abaixo para realizar o pagamento ao seu treinador.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-6 py-2">
+            
+            {branding?.payment_pix_key && (
+              <div className="space-y-2">
+                <Label>Chave PIX</Label>
+                <div className="flex items-center gap-2">
+                  <Input value={branding.payment_pix_key} readOnly />
+                  <Button size="icon" variant="outline" onClick={() => copyToClipboard(branding.payment_pix_key!)}>
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {branding?.payment_link_url && (
+              <div className="space-y-2">
+                <Label>Link de Pagamento</Label>
+                <Button variant="outline" className="w-full justify-between" asChild>
+                  <a href={branding.payment_link_url} target="_blank" rel="noreferrer">
+                    Abrir Link de Pagamento
+                    <ExternalLink className="h-4 w-4 ml-2" />
+                  </a>
+                </Button>
+              </div>
+            )}
+
+            {branding?.payment_instructions && (
+              <div className="space-y-2">
+                <Label>Instruções</Label>
+                <div className="p-3 bg-muted rounded-md text-sm text-muted-foreground whitespace-pre-wrap max-h-40 overflow-y-auto">
+                  {branding.payment_instructions}
+                </div>
+              </div>
+            )}
+
+            {!branding?.payment_pix_key && !branding?.payment_link_url && !branding?.payment_instructions && (
+              <div className="text-center text-muted-foreground py-4">
+                Seu treinador ainda não configurou os dados de pagamento.
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 };
