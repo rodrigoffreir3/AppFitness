@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-// Configuração da URL base (o proxy do Vite ou Caddy redireciona)
+// Configuração da URL base
 const api = axios.create({
   baseURL: '/api',
 });
@@ -8,13 +8,18 @@ const api = axios.create({
 // Interceptor para adicionar o token automaticamente
 api.interceptors.request.use(
   (config) => {
-    // Busca o token no localStorage (persistência de 72h)
-    const trainerToken = localStorage.getItem('trainerAuthToken');
-    const studentToken = localStorage.getItem('studentAuthToken');
-    
-    // Define qual token usar (prioridade para quem estiver logado)
-    const token = trainerToken || studentToken;
+    // 1. Descobrir quem está logado
+    const userType = localStorage.getItem('userType');
+    let token = null;
 
+    // 2. Pegar o token correto baseado no tipo
+    if (userType === 'trainer') {
+      token = localStorage.getItem('trainerAuthToken');
+    } else if (userType === 'student') {
+      token = localStorage.getItem('studentAuthToken');
+    }
+
+    // 3. Injetar no header
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`;
     }
@@ -25,11 +30,9 @@ api.interceptors.request.use(
   }
 );
 
-// Interceptor de resposta para tratamento de erros globais (Opcional, mas recomendado)
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Aqui você pode tratar erros como 401 (Token expirado) no futuro
     return Promise.reject(error);
   }
 );

@@ -58,14 +58,24 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const applyThemeColors = (pColor?: string, sColor?: string) => {
     try {
-      if (pColor) {
+      // Se não tiver cor, reseta para o padrão (evita cor fantasma)
+      if (!pColor) {
+        document.documentElement.style.removeProperty('--primary');
+        document.documentElement.style.removeProperty('--ring');
+        document.documentElement.style.removeProperty('--sidebar-primary');
+        document.documentElement.style.removeProperty('--sidebar-ring');
+      } else {
         const hslPrimary = hexToHSL(pColor);
         document.documentElement.style.setProperty('--primary', hslPrimary);
         document.documentElement.style.setProperty('--ring', hslPrimary);
         document.documentElement.style.setProperty('--sidebar-primary', hslPrimary);
         document.documentElement.style.setProperty('--sidebar-ring', hslPrimary);
       }
-      if (sColor) {
+      
+      if (!sColor) {
+        document.documentElement.style.removeProperty('--secondary');
+        document.documentElement.style.removeProperty('--sidebar-accent');
+      } else {
         const hslSecondary = hexToHSL(sColor);
         document.documentElement.style.setProperty('--secondary', hslSecondary);
         document.documentElement.style.setProperty('--sidebar-accent', hslSecondary);
@@ -77,29 +87,52 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   useEffect(() => {
     const checkAuth = () => {
-      // Usa localStorage para manter sessão por 72h (ou até o token expirar)
-      const trainerToken = localStorage.getItem('trainerAuthToken');
-      const studentToken = localStorage.getItem('studentAuthToken');
-      
-      const storedBrandingJSON = localStorage.getItem('appBranding');
-      const storedBranding: BrandingData = storedBrandingJSON ? JSON.parse(storedBrandingJSON) : {};
+      try {
+        // Recupera o tipo de usuário salvo (CRUCIAL PARA O API.TS)
+        const storedType = localStorage.getItem('userType') as 'trainer' | 'student' | null;
+        const storedBrandingJSON = localStorage.getItem('appBranding');
+        
+        let storedBranding: BrandingData = {};
+        if (storedBrandingJSON && storedBrandingJSON !== "undefined") {
+            try { storedBranding = JSON.parse(storedBrandingJSON); } catch(e) { /* ignore */ }
+        }
 
-      const token = trainerToken || studentToken;
-      const type = trainerToken ? 'trainer' : studentToken ? 'student' : null;
+        // Verifica token baseado no tipo
+        let token = null;
+        if (storedType === 'trainer') {
+            token = localStorage.getItem('trainerAuthToken');
+        } else if (storedType === 'student') {
+            token = localStorage.getItem('studentAuthToken');
+        }
 
-      if (token && type) {
-        setIsAuthenticated(true);
-        setUserType(type);
-        setBranding(storedBranding);
-        applyThemeColors(storedBranding.primary_color, storedBranding.secondary_color);
+        if (token && storedType) {
+          setIsAuthenticated(true);
+          setUserType(storedType);
+          setBranding(storedBranding);
+          applyThemeColors(storedBranding.primary_color, storedBranding.secondary_color);
+        } else {
+          // Se falhar a verificação, garante que estamos limpos
+          logout(false); 
+        }
+      } catch (err) {
+        console.error("Erro na inicialização da auth:", err);
+        logout(false);
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     };
     checkAuth();
   }, []);
 
   const login = (token: string, type: 'trainer' | 'student', newBranding: BrandingData) => {
+    // Limpa tokens anteriores para evitar conflito
+    localStorage.removeItem('trainerAuthToken');
+    localStorage.removeItem('studentAuthToken');
+    
+    // Salva os novos dados
     localStorage.setItem(type === 'trainer' ? 'trainerAuthToken' : 'studentAuthToken', token);
+    localStorage.setItem('userType', type); // Salva o tipo explicitamente
+    
     setUserType(type);
     setIsAuthenticated(true);
     updateBranding(newBranding);
@@ -114,27 +147,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     });
   };
 
-  const logout = () => {
-    // Limpa TUDO para garantir que não sobre "sujeira"
-    localStorage.removeItem('trainerAuthToken');
-    localStorage.removeItem('studentAuthToken');
-    localStorage.removeItem('appBranding');
-    
-    // Fallback: limpa session também caso tenha algo antigo
-    sessionStorage.clear();
-
+  const logout = (redirect = true) => {
+    localStorage.clear(); // Limpa tudo
     setIsAuthenticated(false);
     setUserType(null);
     setBranding({});
     
-    // Reseta visual
+    // Remove estilos visualmente
     document.documentElement.style.removeProperty('--primary');
     document.documentElement.style.removeProperty('--secondary');
     document.documentElement.style.removeProperty('--ring');
     document.documentElement.style.removeProperty('--sidebar-primary');
     document.documentElement.style.removeProperty('--sidebar-accent');
 
-    window.location.href = '/'; 
+    if (redirect) window.location.href = '/'; 
   };
 
   const value = {
@@ -143,7 +169,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     branding,
     isLoading,
     login,
-    logout,
+    logout: () => logout(true),
     updateBranding,
     logoUrl: branding.logo_url || null,
     primaryColor: branding.primary_color || null,
