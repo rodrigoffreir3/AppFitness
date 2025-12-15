@@ -19,6 +19,9 @@ interface AuthContextType {
   updateBranding: (newBranding: BrandingData) => void;
   logoUrl: string | null;
   primaryColor: string | null;
+  // NOVAS FUNÇÕES ADICIONADAS
+  clearThemeColors: () => void;
+  restoreThemeColors: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -84,6 +87,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       console.error("Erro ao aplicar cores:", e);
     }
   };
+
+  // NOVAS FUNÇÕES DE CONTROLE DE TEMA
+  const clearThemeColors = () => applyThemeColors(undefined, undefined);
+  const restoreThemeColors = () => applyThemeColors(branding.primary_color, branding.secondary_color);
 
   useEffect(() => {
     const checkAuth = () => {
@@ -173,6 +180,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     updateBranding,
     logoUrl: branding.logo_url || null,
     primaryColor: branding.primary_color || null,
+    clearThemeColors, // Exportado
+    restoreThemeColors, // Exportado
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

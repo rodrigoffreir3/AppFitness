@@ -1,6 +1,25 @@
-version: '3.8'
-
 services:
+  # --- O CORAÇÃO DO SISTEMA: API (Backend em Go) ---
+  api:
+    build: .                         # Usa o Dockerfile que está na pasta raiz
+    container_name: appfitness-backend
+    restart: always
+    ports:
+      - "8080:8080"                  # Porta 8080 do PC -> Porta 8080 do Container
+    environment:
+      - DB_HOST=postgres             # Conecta ao serviço 'postgres' definido abaixo
+      - DB_PORT=5432
+      - DB_USER=admin
+      - DB_PASSWORD=password
+      - DB_NAME=appfitness_db
+      - JWT_SECRET=mude_isso_para_um_segredo_real_em_producao
+      - PORT=8080
+    depends_on:
+      - postgres                     # Só inicia depois que o banco subir
+    networks:
+      - appfitness-network
+
+  # --- BANCO DE DADOS (PostgreSQL) ---
   postgres:
     image: postgres:14-alpine
     container_name: appfitness-db
@@ -13,16 +32,17 @@ services:
       - ./postgres/data:/var/lib/postgresql/data
       - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
-      - "5433:5432"
+      - "5433:5432"                  # Porta 5433 do PC -> Porta 5432 do Container (evita conflito se tiver outro Postgres)
     networks:
       - appfitness-network
 
+  # --- GERENCIADOR DO BANCO (Adminer) ---
   adminer:
     image: adminer
     container_name: appfitness-adminer
     restart: always
     ports:
-      - "8081:8080"
+      - "8081:8080"                  # Acessível em http://localhost:8081
     networks:
       - appfitness-network
 
