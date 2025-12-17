@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Search, Edit, Trash2, Loader2, UserCog, AlertCircle } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Loader2, UserCog, AlertCircle, FileText, ExternalLink } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,7 +26,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import api from "@/services/api";
 
-// 1. IMPORTAR O UPLOADER
+// IMPORTAR O UPLOADER
 import FileUploader from "@/components/common/FileUploader";
 
 interface Student {
@@ -34,16 +34,15 @@ interface Student {
   name: string;
   email: string;
   phone?: string;
-  anamnesis_url?: string; // Campo opcional na interface de leitura
+  file_url?: string; // NOME CORRIGIDO PARA O BANCO DE DADOS
 }
 
-// 2. ATUALIZAR INTERFACE DA REQUISIÇÃO
 interface CreateStudentRequest {
   name: string;
   email: string;
   password: string;
   phone?: string;
-  anamnesis_url?: string; // Novo campo
+  file_url?: string; // NOME CORRIGIDO
 }
 
 interface UpdateStudentRequest {
@@ -60,13 +59,13 @@ const StudentsView = () => {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
   
-  // 3. ADICIONAR O CAMPO AO ESTADO INICIAL
+  // ESTADO INICIAL ATUALIZADO
   const [newStudent, setNewStudent] = useState({
     name: "",
     email: "",
     password: "",
     phone: "",
-    anamnesis_url: "", // Inicia vazio
+    file_url: "", // NOME CORRIGIDO
   });
 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -100,20 +99,20 @@ const StudentsView = () => {
       return;
     }
     try {
-      // 4. INCLUIR O URL NO PAYLOAD
+      // PAYLOAD CORRIGIDO
       const apiRequest: CreateStudentRequest = { 
         name: newStudent.name, 
         email: newStudent.email, 
         password: newStudent.password,
         phone: newStudent.phone,
-        anamnesis_url: newStudent.anamnesis_url // Envia para o backend
+        file_url: newStudent.file_url 
       };
       
       const response = await api.post<Student>('/students', apiRequest);
       toast.success("Aluno adicionado!", { description: `${response.data.name} foi cadastrado com sucesso.` });
       
-      // Resetar form
-      setNewStudent({ name: "", email: "", password: "", phone: "", anamnesis_url: "" });
+      // Resetar form com file_url
+      setNewStudent({ name: "", email: "", password: "", phone: "", file_url: "" });
       setIsAddDialogOpen(false); 
       fetchStudents(); 
     } catch (err: any) {
@@ -216,14 +215,23 @@ const StudentsView = () => {
             <CardContent className="space-y-2">
               <p className="text-sm text-muted-foreground">{student.email}</p>
               
-              {/* Mostra ícone se tiver anamnese (opcional visual) */}
-              {student.anamnesis_url && (
-                <div className="text-xs text-green-600 flex items-center gap-1 mt-1">
-                  <span>📄 Possui Ficha de Anamnese</span>
+              {/* --- BOTÃO DE VISUALIZAÇÃO DO ARQUIVO --- */}
+              {student.file_url && (
+                <div className="mt-2">
+                  <Button 
+                      variant="secondary" 
+                      className="w-full text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 text-xs"
+                      onClick={() => window.open(`http://localhost:8080${student.file_url}`, '_blank')}
+                  >
+                      <FileText className="mr-2 h-3 w-3" />
+                      Ficha de Anamnese
+                      <ExternalLink className="ml-2 h-3 w-3" />
+                  </Button>
                 </div>
               )}
+              {/* --------------------------------------- */}
 
-              <div className="flex gap-2 mt-4">
+              <div className="flex gap-2 mt-4 pt-2">
                 <Button 
                   variant="outline" 
                   size="sm" 
@@ -268,7 +276,7 @@ const StudentsView = () => {
                 Novo Aluno
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-h-[90vh] overflow-y-auto"> {/* Ajuste para scroll se tela pequena */}
+            <DialogContent className="max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Adicionar Novo Aluno</DialogTitle>
                 <DialogDescription>
@@ -293,15 +301,14 @@ const StudentsView = () => {
                   <Input id="phone" value={newStudent.phone} onChange={(e) => setNewStudent({ ...newStudent, phone: e.target.value })} disabled={formLoading} />
                 </div>
 
-                {/* 5. INSERÇÃO DO COMPONENTE DE UPLOAD */}
+                {/* UPLOADER CONFIGURADO CORRETAMENTE */}
                 <div className="border-t pt-4 mt-2">
                   <FileUploader 
                     label="Ficha de Anamnese / Saúde (PDF ou Imagem)"
-                    currentUrl={newStudent.anamnesis_url}
-                    onUploadSuccess={(url) => setNewStudent(curr => ({ ...curr, anamnesis_url: url }))}
+                    currentUrl={newStudent.file_url}
+                    onUploadSuccess={(url) => setNewStudent(curr => ({ ...curr, file_url: url }))}
                   />
                 </div>
-                {/* --- FIM DO UPLOAD --- */}
 
                 <Button onClick={handleAddStudent} className="w-full" disabled={formLoading}>
                   {formLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}

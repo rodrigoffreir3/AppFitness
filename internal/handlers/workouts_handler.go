@@ -1,4 +1,3 @@
-// internal/handlers/workouts_handler.go
 package handlers
 
 import (
@@ -10,7 +9,6 @@ import (
 	"net/http"
 )
 
-// (As funções RegisterWorkoutsRoutes, workoutsHandler, CreateWorkoutRequest, e UpdateWorkoutRequest permanecem as mesmas)
 func RegisterWorkoutsRoutes(mux *http.ServeMux, db *sql.DB) {
 	h := &workoutsHandler{
 		db: db,
@@ -37,27 +35,21 @@ type CreateWorkoutRequest struct {
 	StudentID   string `json:"student_id"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
+	FileURL     string `json:"file_url"` // NOVO CAMPO
 }
 
 type UpdateWorkoutRequest struct {
 	Name        *string `json:"name"`
 	Description *string `json:"description"`
 	IsActive    *bool   `json:"is_active"`
+	FileURL     *string `json:"file_url"` // NOVO CAMPO
 }
-
-// (As funções handleGetWorkout, handleUpdateWorkout, handleDeleteWorkout, e handleCreateWorkout permanecem as mesmas)
-// ... (handleGetWorkout) ...
-// ... (handleUpdateWorkout) ...
-// ... (handleDeleteWorkout) ...
-// ... (handleCreateWorkout) ...
-
-// --- handleListWorkouts MODIFICADO ---
 
 func (h *workoutsHandler) handleListWorkouts(w http.ResponseWriter, r *http.Request) {
 	trainerID := r.Context().Value(middleware.TrainerIDKey).(string)
 	studentID := r.URL.Query().Get("student_id")
 
-	// SE O student_id FOR FORNECIDO, usamos a lógica antiga (listar para um aluno específico)
+	// SE O student_id FOR FORNECIDO
 	if studentID != "" {
 		var studentOwnerTrainerID string
 		err := h.db.QueryRowContext(r.Context(), "SELECT trainer_id FROM students WHERE id = $1 AND trainer_id = $2", studentID, trainerID).Scan(&studentOwnerTrainerID)
@@ -71,7 +63,8 @@ func (h *workoutsHandler) handleListWorkouts(w http.ResponseWriter, r *http.Requ
 			return
 		}
 
-		query := `SELECT id, student_id, name, description, is_active FROM workouts WHERE student_id = $1 ORDER BY created_at DESC`
+		// Adicionado COALESCE(file_url, '')
+		query := `SELECT id, student_id, name, description, is_active, COALESCE(file_url, '') FROM workouts WHERE student_id = $1 ORDER BY created_at DESC`
 		rows, err := h.db.QueryContext(r.Context(), query, studentID)
 		if err != nil {
 			log.Printf("Erro ao buscar treinos: %v", err)
@@ -80,10 +73,11 @@ func (h *workoutsHandler) handleListWorkouts(w http.ResponseWriter, r *http.Requ
 		}
 		defer rows.Close()
 
-		var workouts []types.WorkoutResponse // Usando o tipo padrão
+		var workouts []types.WorkoutResponse
 		for rows.Next() {
 			var workout types.WorkoutResponse
-			if err := rows.Scan(&workout.ID, &workout.StudentID, &workout.Name, &workout.Description, &workout.IsActive); err != nil {
+			// IMPORTANTE: types.WorkoutResponse precisa ter o campo FileURL
+			if err := rows.Scan(&workout.ID, &workout.StudentID, &workout.Name, &workout.Description, &workout.IsActive, &workout.FileURL); err != nil {
 				log.Printf("Erro ao escanear linha de treino: %v", err)
 				http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
 				return
@@ -105,24 +99,23 @@ func (h *workoutsHandler) handleListWorkouts(w http.ResponseWriter, r *http.Requ
 		json.NewEncoder(w).Encode(workouts)
 
 	} else {
-		// --- NOVA LÓGICA ---
-		// SE O student_id FOR OMITIDO, listamos todos os treinos do treinador
+		// SE O student_id FOR OMITIDO
 
-		// 1. Definimos uma struct de resposta local que inclui o nome do aluno
 		type WorkoutWithStudentResponse struct {
 			ID          string `json:"id"`
 			StudentID   string `json:"student_id"`
-			StudentName string `json:"student_name"` // Novo campo
+			StudentName string `json:"student_name"`
 			Name        string `json:"name"`
 			Description string `json:"description"`
 			IsActive    bool   `json:"is_active"`
+			FileURL     string `json:"file_url"` // NOVO CAMPO
 		}
 
-		// 2. Criamos a query com JOIN na tabela 'students'
+		// Adicionado w.file_url com COALESCE
 		query := `
 			SELECT 
 				w.id, w.student_id, s.name as student_name, 
-				w.name, w.description, w.is_active
+				w.name, w.description, w.is_active, COALESCE(w.file_url, '')
 			FROM workouts w
 			JOIN students s ON w.student_id = s.id
 			WHERE w.trainer_id = $1
@@ -136,11 +129,10 @@ func (h *workoutsHandler) handleListWorkouts(w http.ResponseWriter, r *http.Requ
 		}
 		defer rows.Close()
 
-		// 3. Scan para a nova struct
 		var workouts []WorkoutWithStudentResponse
 		for rows.Next() {
 			var workout WorkoutWithStudentResponse
-			if err := rows.Scan(&workout.ID, &workout.StudentID, &workout.StudentName, &workout.Name, &workout.Description, &workout.IsActive); err != nil {
+			if err := rows.Scan(&workout.ID, &workout.StudentID, &workout.StudentName, &workout.Name, &workout.Description, &workout.IsActive, &workout.FileURL); err != nil {
 				log.Printf("Erro ao escanear linha de treino com aluno: %v", err)
 				http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
 				return
@@ -163,18 +155,14 @@ func (h *workoutsHandler) handleListWorkouts(w http.ResponseWriter, r *http.Requ
 	}
 }
 
-// --- FIM DA MODIFICAÇÃO ---
-
-// (handleGetWorkout, handleUpdateWorkout, handleDeleteWorkout, e handleCreateWorkout
-//  devem estar presentes no seu arquivo. Se não estiverem, cole-os aqui do arquivo original)
-
 func (h *workoutsHandler) handleGetWorkout(w http.ResponseWriter, r *http.Request) {
 	trainerID := r.Context().Value(middleware.TrainerIDKey).(string)
 	workoutID := r.PathValue("id")
 
 	var workout types.WorkoutResponse
-	query := `SELECT id, student_id, name, description, is_active FROM workouts WHERE id = $1 AND trainer_id = $2`
-	err := h.db.QueryRowContext(r.Context(), query, workoutID, trainerID).Scan(&workout.ID, &workout.StudentID, &workout.Name, &workout.Description, &workout.IsActive)
+	// Adicionado COALESCE(file_url, '')
+	query := `SELECT id, student_id, name, description, is_active, COALESCE(file_url, '') FROM workouts WHERE id = $1 AND trainer_id = $2`
+	err := h.db.QueryRowContext(r.Context(), query, workoutID, trainerID).Scan(&workout.ID, &workout.StudentID, &workout.Name, &workout.Description, &workout.IsActive, &workout.FileURL)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			http.Error(w, "Treino não encontrado ou não pertence a este trainer", http.StatusNotFound)
@@ -199,8 +187,9 @@ func (h *workoutsHandler) handleUpdateWorkout(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	query := `UPDATE workouts SET name = COALESCE($1, name), description = COALESCE($2, description), is_active = COALESCE($3, is_active) WHERE id = $4 AND trainer_id = $5`
-	result, err := h.db.ExecContext(r.Context(), query, req.Name, req.Description, req.IsActive, workoutID, trainerID)
+	// Adicionado file_url = COALESCE($4, file_url)
+	query := `UPDATE workouts SET name = COALESCE($1, name), description = COALESCE($2, description), is_active = COALESCE($3, is_active), file_url = COALESCE($4, file_url) WHERE id = $5 AND trainer_id = $6`
+	result, err := h.db.ExecContext(r.Context(), query, req.Name, req.Description, req.IsActive, req.FileURL, workoutID, trainerID)
 	if err != nil {
 		log.Printf("Erro ao atualizar treino: %v", err)
 		http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
@@ -265,13 +254,15 @@ func (h *workoutsHandler) handleCreateWorkout(w http.ResponseWriter, r *http.Req
 	}
 
 	var newWorkout types.WorkoutResponse
+	// Adicionado file_url na query
 	query := `
-		INSERT INTO workouts (name, description, student_id, trainer_id)
-		VALUES ($1, $2, $3, $4)
-		RETURNING id, student_id, name, description, is_active
+		INSERT INTO workouts (name, description, student_id, trainer_id, file_url)
+		VALUES ($1, $2, $3, $4, $5)
+		RETURNING id, student_id, name, description, is_active, COALESCE(file_url, '')
 	`
-	err = h.db.QueryRowContext(r.Context(), query, req.Name, req.Description, req.StudentID, trainerID).Scan(
-		&newWorkout.ID, &newWorkout.StudentID, &newWorkout.Name, &newWorkout.Description, &newWorkout.IsActive,
+	// Adicionado req.FileURL e &newWorkout.FileURL
+	err = h.db.QueryRowContext(r.Context(), query, req.Name, req.Description, req.StudentID, trainerID, req.FileURL).Scan(
+		&newWorkout.ID, &newWorkout.StudentID, &newWorkout.Name, &newWorkout.Description, &newWorkout.IsActive, &newWorkout.FileURL,
 	)
 	if err != nil {
 		log.Printf("Erro ao inserir treino no banco de dados: %v", err)

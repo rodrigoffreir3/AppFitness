@@ -1,4 +1,3 @@
-// internal/handlers/students_handler.go
 package handlers
 
 import (
@@ -55,20 +54,24 @@ type CreateStudentRequest struct {
 	Name     string `json:"name"`
 	Email    string `json:"email"`
 	Password string `json:"password"`
+	FileURL  string `json:"file_url"` // NOVO CAMPO
 }
 type StudentResponse struct {
-	ID    string `json:"id"`
-	Name  string `json:"name"`
-	Email string `json:"email"`
+	ID      string `json:"id"`
+	Name    string `json:"name"`
+	Email   string `json:"email"`
+	FileURL string `json:"file_url"` // NOVO CAMPO
 }
 type UpdateStudentRequest struct {
-	Name  *string `json:"name"`
-	Email *string `json:"email"`
+	Name    *string `json:"name"`
+	Email   *string `json:"email"`
+	FileURL *string `json:"file_url"` // NOVO CAMPO
 }
 type StudentProfileResponse struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
 	Email       string `json:"email"`
+	FileURL     string `json:"file_url"` // NOVO CAMPO
 	TrainerID   string `json:"trainer_id"`
 	TrainerName string `json:"trainer_name"`
 }
@@ -77,14 +80,15 @@ type StudentProfileResponse struct {
 func (h *studentsHandler) handleGetMyProfile(w http.ResponseWriter, r *http.Request) {
 	studentID := r.Context().Value(middleware.TrainerIDKey).(string)
 	var profile StudentProfileResponse
+	// Adicionado COALESCE(s.file_url, '')
 	query := `
-		SELECT s.id, s.name, s.email, s.trainer_id, COALESCE(t.name, '') as trainer_name
+		SELECT s.id, s.name, s.email, COALESCE(s.file_url, ''), s.trainer_id, COALESCE(t.name, '') as trainer_name
 		FROM students s
 		LEFT JOIN trainers t ON s.trainer_id = t.id
 		WHERE s.id = $1
 	`
 	err := h.db.QueryRowContext(r.Context(), query, studentID).Scan(
-		&profile.ID, &profile.Name, &profile.Email, &profile.TrainerID, &profile.TrainerName,
+		&profile.ID, &profile.Name, &profile.Email, &profile.FileURL, &profile.TrainerID, &profile.TrainerName,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -153,8 +157,9 @@ func (h *studentsHandler) handleGetMyWorkoutDetails(w http.ResponseWriter, r *ht
 	studentID := r.Context().Value(middleware.TrainerIDKey).(string)
 	workoutID := r.PathValue("id")
 	var workout types.WorkoutResponse
-	queryWorkout := `SELECT id, student_id, name, description, is_active FROM workouts WHERE id = $1 AND student_id = $2`
-	err := h.db.QueryRowContext(r.Context(), queryWorkout, workoutID, studentID).Scan(&workout.ID, &workout.StudentID, &workout.Name, &workout.Description, &workout.IsActive)
+	// Adicionado COALESCE(file_url, '')
+	queryWorkout := `SELECT id, student_id, name, description, is_active, COALESCE(file_url, '') FROM workouts WHERE id = $1 AND student_id = $2`
+	err := h.db.QueryRowContext(r.Context(), queryWorkout, workoutID, studentID).Scan(&workout.ID, &workout.StudentID, &workout.Name, &workout.Description, &workout.IsActive, &workout.FileURL)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			http.Error(w, "Treino não encontrado ou não pertence a este aluno", http.StatusNotFound)
@@ -205,7 +210,8 @@ func (h *studentsHandler) handleGetMyWorkouts(w http.ResponseWriter, r *http.Req
 		http.Error(w, "ID do aluno não encontrado no contexto", http.StatusInternalServerError)
 		return
 	}
-	query := `SELECT id, student_id, name, description, is_active FROM workouts WHERE student_id = $1 AND is_active = true ORDER BY created_at DESC`
+	// Adicionado COALESCE(file_url, '')
+	query := `SELECT id, student_id, name, description, is_active, COALESCE(file_url, '') FROM workouts WHERE student_id = $1 AND is_active = true ORDER BY created_at DESC`
 	rows, err := h.db.QueryContext(r.Context(), query, studentID)
 	if err != nil {
 		log.Printf("Erro ao buscar treinos do aluno: %v", err)
@@ -216,7 +222,8 @@ func (h *studentsHandler) handleGetMyWorkouts(w http.ResponseWriter, r *http.Req
 	var workouts []types.WorkoutResponse
 	for rows.Next() {
 		var workout types.WorkoutResponse
-		if err := rows.Scan(&workout.ID, &workout.StudentID, &workout.Name, &workout.Description, &workout.IsActive); err != nil {
+		// Adicionado &workout.FileURL
+		if err := rows.Scan(&workout.ID, &workout.StudentID, &workout.Name, &workout.Description, &workout.IsActive, &workout.FileURL); err != nil {
 			log.Printf("Erro ao escanear linha de treino: %v", err)
 			http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
 			return
@@ -259,17 +266,13 @@ func (h *studentsHandler) handleStudentLogin(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// --- CORREÇÃO DE BRANDING PARA O ALUNO ---
 	var branding types.BrandingResponse
-	// Adicionada a coluna brand_secondary_color
 	brandingQuery := `SELECT COALESCE(brand_logo_url, ''), COALESCE(brand_primary_color, '#3b82f6'), COALESCE(brand_secondary_color, '#000000'), COALESCE(payment_pix_key, ''), COALESCE(payment_link_url, ''), COALESCE(payment_instructions, '') FROM trainers WHERE id = $1`
 	err = h.db.QueryRowContext(r.Context(), brandingQuery, trainerID).Scan(&branding.LogoURL, &branding.PrimaryColor, &branding.SecondaryColor, &branding.PaymentPixKey, &branding.PaymentLinkURL, &branding.PaymentInstructions)
 	if err != nil {
 		log.Printf("Aviso: não foi possível buscar branding para o trainer ID %s: %v", trainerID, err)
 	}
-	// --- FIM DA CORREÇÃO ---
 
-	// --- ATUALIZADO: Token expira em 72 horas ---
 	claims := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"sub": studentID,
 		"exp": time.Now().Add(time.Hour * 72).Unix(),
@@ -293,8 +296,9 @@ func (h *studentsHandler) handleGetStudent(w http.ResponseWriter, r *http.Reques
 	trainerID := r.Context().Value(middleware.TrainerIDKey).(string)
 	studentID := r.PathValue("id")
 	var student StudentResponse
-	query := `SELECT id, name, email FROM students WHERE id = $1 AND trainer_id = $2`
-	err := h.db.QueryRowContext(r.Context(), query, studentID, trainerID).Scan(&student.ID, &student.Name, &student.Email)
+	// Adicionado COALESCE(file_url, '')
+	query := `SELECT id, name, email, COALESCE(file_url, '') FROM students WHERE id = $1 AND trainer_id = $2`
+	err := h.db.QueryRowContext(r.Context(), query, studentID, trainerID).Scan(&student.ID, &student.Name, &student.Email, &student.FileURL)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			http.Error(w, "Aluno não encontrado ou não pertence a este trainer", http.StatusNotFound)
@@ -316,8 +320,9 @@ func (h *studentsHandler) handleUpdateStudent(w http.ResponseWriter, r *http.Req
 		http.Error(w, "Corpo da requisição inválido", http.StatusBadRequest)
 		return
 	}
-	query := `UPDATE students SET name = COALESCE($1, name), email = COALESCE($2, email) WHERE id = $3 AND trainer_id = $4`
-	result, err := h.db.ExecContext(r.Context(), query, req.Name, req.Email, studentID, trainerID)
+	// Adicionado file_url = COALESCE($3, file_url)
+	query := `UPDATE students SET name = COALESCE($1, name), email = COALESCE($2, email), file_url = COALESCE($3, file_url) WHERE id = $4 AND trainer_id = $5`
+	result, err := h.db.ExecContext(r.Context(), query, req.Name, req.Email, req.FileURL, studentID, trainerID)
 	if err != nil {
 		log.Printf("Erro ao atualizar aluno: %v", err)
 		http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
@@ -356,7 +361,8 @@ func (h *studentsHandler) handleListStudents(w http.ResponseWriter, r *http.Requ
 		http.Error(w, "ID do trainer não encontrado no contexto", http.StatusInternalServerError)
 		return
 	}
-	query := `SELECT id, name, email FROM students WHERE trainer_id = $1 ORDER BY name ASC`
+	// Adicionado COALESCE(file_url, '')
+	query := `SELECT id, name, email, COALESCE(file_url, '') FROM students WHERE trainer_id = $1 ORDER BY name ASC`
 	rows, err := h.db.QueryContext(r.Context(), query, trainerID)
 	if err != nil {
 		log.Printf("Erro ao buscar alunos: %v", err)
@@ -367,7 +373,8 @@ func (h *studentsHandler) handleListStudents(w http.ResponseWriter, r *http.Requ
 	var students []StudentResponse
 	for rows.Next() {
 		var student StudentResponse
-		if err := rows.Scan(&student.ID, &student.Name, &student.Email); err != nil {
+		// Adicionado &student.FileURL
+		if err := rows.Scan(&student.ID, &student.Name, &student.Email, &student.FileURL); err != nil {
 			log.Printf("Erro ao escanear linha de aluno: %v", err)
 			http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
 			return
@@ -404,12 +411,14 @@ func (h *studentsHandler) handleCreateStudent(w http.ResponseWriter, r *http.Req
 		return
 	}
 	var newStudent StudentResponse
+	// Adicionado file_url na query e COALESCE no returning
 	query := `
-		INSERT INTO students (name, email, password_hash, trainer_id)
-		VALUES ($1, $2, $3, $4)
-		RETURNING id, name, email
+		INSERT INTO students (name, email, password_hash, trainer_id, file_url)
+		VALUES ($1, $2, $3, $4, $5)
+		RETURNING id, name, email, COALESCE(file_url, '')
 	`
-	err = h.db.QueryRowContext(r.Context(), query, req.Name, req.Email, string(hashedPassword), trainerID).Scan(&newStudent.ID, &newStudent.Name, &newStudent.Email)
+	// Passando req.FileURL
+	err = h.db.QueryRowContext(r.Context(), query, req.Name, req.Email, string(hashedPassword), trainerID, req.FileURL).Scan(&newStudent.ID, &newStudent.Name, &newStudent.Email, &newStudent.FileURL)
 	if err != nil {
 		if strings.Contains(err.Error(), "violates unique constraint") {
 			http.Error(w, "O email fornecido já está em uso.", http.StatusConflict)

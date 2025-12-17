@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Search, Eye, Loader2, AlertCircle, Dumbbell } from "lucide-react";
+import { Plus, Search, Eye, Loader2, AlertCircle, Dumbbell, FileText, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -25,7 +25,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
 import { useNavigate } from 'react-router-dom';
 
-// 1. IMPORTAR O UPLOADER
+// IMPORTAR O UPLOADER
 import FileUploader from "@/components/common/FileUploader";
 
 interface WorkoutWithStudent {
@@ -35,7 +35,7 @@ interface WorkoutWithStudent {
   name: string;
   description: string;
   is_active: boolean;
-  diet_plan_url?: string; // Campo novo
+  file_url?: string; // NOME CORRIGIDO PARA O BANCO DE DADOS
 }
 interface Student {
   id: string;
@@ -46,7 +46,7 @@ interface NewWorkoutForm {
   student_id: string;
   name: string;
   description: string;
-  diet_plan_url?: string; // 2. NOVO CAMPO NO FORM
+  file_url?: string; // NOME CORRIGIDO
 }
 
 const WorkoutsView = () => {
@@ -58,12 +58,12 @@ const WorkoutsView = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
   
-  // 3. INICIALIZAR O ESTADO
+  // ESTADO INICIAL ATUALIZADO
   const [newWorkout, setNewWorkout] = useState<NewWorkoutForm>({
     student_id: "",
     name: "",
     description: "",
-    diet_plan_url: "", // Inicia vazio
+    file_url: "", // Inicia vazio
   });
 
   const navigate = useNavigate();
@@ -101,14 +101,14 @@ const WorkoutsView = () => {
       return;
     }
     try {
-      // 4. O OBJETO newWorkout JÁ TEM O diet_plan_url AGORA
+      // PAYLOAD CORRIGIDO
       const response = await api.post<WorkoutWithStudent>('/workouts', newWorkout);
       toast({
         title: "Ficha criada!",
         description: `O treino "${response.data.name}" foi criado com sucesso.`,
       });
       setIsDialogOpen(false);
-      setNewWorkout({ student_id: "", name: "", description: "", diet_plan_url: "" });
+      setNewWorkout({ student_id: "", name: "", description: "", file_url: "" });
       fetchData(); 
     } catch (err: any) {
       console.error("Erro ao criar ficha de treino:", err);
@@ -166,15 +166,23 @@ const WorkoutsView = () => {
             <CardContent className="space-y-3">
               <p className="text-sm text-muted-foreground">Aluno: {workout.student_name}</p>
               
-              {workout.diet_plan_url && (
-                 <div className="text-xs text-blue-600 flex items-center gap-1">
-                  <span>🥗 Dieta Anexada</span>
-                 </div>
-              )}
-
               <Badge variant={workout.is_active ? "default" : "outline"} className={workout.is_active ? "" : "border-gray-400 text-gray-500"}>
                 {workout.is_active ? "Ativo" : "Inativo"}
               </Badge>
+
+              {/* --- BOTÃO DE VISUALIZAÇÃO DO ARQUIVO --- */}
+              {workout.file_url && (
+                 <Button 
+                    variant="secondary" 
+                    size="sm"
+                    className="w-full mt-2 text-green-700 bg-green-50 hover:bg-green-100 border border-green-200"
+                    onClick={() => window.open(`http://localhost:8080${workout.file_url}`, '_blank')}
+                 >
+                    <FileText className="mr-2 h-4 w-4" /> Ver Dieta / Anexo
+                    <ExternalLink className="ml-2 h-3 w-3" />
+                 </Button>
+              )}
+              {/* --------------------------------------- */}
               
               <Button 
                 variant="outline" 
@@ -260,15 +268,14 @@ const WorkoutsView = () => {
                 />
               </div>
 
-              {/* 5. INSERÇÃO DO COMPONENTE DE UPLOAD */}
+              {/* UPLOADER CONFIGURADO CORRETAMENTE */}
               <div className="border-t pt-4">
                  <FileUploader 
                     label="Plano Alimentar / Dieta (Opcional)"
-                    currentUrl={newWorkout.diet_plan_url}
-                    onUploadSuccess={(url) => setNewWorkout(curr => ({ ...curr, diet_plan_url: url }))}
+                    currentUrl={newWorkout.file_url}
+                    onUploadSuccess={(url) => setNewWorkout(curr => ({ ...curr, file_url: url }))}
                 />
               </div>
-              {/* --- FIM DO UPLOAD --- */}
 
               <Button onClick={handleCreateWorkout} className="w-full" disabled={formLoading}>
                 {formLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}

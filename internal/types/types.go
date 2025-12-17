@@ -33,6 +33,7 @@ type WorkoutResponse struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	IsActive    bool   `json:"is_active"`
+	FileURL     string `json:"file_url"` // CAMPO ADICIONADO
 }
 
 // WorkoutExerciseResponse
