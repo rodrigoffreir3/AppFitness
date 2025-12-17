@@ -2,7 +2,6 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- Tabela: trainers (Os Personais / Tenants)
--- ATUALIZADO: Agora inclui colunas de marca, pagamento e assinatura
 CREATE TABLE trainers (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(255) NOT NULL,
@@ -33,6 +32,10 @@ CREATE TABLE students (
     name VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
+    
+    -- NOVO: Upload de Documento (Ficha de Anamnese/Saúde)
+    anamnesis_url TEXT,
+
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -44,6 +47,10 @@ CREATE TABLE workouts (
     name VARCHAR(255) NOT NULL,
     description TEXT,
     is_active BOOLEAN DEFAULT true,
+
+    -- NOVO: Upload de Documento (Dieta da Nutricionista vinculada ao treino)
+    diet_plan_url TEXT,
+
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 

@@ -1,7 +1,7 @@
 services:
   # --- O CORAÇÃO DO SISTEMA: API (Backend em Go) ---
   api:
-    build: .                         # Usa o Dockerfile que está na pasta raiz
+    build: .                     # Usa o Dockerfile que está na pasta raiz
     container_name: appfitness-backend
     restart: always
     ports:
@@ -16,6 +16,8 @@ services:
       - PORT=8080
     depends_on:
       - postgres                     # Só inicia depois que o banco subir
+    volumes:                         # <--- ADICIONADO: Persistência de Uploads
+      - ./uploads:/app/uploads       # Mapeia a pasta local 'uploads' para dentro do container
     networks:
       - appfitness-network
 
@@ -32,7 +34,7 @@ services:
       - ./postgres/data:/var/lib/postgresql/data
       - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
-      - "5433:5432"                  # Porta 5433 do PC -> Porta 5432 do Container (evita conflito se tiver outro Postgres)
+      - "5433:5432"                  # Porta 5433 do PC -> Porta 5432 do Container
     networks:
       - appfitness-network
 

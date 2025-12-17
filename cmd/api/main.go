@@ -1,4 +1,3 @@
-// cmd/api/main.go
 package main
 
 import (
@@ -7,21 +6,19 @@ import (
 	"appfitness/internal/handlers"
 	"log"
 	"net/http"
-	"os" // Importa o pacote os
+	"os"
 
-	"github.com/joho/godotenv" // Importa o godotenv
+	"github.com/joho/godotenv"
 	"github.com/rs/cors"
 )
 
 func main() {
-	// Carrega as variáveis de ambiente do arquivo .env, sobrescrevendo as existentes
+	// Carrega as variáveis de ambiente
 	err := godotenv.Overload()
 	if err != nil {
-		// Não é um erro fatal, podemos continuar se as variáveis estiverem no sistema
 		log.Println("Aviso: Não foi possível carregar o arquivo .env. Usando variáveis de ambiente do sistema.")
 	}
 
-	// DEBUG: Imprime o valor de DB_HOST
 	log.Printf("DEBUG: DB_HOST is set to: %s", os.Getenv("DB_HOST"))
 
 	db, err := database.Connect()
@@ -31,24 +28,30 @@ func main() {
 	defer db.Close()
 	log.Println("Conexão com o banco de dados estabelecida com sucesso!")
 
-	hub := chat.NewHub(db) // O Hub ainda precisa do db para salvar mensagens
+	hub := chat.NewHub(db)
 	go hub.Run()
 
 	port := "8080"
 	mux := http.NewServeMux()
 
+	// Registro de Rotas Existentes
 	handlers.RegisterTrainersRoutes(mux, db)
 	handlers.RegisterStudentsRoutes(mux, db)
 	handlers.RegisterWorkoutsRoutes(mux, db)
 	handlers.RegisterWorkoutExercisesRoutes(mux, db)
-
-	// --- CORREÇÃO AQUI ---
-	// Agora passamos o 'hub' e o 'db'
 	handlers.RegisterChatRoutes(mux, hub, db)
-	// --- FIM DA CORREÇÃO ---
-
 	handlers.RegisterAnnouncementsRoutes(mux, db)
 	handlers.RegisterExercisesRoutes(mux, db)
+
+	// --- NOVO: Rota de Upload ---
+	// Mapeia a função HandleUpload para receber os arquivos
+	mux.HandleFunc("/api/upload", handlers.HandleUpload)
+
+	// --- NOVO: Servidor de Arquivos Estáticos ---
+	// Permite acessar http://localhost:8080/uploads/arquivo.pdf
+	fs := http.FileServer(http.Dir("./uploads"))
+	// O StripPrefix remove "/uploads/" da URL antes de procurar na pasta
+	mux.Handle("/uploads/", http.StripPrefix("/uploads/", fs))
 
 	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("API do App Fitness está no ar!"))
