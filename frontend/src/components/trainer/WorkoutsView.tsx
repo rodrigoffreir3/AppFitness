@@ -23,9 +23,11 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
-import { useNavigate } from 'react-router-dom'; // 1. Importar useNavigate
+import { useNavigate } from 'react-router-dom';
 
-// (Interfaces permanecem as mesmas)
+// 1. IMPORTAR O UPLOADER
+import FileUploader from "@/components/common/FileUploader";
+
 interface WorkoutWithStudent {
   id: string;
   student_id: string;
@@ -33,6 +35,7 @@ interface WorkoutWithStudent {
   name: string;
   description: string;
   is_active: boolean;
+  diet_plan_url?: string; // Campo novo
 }
 interface Student {
   id: string;
@@ -43,8 +46,8 @@ interface NewWorkoutForm {
   student_id: string;
   name: string;
   description: string;
+  diet_plan_url?: string; // 2. NOVO CAMPO NO FORM
 }
-// ---
 
 const WorkoutsView = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -54,15 +57,17 @@ const WorkoutsView = () => {
   const [students, setStudents] = useState<Student[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
+  
+  // 3. INICIALIZAR O ESTADO
   const [newWorkout, setNewWorkout] = useState<NewWorkoutForm>({
     student_id: "",
     name: "",
     description: "",
+    diet_plan_url: "", // Inicia vazio
   });
 
-  const navigate = useNavigate(); // 2. Instanciar o hook
+  const navigate = useNavigate();
 
-  // (Funções fetchData e handleCreateWorkout permanecem as mesmas)
   const fetchData = async () => {
     setLoading(true);
     setError("");
@@ -83,6 +88,7 @@ const WorkoutsView = () => {
   useEffect(() => {
     fetchData();
   }, []);
+
   const handleCreateWorkout = async () => {
     setFormLoading(true);
     if (!newWorkout.student_id || !newWorkout.name) {
@@ -95,13 +101,14 @@ const WorkoutsView = () => {
       return;
     }
     try {
+      // 4. O OBJETO newWorkout JÁ TEM O diet_plan_url AGORA
       const response = await api.post<WorkoutWithStudent>('/workouts', newWorkout);
       toast({
         title: "Ficha criada!",
         description: `O treino "${response.data.name}" foi criado com sucesso.`,
       });
       setIsDialogOpen(false);
-      setNewWorkout({ student_id: "", name: "", description: "" });
+      setNewWorkout({ student_id: "", name: "", description: "", diet_plan_url: "" });
       fetchData(); 
     } catch (err: any) {
       console.error("Erro ao criar ficha de treino:", err);
@@ -114,7 +121,6 @@ const WorkoutsView = () => {
       setFormLoading(false);
     }
   };
-  // ---
 
   const filteredWorkouts = workouts.filter((workout) =>
     workout.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -129,7 +135,6 @@ const WorkoutsView = () => {
         </div>
       );
     }
-    // (Restante do renderContent permanece o mesmo)
     if (error) {
        return (
         <div className="flex flex-col items-center justify-center h-64 text-center text-destructive bg-destructive/10 border border-destructive rounded-lg p-6">
@@ -160,21 +165,26 @@ const WorkoutsView = () => {
             </CardHeader>
             <CardContent className="space-y-3">
               <p className="text-sm text-muted-foreground">Aluno: {workout.student_name}</p>
+              
+              {workout.diet_plan_url && (
+                 <div className="text-xs text-blue-600 flex items-center gap-1">
+                  <span>🥗 Dieta Anexada</span>
+                 </div>
+              )}
+
               <Badge variant={workout.is_active ? "default" : "outline"} className={workout.is_active ? "" : "border-gray-400 text-gray-500"}>
                 {workout.is_active ? "Ativo" : "Inativo"}
               </Badge>
               
-              {/* --- 3. BOTÃO ATUALIZADO --- */}
               <Button 
                 variant="outline" 
                 size="sm" 
                 className="w-full mt-2"
-                onClick={() => navigate(`/trainer/workout/${workout.id}`)} // Navega para a nova rota
+                onClick={() => navigate(`/trainer/workout/${workout.id}`)} 
               >
                 <Eye className="mr-2 h-4 w-4" />
                 Ver Detalhes
               </Button>
-              {/* --- FIM DA ATUALIZAÇÃO --- */}
 
             </CardContent>
           </Card>
@@ -182,7 +192,6 @@ const WorkoutsView = () => {
       </div>
     );
   };
-
 
   return (
     <div className="space-y-6">
@@ -192,7 +201,6 @@ const WorkoutsView = () => {
           <p className="text-muted-foreground">Crie e gerencie treinos</p>
         </div>
         
-        {/* (Dialog "Nova Ficha" permanece o mesmo) */}
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button>
@@ -200,7 +208,7 @@ const WorkoutsView = () => {
               Nova Ficha
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Criar Nova Ficha de Treino</DialogTitle>
               <DialogDescription>
@@ -251,6 +259,17 @@ const WorkoutsView = () => {
                   disabled={formLoading}
                 />
               </div>
+
+              {/* 5. INSERÇÃO DO COMPONENTE DE UPLOAD */}
+              <div className="border-t pt-4">
+                 <FileUploader 
+                    label="Plano Alimentar / Dieta (Opcional)"
+                    currentUrl={newWorkout.diet_plan_url}
+                    onUploadSuccess={(url) => setNewWorkout(curr => ({ ...curr, diet_plan_url: url }))}
+                />
+              </div>
+              {/* --- FIM DO UPLOAD --- */}
+
               <Button onClick={handleCreateWorkout} className="w-full" disabled={formLoading}>
                 {formLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                 {formLoading ? "Criando..." : "Criar Ficha"}

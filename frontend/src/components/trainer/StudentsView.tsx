@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
-// 1. Importar AlertCircle para o ícone de aviso
 import { Plus, Search, Edit, Trash2, Loader2, UserCog, AlertCircle } from "lucide-react";
-import { Button, buttonVariants } from "@/components/ui/button"; // 2. Importar buttonVariants
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -12,7 +11,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-// 3. Importar todos os componentes do AlertDialog
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,22 +26,26 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import api from "@/services/api";
 
-// Interface para o Aluno
+// 1. IMPORTAR O UPLOADER
+import FileUploader from "@/components/common/FileUploader";
+
 interface Student {
   id: string;
   name: string;
   email: string;
   phone?: string;
+  anamnesis_url?: string; // Campo opcional na interface de leitura
 }
 
-// Interface para a requisição de criação
+// 2. ATUALIZAR INTERFACE DA REQUISIÇÃO
 interface CreateStudentRequest {
   name: string;
   email: string;
   password: string;
+  phone?: string;
+  anamnesis_url?: string; // Novo campo
 }
 
-// Interface para a requisição de atualização
 interface UpdateStudentRequest {
   name?: string;
   email?: string;
@@ -57,20 +59,20 @@ const StudentsView = () => {
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
+  
+  // 3. ADICIONAR O CAMPO AO ESTADO INICIAL
   const [newStudent, setNewStudent] = useState({
     name: "",
     email: "",
     password: "",
-    phone: "", 
+    phone: "",
+    anamnesis_url: "", // Inicia vazio
   });
 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
-
-  // 4. Novo estado para controlar o aluno a ser deletado
   const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
 
-  // Função para buscar alunos
   const fetchStudents = async () => {
     setLoading(true);
     setError("");
@@ -85,12 +87,10 @@ const StudentsView = () => {
     }
   };
 
-  // Buscar alunos ao montar o componente
   useEffect(() => {
     fetchStudents();
   }, []);
 
-  // Handler para Adicionar Aluno (existente)
   const handleAddStudent = async () => {
     setFormLoading(true);
     setError("");
@@ -100,10 +100,20 @@ const StudentsView = () => {
       return;
     }
     try {
-      const apiRequest: CreateStudentRequest = { name: newStudent.name, email: newStudent.email, password: newStudent.password };
+      // 4. INCLUIR O URL NO PAYLOAD
+      const apiRequest: CreateStudentRequest = { 
+        name: newStudent.name, 
+        email: newStudent.email, 
+        password: newStudent.password,
+        phone: newStudent.phone,
+        anamnesis_url: newStudent.anamnesis_url // Envia para o backend
+      };
+      
       const response = await api.post<Student>('/students', apiRequest);
       toast.success("Aluno adicionado!", { description: `${response.data.name} foi cadastrado com sucesso.` });
-      setNewStudent({ name: "", email: "", password: "", phone: "" });
+      
+      // Resetar form
+      setNewStudent({ name: "", email: "", password: "", phone: "", anamnesis_url: "" });
       setIsAddDialogOpen(false); 
       fetchStudents(); 
     } catch (err: any) {
@@ -115,13 +125,11 @@ const StudentsView = () => {
     }
   };
 
-  // Handler para Abrir Dialog de Edição (existente)
   const handleOpenEditDialog = (student: Student) => {
     setEditingStudent(student);
     setIsEditDialogOpen(true);
   };
   
-  // Handler para Atualizar Aluno (existente)
   const handleUpdateStudent = async () => {
     if (!editingStudent) return;
     setFormLoading(true);
@@ -146,27 +154,21 @@ const StudentsView = () => {
     }
   };
 
-  // 5. Novo handler para deletar o aluno
   const handleDeleteStudent = async () => {
     if (!studentToDelete) return;
-
     try {
-      // Chama o endpoint DELETE
       await api.delete(`/students/${studentToDelete.id}`);
-      
       toast.success("Aluno excluído!", {
         description: `${studentToDelete.name} foi removido com sucesso.`,
       });
-
-      setStudentToDelete(null); // Limpa o estado
-      fetchStudents(); // Atualiza a lista
-
+      setStudentToDelete(null); 
+      fetchStudents(); 
     } catch (err: any) {
       console.error("Erro ao deletar aluno:", err);
       toast.error("Erro ao excluir", {
         description: "Não foi possível remover o aluno. Tente novamente.",
       });
-      setStudentToDelete(null); // Limpa o estado mesmo em caso de erro
+      setStudentToDelete(null); 
     }
   };
 
@@ -174,8 +176,6 @@ const StudentsView = () => {
     student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     student.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
-
-  // --- RENDERIZAÇÃO ---
 
   const renderContent = () => {
     if (loading) {
@@ -206,7 +206,6 @@ const StudentsView = () => {
       );
     }
 
-    // 6. O conteúdo (cards) agora é retornado diretamente
     return (
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {filteredStudents.map((student) => (
@@ -216,6 +215,14 @@ const StudentsView = () => {
             </CardHeader>
             <CardContent className="space-y-2">
               <p className="text-sm text-muted-foreground">{student.email}</p>
+              
+              {/* Mostra ícone se tiver anamnese (opcional visual) */}
+              {student.anamnesis_url && (
+                <div className="text-xs text-green-600 flex items-center gap-1 mt-1">
+                  <span>📄 Possui Ficha de Anamnese</span>
+                </div>
+              )}
+
               <div className="flex gap-2 mt-4">
                 <Button 
                   variant="outline" 
@@ -227,19 +234,16 @@ const StudentsView = () => {
                   Editar
                 </Button>
                 
-                {/* 7. Botão de deletar agora é um AlertDialogTrigger */}
                 <AlertDialogTrigger asChild>
                   <Button 
                     variant="outline" 
                     size="sm" 
                     className="text-destructive hover:text-destructive"
-                    onClick={() => setStudentToDelete(student)} // Define quem será deletado
+                    onClick={() => setStudentToDelete(student)} 
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </AlertDialogTrigger>
-                {/* --- FIM BOTÃO DE DELETAR --- */}
-
               </div>
             </CardContent>
           </Card>
@@ -248,7 +252,6 @@ const StudentsView = () => {
     );
   };
 
-  // 8. O componente <AlertDialog> envolve todo o retorno
   return (
     <AlertDialog>
       <div className="space-y-6">
@@ -258,7 +261,6 @@ const StudentsView = () => {
             <p className="text-muted-foreground">Gerencie seus alunos</p>
           </div>
           
-          {/* --- DIALOG "NOVO ALUNO" (Sem alterações) --- */}
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
               <Button>
@@ -266,7 +268,7 @@ const StudentsView = () => {
                 Novo Aluno
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-h-[90vh] overflow-y-auto"> {/* Ajuste para scroll se tela pequena */}
               <DialogHeader>
                 <DialogTitle>Adicionar Novo Aluno</DialogTitle>
                 <DialogDescription>
@@ -274,7 +276,6 @@ const StudentsView = () => {
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
-                {/* ... campos do formulário ... */}
                 <div>
                   <Label htmlFor="name">Nome completo</Label>
                   <Input id="name" value={newStudent.name} onChange={(e) => setNewStudent({ ...newStudent, name: e.target.value })} disabled={formLoading} />
@@ -291,6 +292,17 @@ const StudentsView = () => {
                   <Label htmlFor="phone">Telefone (Opcional)</Label>
                   <Input id="phone" value={newStudent.phone} onChange={(e) => setNewStudent({ ...newStudent, phone: e.target.value })} disabled={formLoading} />
                 </div>
+
+                {/* 5. INSERÇÃO DO COMPONENTE DE UPLOAD */}
+                <div className="border-t pt-4 mt-2">
+                  <FileUploader 
+                    label="Ficha de Anamnese / Saúde (PDF ou Imagem)"
+                    currentUrl={newStudent.anamnesis_url}
+                    onUploadSuccess={(url) => setNewStudent(curr => ({ ...curr, anamnesis_url: url }))}
+                  />
+                </div>
+                {/* --- FIM DO UPLOAD --- */}
+
                 <Button onClick={handleAddStudent} className="w-full" disabled={formLoading}>
                   {formLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                   {formLoading ? "Cadastrando..." : "Cadastrar Aluno"}
@@ -298,8 +310,6 @@ const StudentsView = () => {
               </div>
             </DialogContent>
           </Dialog>
-          {/* --- FIM DIALOG "NOVO ALUNO" --- */}
-
         </div>
 
         <div className="relative">
@@ -314,7 +324,6 @@ const StudentsView = () => {
 
         {renderContent()}
 
-        {/* --- DIALOG "EDITAR ALUNO" (Sem alterações) --- */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
           <DialogContent>
             <DialogHeader>
@@ -324,7 +333,6 @@ const StudentsView = () => {
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
-              {/* ... campos do formulário de edição ... */}
               <div>
                 <Label htmlFor="edit-name">Nome completo</Label>
                 <Input id="edit-name" value={editingStudent?.name || ''} onChange={(e) => setEditingStudent(current => current ? { ...current, name: e.target.value } : null)} disabled={formLoading} />
@@ -333,7 +341,7 @@ const StudentsView = () => {
                 <Label htmlFor="edit-email">Email</Label>
                 <Input id="edit-email" type="email" value={editingStudent?.email || ''} onChange={(e) => setEditingStudent(current => current ? { ...current, email: e.target.value } : null)} disabled={formLoading} />
               </div>
-              <p className="text-sm text-muted-foreground">A redefinição de senha será feita em outra tela (a ser implementada).</p>
+              <p className="text-sm text-muted-foreground">A redefinição de senha será feita em outra tela.</p>
               <Button onClick={handleUpdateStudent} className="w-full" disabled={formLoading}>
                 {formLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                 {formLoading ? "Salvando..." : "Salvar Alterações"}
@@ -341,11 +349,9 @@ const StudentsView = () => {
             </div>
           </DialogContent>
         </Dialog>
-        {/* --- FIM DIALOG "EDITAR ALUNO" --- */}
 
       </div>
 
-      {/* 9. Conteúdo do AlertDialog (o modal de confirmação) */}
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2">
@@ -362,13 +368,12 @@ const StudentsView = () => {
           <AlertDialogCancel onClick={() => setStudentToDelete(null)}>Cancelar</AlertDialogCancel>
           <AlertDialogAction 
             onClick={handleDeleteStudent} 
-            className={buttonVariants({ variant: "destructive" })} // Estilo destrutivo
+            className={buttonVariants({ variant: "destructive" })} 
           >
             Sim, excluir aluno
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
-      {/* --- FIM DO CONTEÚDO --- */}
 
     </AlertDialog>
   );
