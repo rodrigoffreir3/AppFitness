@@ -9,8 +9,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	// ATENÇÃO: Se der erro de import no "github.com/google/uuid",
-	// certifique-se de que ele está no go.mod ou use um gerador simples
 	"github.com/google/uuid"
 )
 

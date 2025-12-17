@@ -44,14 +44,16 @@ func main() {
 	handlers.RegisterExercisesRoutes(mux, db)
 
 	// --- NOVO: Rota de Upload ---
-	// Mapeia a função HandleUpload para receber os arquivos
-	mux.HandleFunc("/api/upload", handlers.HandleUpload)
+	// CORREÇÃO: Adicionado "POST " explicitamente para evitar conflitos
+	mux.HandleFunc("POST /api/upload", handlers.HandleUpload)
 
 	// --- NOVO: Servidor de Arquivos Estáticos ---
 	// Permite acessar http://localhost:8080/uploads/arquivo.pdf
 	fs := http.FileServer(http.Dir("./uploads"))
+
+	// CORREÇÃO: Adicionado "GET " explicitamente.
 	// O StripPrefix remove "/uploads/" da URL antes de procurar na pasta
-	mux.Handle("/uploads/", http.StripPrefix("/uploads/", fs))
+	mux.Handle("GET /uploads/", http.StripPrefix("/uploads/", fs))
 
 	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("API do App Fitness está no ar!"))
