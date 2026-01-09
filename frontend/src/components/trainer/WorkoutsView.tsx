@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Search, Eye, Loader2, AlertCircle, Dumbbell, FileText, ExternalLink } from "lucide-react";
+import { Plus, Search, Eye, Loader2, AlertCircle, Dumbbell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -25,8 +25,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
 import { useNavigate } from 'react-router-dom';
 
-// IMPORTAR O UPLOADER
-import FileUploader from "@/components/common/FileUploader";
+// REMOVIDO: Import do FileUploader
 
 interface WorkoutWithStudent {
   id: string;
@@ -35,7 +34,7 @@ interface WorkoutWithStudent {
   name: string;
   description: string;
   is_active: boolean;
-  file_url?: string; // NOME CORRIGIDO PARA O BANCO DE DADOS
+  // REMOVIDO: file_url
 }
 interface Student {
   id: string;
@@ -46,7 +45,7 @@ interface NewWorkoutForm {
   student_id: string;
   name: string;
   description: string;
-  file_url?: string; // NOME CORRIGIDO
+  // REMOVIDO: file_url
 }
 
 const WorkoutsView = () => {
@@ -58,12 +57,10 @@ const WorkoutsView = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
   
-  // ESTADO INICIAL ATUALIZADO
   const [newWorkout, setNewWorkout] = useState<NewWorkoutForm>({
     student_id: "",
     name: "",
     description: "",
-    file_url: "", // Inicia vazio
   });
 
   const navigate = useNavigate();
@@ -101,14 +98,13 @@ const WorkoutsView = () => {
       return;
     }
     try {
-      // PAYLOAD CORRIGIDO
-      const response = await api.post<WorkoutWithStudent>('/workouts', newWorkout);
+      await api.post<WorkoutWithStudent>('/workouts', newWorkout);
       toast({
         title: "Ficha criada!",
-        description: `O treino "${response.data.name}" foi criado com sucesso.`,
+        description: `O treino foi criado com sucesso.`,
       });
       setIsDialogOpen(false);
-      setNewWorkout({ student_id: "", name: "", description: "", file_url: "" });
+      setNewWorkout({ student_id: "", name: "", description: "" });
       fetchData(); 
     } catch (err: any) {
       console.error("Erro ao criar ficha de treino:", err);
@@ -170,19 +166,7 @@ const WorkoutsView = () => {
                 {workout.is_active ? "Ativo" : "Inativo"}
               </Badge>
 
-              {/* --- BOTÃO DE VISUALIZAÇÃO DO ARQUIVO --- */}
-              {workout.file_url && (
-                 <Button 
-                    variant="secondary" 
-                    size="sm"
-                    className="w-full mt-2 text-green-700 bg-green-50 hover:bg-green-100 border border-green-200"
-                    onClick={() => window.open(`http://localhost:8080${workout.file_url}`, '_blank')}
-                 >
-                    <FileText className="mr-2 h-4 w-4" /> Ver Dieta / Anexo
-                    <ExternalLink className="ml-2 h-3 w-3" />
-                 </Button>
-              )}
-              {/* --------------------------------------- */}
+              {/* REMOVIDO: Botão de ver arquivo */}
               
               <Button 
                 variant="outline" 
@@ -268,14 +252,7 @@ const WorkoutsView = () => {
                 />
               </div>
 
-              {/* UPLOADER CONFIGURADO CORRETAMENTE */}
-              <div className="border-t pt-4">
-                 <FileUploader 
-                    label="Plano Alimentar / Dieta (Opcional)"
-                    currentUrl={newWorkout.file_url}
-                    onUploadSuccess={(url) => setNewWorkout(curr => ({ ...curr, file_url: url }))}
-                />
-              </div>
+              {/* REMOVIDO: FileUploader */}
 
               <Button onClick={handleCreateWorkout} className="w-full" disabled={formLoading}>
                 {formLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}

@@ -42,6 +42,7 @@ func main() {
 	handlers.RegisterChatRoutes(mux, hub, db)
 	handlers.RegisterAnnouncementsRoutes(mux, db)
 	handlers.RegisterExercisesRoutes(mux, db)
+	handlers.RegisterDietsRoutes(mux, db)
 
 	// --- NOVO: Rota de Upload ---
 	// CORREÇÃO: Adicionado "POST " explicitamente para evitar conflitos

@@ -9,6 +9,7 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
+  Utensils, // NOVO ÍCONE
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
@@ -23,7 +24,6 @@ import {
 import { NavLink, useLocation } from "react-router-dom";
 
 const TrainerSidebar = () => {
-  // ATUALIZAÇÃO: Usando 'branding' em vez de 'logoUrl' direto
   const { logout, branding } = useAuth();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const location = useLocation();
@@ -32,6 +32,7 @@ const TrainerSidebar = () => {
     { to: "/trainer/dashboard", icon: LayoutDashboard, label: "Início", end: true },
     { to: "/trainer/dashboard/students", icon: Users, label: "Alunos", end: false },
     { to: "/trainer/dashboard/workouts", icon: Dumbbell, label: "Fichas de Treino", end: false },
+    { to: "/trainer/dashboard/diets", icon: Utensils, label: "Dietas", end: false }, // NOVO LINK
     { to: "/trainer/dashboard/exercises", icon: BookCopy, label: "Exercícios", end: false },
     { to: "/trainer/dashboard/chat", icon: MessageSquare, label: "Chat", end: false },
     { to: "/trainer/dashboard/announcements", icon: Bell, label: "Avisos", end: false },
@@ -45,11 +46,10 @@ const TrainerSidebar = () => {
         isCollapsed ? "w-20" : "w-64"
       )}
     >
-      {/* Cabeçalho: Cor Primária */}
+      {/* Cabeçalho */}
       <div className="flex h-20 items-center border-b px-4 overflow-hidden bg-primary text-primary-foreground transition-all">
         <NavLink to="/trainer/dashboard" className={cn("flex items-center gap-2 font-semibold w-full h-full", isCollapsed && "justify-center")}>
           {branding?.logo_url ? (
-             // LOGO MAIOR: Ajustada para ocupar mais espaço
              <img 
                src={branding.logo_url} 
                alt="Logo" 
@@ -85,16 +85,11 @@ const TrainerSidebar = () => {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
-                    // Removemos 'variant' para controlar as classes manualmente e ter as cores exatas
                     className={cn(
                       "w-full justify-start gap-3 mb-1 transition-all duration-200 border-none",
                       isCollapsed && "justify-center px-2",
-                      
-                      // ESTADO ATIVO: Fundo Branco, Texto Primário, Sombra Suave
                       isActive 
                         ? "bg-white text-primary shadow-md hover:bg-white/90 font-bold" 
-                        
-                      // ESTADO INATIVO: Texto Muted, Hover Secundário
                         : "bg-transparent text-muted-foreground hover:bg-secondary hover:text-secondary-foreground"
                     )}
                     asChild
@@ -113,7 +108,7 @@ const TrainerSidebar = () => {
         })}
       </nav>
 
-      {/* Rodapé: Cor Secundária */}
+      {/* Rodapé */}
       <div className="mt-auto border-t p-4 bg-secondary text-secondary-foreground">
         <TooltipProvider delayDuration={0}>
           <Tooltip>
@@ -136,7 +131,6 @@ const TrainerSidebar = () => {
         </TooltipProvider>
       </div>
 
-      {/* Botão Recolher */}
       <Button
         variant="outline"
         size="icon"

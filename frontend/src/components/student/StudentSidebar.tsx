@@ -9,7 +9,8 @@ import {
   Dumbbell,
   CreditCard,
   Copy,
-  ExternalLink
+  ExternalLink,
+  Utensils // NOVO ÍCONE
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
@@ -33,7 +34,6 @@ import { NavLink, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 
 const StudentSidebar = () => {
-  // CORREÇÃO: Removemos 'logoUrl' e usamos apenas 'branding'
   const { logout, branding } = useAuth();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
@@ -41,6 +41,7 @@ const StudentSidebar = () => {
 
   const navLinks = [
     { to: "/student/dashboard", icon: LayoutDashboard, label: "Meus Treinos", end: true },
+    { to: "/student/dashboard/diets", icon: Utensils, label: "Dietas", end: false }, // NOVO LINK
     { to: "/student/dashboard/chat", icon: MessageSquare, label: "Chat", end: false },
     { to: "/student/dashboard/announcements", icon: Bell, label: "Avisos", end: false },
   ];
@@ -57,10 +58,9 @@ const StudentSidebar = () => {
         isCollapsed ? "w-20" : "w-64"
       )}
     >
-      {/* Cabeçalho: Cor Primária */}
+      {/* Cabeçalho */}
       <div className="flex h-20 items-center border-b px-4 overflow-hidden bg-primary text-primary-foreground">
         <div className={cn("flex items-center gap-2 font-semibold w-full h-full", isCollapsed && "justify-center")}>
-          {/* CORREÇÃO: Usando branding.logo_url */}
           {branding?.logo_url ? (
             <img 
               src={branding.logo_url} 
@@ -108,7 +108,7 @@ const StudentSidebar = () => {
           );
         })}
 
-        {/* Botão de Pagamento/Assinatura */}
+        {/* Botão de Pagamento */}
         <TooltipProvider delayDuration={0}>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -130,7 +130,7 @@ const StudentSidebar = () => {
 
       </nav>
 
-      {/* Rodapé: Cor Secundária */}
+      {/* Rodapé */}
       <div className="mt-auto border-t p-4 bg-secondary text-secondary-foreground">
         <TooltipProvider delayDuration={0}>
           <Tooltip>
@@ -162,7 +162,7 @@ const StudentSidebar = () => {
         {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
       </Button>
 
-      {/* --- MODAL DE PAGAMENTO --- */}
+      {/* Modal Pagamento */}
       <Dialog open={isPaymentOpen} onOpenChange={setIsPaymentOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
