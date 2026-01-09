@@ -43,6 +43,7 @@ func main() {
 	handlers.RegisterAnnouncementsRoutes(mux, db)
 	handlers.RegisterExercisesRoutes(mux, db)
 	handlers.RegisterDietsRoutes(mux, db)
+	handlers.RegisterSubscriptionRoutes(mux, db)
 
 	// --- NOVO: Rota de Upload ---
 	// CORREÇÃO: Adicionado "POST " explicitamente para evitar conflitos

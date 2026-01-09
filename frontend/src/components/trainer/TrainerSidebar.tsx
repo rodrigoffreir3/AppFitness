@@ -9,7 +9,8 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
-  Utensils, // NOVO ÍCONE
+  Utensils,
+  CreditCard // <--- Import Novo
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
@@ -32,10 +33,11 @@ const TrainerSidebar = () => {
     { to: "/trainer/dashboard", icon: LayoutDashboard, label: "Início", end: true },
     { to: "/trainer/dashboard/students", icon: Users, label: "Alunos", end: false },
     { to: "/trainer/dashboard/workouts", icon: Dumbbell, label: "Fichas de Treino", end: false },
-    { to: "/trainer/dashboard/diets", icon: Utensils, label: "Dietas", end: false }, // NOVO LINK
+    { to: "/trainer/dashboard/diets", icon: Utensils, label: "Dietas", end: false },
     { to: "/trainer/dashboard/exercises", icon: BookCopy, label: "Exercícios", end: false },
     { to: "/trainer/dashboard/chat", icon: MessageSquare, label: "Chat", end: false },
     { to: "/trainer/dashboard/announcements", icon: Bell, label: "Avisos", end: false },
+    { to: "/trainer/dashboard/subscription", icon: CreditCard, label: "Assinatura", end: false }, // <--- Link Novo
     { to: "/trainer/dashboard/settings", icon: Settings, label: "Personalizar", end: false },
   ];
 

@@ -1,23 +1,26 @@
 services:
   # --- O CORAÇÃO DO SISTEMA: API (Backend em Go) ---
   api:
-    build: .                     # Usa o Dockerfile que está na pasta raiz
+    build: .
     container_name: appfitness-backend
     restart: always
     ports:
-      - "8080:8080"                  # Porta 8080 do PC -> Porta 8080 do Container
+      - "8080:8080"
     environment:
-      - DB_HOST=postgres             # Conecta ao serviço 'postgres' definido abaixo
+      - DB_HOST=postgres
       - DB_PORT=5432
       - DB_USER=admin
       - DB_PASSWORD=password
       - DB_NAME=appfitness_db
-      - JWT_SECRET=mude_isso_para_um_segredo_real_em_producao
+      - JWT_SECRET=${JWT_SECRET}       # Melhor usar assim para pegar do .env
       - PORT=8080
+      # --- CORREÇÃO AQUI: Passando as variáveis do Asaas para o container ---
+      - ASAAS_API_URL=${ASAAS_API_URL}
+      - ASAAS_API_KEY=${ASAAS_API_KEY}
     depends_on:
-      - postgres                     # Só inicia depois que o banco subir
-    volumes:                         # <--- ADICIONADO: Persistência de Uploads
-      - ./uploads:/app/uploads       # Mapeia a pasta local 'uploads' para dentro do container
+      - postgres
+    volumes:
+      - ./uploads:/app/uploads
     networks:
       - appfitness-network
 
@@ -34,7 +37,7 @@ services:
       - ./postgres/data:/var/lib/postgresql/data
       - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
-      - "5433:5432"                  # Porta 5433 do PC -> Porta 5432 do Container
+      - "5433:5432"
     networks:
       - appfitness-network
 
@@ -44,7 +47,7 @@ services:
     container_name: appfitness-adminer
     restart: always
     ports:
-      - "8081:8080"                  # Acessível em http://localhost:8081
+      - "8081:8080"
     networks:
       - appfitness-network
 
