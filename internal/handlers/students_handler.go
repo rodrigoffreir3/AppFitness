@@ -38,6 +38,8 @@ func RegisterStudentsRoutes(mux *http.ServeMux, db *sql.DB) {
 	mux.Handle("DELETE /api/students/{id}", middleware.AuthMiddleware(deleteStudentHandler))
 
 	mux.Handle("POST /api/students/login", loginStudentHandler)
+	// --- NOVA ROTA PÚBLICA (ADICIONADO) ---
+	mux.Handle("POST /api/public/students/register", http.HandlerFunc(h.handlePublicSelfRegister))
 
 	mux.Handle("GET /api/students/me/workouts", middleware.AuthMiddleware(getMyWorkoutsHandler))
 	mux.Handle("GET /api/students/me/workouts/{id}", middleware.AuthMiddleware(getMyWorkoutDetailsHandler))
@@ -56,6 +58,15 @@ type CreateStudentRequest struct {
 	Password string `json:"password"`
 	FileURL  string `json:"file_url"` // NOVO CAMPO
 }
+
+// --- NOVA STRUCT (ADICIONADO) ---
+type SelfRegisterRequest struct {
+	TrainerID string `json:"trainer_id"`
+	Name      string `json:"name"`
+	Email     string `json:"email"`
+	Password  string `json:"password"`
+}
+
 type StudentResponse struct {
 	ID      string `json:"id"`
 	Name    string `json:"name"`
@@ -77,6 +88,80 @@ type StudentProfileResponse struct {
 }
 
 // Handlers
+
+// --- NOVA FUNÇÃO (ADICIONADO) ---
+func (h *studentsHandler) handlePublicSelfRegister(w http.ResponseWriter, r *http.Request) {
+	var req SelfRegisterRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "JSON Inválido", http.StatusBadRequest)
+		return
+	}
+
+	// 1. Validar se o Treinador existe e está ativo
+	var subscriptionStatus string
+	err := h.db.QueryRowContext(r.Context(), "SELECT COALESCE(subscription_status, 'trial') FROM trainers WHERE id=$1", req.TrainerID).Scan(&subscriptionStatus)
+	if err != nil {
+		http.Error(w, "Treinador inválido", http.StatusBadRequest)
+		return
+	}
+
+	if subscriptionStatus != "ACTIVE" && subscriptionStatus != "trial" {
+		http.Error(w, "Este treinador não está aceitando novos alunos no momento (Conta Inativa).", http.StatusForbidden)
+		return
+	}
+
+	// 2. Criar o Aluno (Senha Hash)
+	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(req.Password), 10)
+
+	var newStudent StudentResponse
+	query := `
+        INSERT INTO students (name, email, password_hash, trainer_id)
+        VALUES ($1, $2, $3, $4)
+        RETURNING id, name, email, COALESCE(file_url, '')
+    `
+	err = h.db.QueryRowContext(r.Context(), query, req.Name, req.Email, string(hashedPassword), req.TrainerID).Scan(&newStudent.ID, &newStudent.Name, &newStudent.Email, &newStudent.FileURL)
+
+	if err != nil {
+		if strings.Contains(err.Error(), "violates unique constraint") {
+			http.Error(w, "Este email já está cadastrado.", http.StatusConflict)
+			return
+		}
+		log.Printf("Erro cadastro publico: %v", err)
+		http.Error(w, "Erro ao criar conta", http.StatusInternalServerError)
+		return
+	}
+
+	// 3. Gerar Token JWT para login imediato
+	claims := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"sub": newStudent.ID,
+		"exp": time.Now().Add(time.Hour * 72).Unix(),
+	})
+	tokenString, _ := claims.SignedString([]byte(os.Getenv("JWT_SECRET")))
+
+	// Buscar Branding do Treinador para já retornar no login
+	var branding types.BrandingResponse
+	brandingQuery := `
+		SELECT 
+			COALESCE(brand_logo_url, ''), 
+			COALESCE(brand_primary_color, '#3b82f6'), 
+			COALESCE(brand_secondary_color, '#000000'),
+			COALESCE(payment_pix_key, ''),
+			COALESCE(payment_link_url, ''),
+			COALESCE(payment_instructions, '')
+		FROM trainers WHERE id = $1
+	`
+	err = h.db.QueryRowContext(r.Context(), brandingQuery, req.TrainerID).Scan(
+		&branding.LogoURL, &branding.PrimaryColor, &branding.SecondaryColor,
+		&branding.PaymentPixKey, &branding.PaymentLinkURL, &branding.PaymentInstructions,
+	)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(types.LoginResponse{
+		Token:    tokenString,
+		Branding: branding,
+	})
+}
+
 func (h *studentsHandler) handleGetMyProfile(w http.ResponseWriter, r *http.Request) {
 	studentID := r.Context().Value(middleware.TrainerIDKey).(string)
 	var profile StudentProfileResponse

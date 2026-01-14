@@ -1,4 +1,3 @@
-// internal/handlers/trainers_handler.go
 package handlers
 
 import (
@@ -25,6 +24,9 @@ func RegisterTrainersRoutes(mux *http.ServeMux, db *sql.DB) {
 
 	mux.Handle("GET /api/trainers/me", middleware.AuthMiddleware(http.HandlerFunc(h.handleGetTrainerMe)))
 	mux.Handle("PUT /api/trainers/me", middleware.AuthMiddleware(http.HandlerFunc(h.handleUpdateTrainerMe)))
+
+	// --- NOVA ROTA PÚBLICA (ADICIONADO) ---
+	mux.Handle("GET /api/public/trainers/{id}", http.HandlerFunc(h.handleGetPublicTrainerInfo))
 }
 
 type trainersHandler struct {
@@ -54,6 +56,13 @@ type TrainerProfileResponse struct {
 	SubscriptionExp    *time.Time `json:"subscription_expires_at,omitempty"`
 }
 
+// --- NOVA STRUCT (ADICIONADO) ---
+type PublicTrainerInfoResponse struct {
+	Name         string `json:"name"`
+	BrandLogoURL string `json:"brand_logo_url"`
+	IsActive     bool   `json:"is_active"`
+}
+
 type UpdateTrainerRequest struct {
 	Name                *string `json:"name"`
 	BrandLogoURL        *string `json:"brand_logo_url"`
@@ -63,6 +72,37 @@ type UpdateTrainerRequest struct {
 	PaymentPixKey       *string `json:"payment_pix_key"`
 	PaymentLinkURL      *string `json:"payment_link_url"`
 	PaymentInstructions *string `json:"payment_instructions"`
+}
+
+// --- NOVA FUNÇÃO (ADICIONADO) ---
+func (h *trainersHandler) handleGetPublicTrainerInfo(w http.ResponseWriter, r *http.Request) {
+	trainerID := r.PathValue("id")
+
+	// Buscamos apenas dados públicos e se ele está ativo
+	query := `
+		SELECT name, COALESCE(brand_logo_url, ''), COALESCE(subscription_status, 'trial')
+		FROM trainers WHERE id = $1
+	`
+	var name, logo, status string
+	err := h.db.QueryRowContext(r.Context(), query, trainerID).Scan(&name, &logo, &status)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "Treinador não encontrado", http.StatusNotFound)
+			return
+		}
+		http.Error(w, "Erro ao buscar treinador", http.StatusInternalServerError)
+		return
+	}
+
+	// Só mostramos o perfil se o treinador estiver ATIVO (Pagamento em dia) ou TRIAL
+	isActive := (status == "ACTIVE" || status == "trial")
+
+	json.NewEncoder(w).Encode(PublicTrainerInfoResponse{
+		Name:         name,
+		BrandLogoURL: logo,
+		IsActive:     isActive,
+	})
 }
 
 func (h *trainersHandler) handleUpdateTrainerMe(w http.ResponseWriter, r *http.Request) {
