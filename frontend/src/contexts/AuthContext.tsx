@@ -1,4 +1,5 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
+import api from '../services/api';
 
 export interface BrandingData {
   logo_url?: string;
@@ -19,7 +20,7 @@ interface AuthContextType {
   updateBranding: (newBranding: BrandingData) => void;
   logoUrl: string | null;
   primaryColor: string | null;
-  // NOVAS FUNÇÕES ADICIONADAS
+  // Funções de controle de tema
   clearThemeColors: () => void;
   restoreThemeColors: () => void;
 }
@@ -61,7 +62,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const applyThemeColors = (pColor?: string, sColor?: string) => {
     try {
-      // Se não tiver cor, reseta para o padrão (evita cor fantasma)
       if (!pColor) {
         document.documentElement.style.removeProperty('--primary');
         document.documentElement.style.removeProperty('--ring');
@@ -88,23 +88,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  // NOVAS FUNÇÕES DE CONTROLE DE TEMA
   const clearThemeColors = () => applyThemeColors(undefined, undefined);
   const restoreThemeColors = () => applyThemeColors(branding.primary_color, branding.secondary_color);
 
   useEffect(() => {
-    const checkAuth = () => {
+    const checkAuth = async () => {
       try {
-        // Recupera o tipo de usuário salvo (CRUCIAL PARA O API.TS)
         const storedType = localStorage.getItem('userType') as 'trainer' | 'student' | null;
-        const storedBrandingJSON = localStorage.getItem('appBranding');
         
+        // Tenta recuperar branding local primeiro
+        const storedBrandingJSON = localStorage.getItem('appBranding');
         let storedBranding: BrandingData = {};
         if (storedBrandingJSON && storedBrandingJSON !== "undefined") {
             try { storedBranding = JSON.parse(storedBrandingJSON); } catch(e) { /* ignore */ }
         }
 
-        // Verifica token baseado no tipo
         let token = null;
         if (storedType === 'trainer') {
             token = localStorage.getItem('trainerAuthToken');
@@ -115,10 +113,31 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         if (token && storedType) {
           setIsAuthenticated(true);
           setUserType(storedType);
+          
+          // ATUALIZADO: Se for aluno, tentamos buscar o perfil para pegar as cores atualizadas do banco
+          if (storedType === 'student') {
+             try {
+                 // Configura api para usar o token (interceptor já deve fazer isso se token estiver no localStorage)
+                 const response = await api.get('/students/me/profile');
+                 const profile = response.data;
+                 storedBranding = {
+                     logo_url: profile.brand_logo_url,
+                     primary_color: profile.brand_primary_color,
+                     secondary_color: profile.brand_secondary_color,
+                     payment_pix_key: profile.payment_pix_key,
+                     payment_link_url: profile.payment_link_url,
+                     payment_instructions: profile.payment_instructions
+                 };
+                 // Atualiza localStorage
+                 localStorage.setItem('appBranding', JSON.stringify(storedBranding));
+             } catch (err) {
+                 console.warn("Não foi possível atualizar branding do aluno:", err);
+             }
+          }
+
           setBranding(storedBranding);
           applyThemeColors(storedBranding.primary_color, storedBranding.secondary_color);
         } else {
-          // Se falhar a verificação, garante que estamos limpos
           logout(false); 
         }
       } catch (err) {
@@ -132,17 +151,26 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   const login = (token: string, type: 'trainer' | 'student', newBranding: BrandingData) => {
-    // Limpa tokens anteriores para evitar conflito
     localStorage.removeItem('trainerAuthToken');
     localStorage.removeItem('studentAuthToken');
     
-    // Salva os novos dados
     localStorage.setItem(type === 'trainer' ? 'trainerAuthToken' : 'studentAuthToken', token);
-    localStorage.setItem('userType', type); // Salva o tipo explicitamente
+    localStorage.setItem('userType', type);
+    
+    // Salva Branding
+    localStorage.setItem('appBranding', JSON.stringify(newBranding));
     
     setUserType(type);
     setIsAuthenticated(true);
-    updateBranding(newBranding);
+    setBranding(newBranding);
+    applyThemeColors(newBranding.primary_color, newBranding.secondary_color);
+
+    // FORÇA O REDIRECIONAMENTO COM RELOAD
+    if (type === 'student') {
+        window.location.href = '/student/dashboard';
+    } else {
+        window.location.href = '/trainer/dashboard';
+    }
   };
 
   const updateBranding = (newBranding: BrandingData) => {
@@ -155,12 +183,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const logout = (redirect = true) => {
-    localStorage.clear(); // Limpa tudo
+    localStorage.clear();
     setIsAuthenticated(false);
     setUserType(null);
     setBranding({});
     
-    // Remove estilos visualmente
     document.documentElement.style.removeProperty('--primary');
     document.documentElement.style.removeProperty('--secondary');
     document.documentElement.style.removeProperty('--ring');
@@ -180,8 +207,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     updateBranding,
     logoUrl: branding.logo_url || null,
     primaryColor: branding.primary_color || null,
-    clearThemeColors, // Exportado
-    restoreThemeColors, // Exportado
+    clearThemeColors,
+    restoreThemeColors,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

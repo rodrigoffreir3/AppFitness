@@ -16,6 +16,7 @@ import IndexPage from './pages/Index.tsx';
 import TrainerLogin from './pages/auth/TrainerLogin.tsx';
 import StudentLogin from './pages/auth/StudentLogin.tsx';
 import TrainerSignUp from './pages/auth/TrainerSignUp.tsx';
+import StudentSelfRegistration from './pages/auth/StudentSelfRegistration.tsx'; // <--- NOVO IMPORT
 import NotFound from './pages/NotFound.tsx';
 
 // Páginas e Views do Treinador
@@ -25,7 +26,7 @@ import DashboardHomeView from './components/trainer/DashboardHomeView.tsx';
 import StudentsView from './components/trainer/StudentsView.tsx';
 import WorkoutsView from './components/trainer/WorkoutsView.tsx';
 import DietsView from './components/trainer/DietsView.tsx';
-import SubscriptionView from './components/trainer/SubscriptionView.tsx'; // <--- NOVO IMPORT (ASSINATURA)
+import SubscriptionView from './components/trainer/SubscriptionView.tsx';
 import ExercisesView from './components/trainer/ExercisesView.tsx';
 import ChatView from './components/trainer/ChatView.tsx';
 import AnnouncementsView from './components/trainer/AnnouncementsView.tsx';
@@ -53,7 +54,9 @@ const router = createBrowserRouter([
           { index: true, element: <IndexPage /> },
           { path: 'login/trainer', element: <TrainerLogin /> },
           { path: 'login/student', element: <StudentLogin /> },
-          { path: 'signup/trainer', element: <TrainerSignUp /> }, 
+          { path: 'signup/trainer', element: <TrainerSignUp /> },
+          // --- ROTA DE AUTO-CADASTRO (LINK MÁGICO) ---
+          { path: 'invite/:trainerId', element: <StudentSelfRegistration /> }, 
         ]
       },
       // Rotas do Treinador
@@ -67,13 +70,13 @@ const router = createBrowserRouter([
         children: [
           {
             path: 'dashboard',
-            element: <TrainerDashboard />, // Agora age apenas como um <Outlet />
+            element: <TrainerDashboard />,
             children: [
               { index: true, element: <DashboardHomeView /> },
               { path: 'students', element: <StudentsView /> },
               { path: 'workouts', element: <WorkoutsView /> },
               { path: 'diets', element: <DietsView /> },
-              { path: 'subscription', element: <SubscriptionView /> }, // <--- NOVA ROTA (ASSINATURA)
+              { path: 'subscription', element: <SubscriptionView /> },
               { path: 'exercises', element: <ExercisesView /> },
               { path: 'chat', element: <ChatView /> },
               { path: 'announcements', element: <AnnouncementsView /> },
@@ -94,7 +97,7 @@ const router = createBrowserRouter([
         children: [
           { 
             path: 'dashboard', 
-            element: <StudentDashboard />, // Agora age apenas como um <Outlet />
+            element: <StudentDashboard />,
             children: [
               { index: true, element: <MyWorkoutsView /> }, 
               { path: 'diets', element: <StudentDietsView /> },

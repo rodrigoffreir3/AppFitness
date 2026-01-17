@@ -38,7 +38,7 @@ func RegisterStudentsRoutes(mux *http.ServeMux, db *sql.DB) {
 	mux.Handle("DELETE /api/students/{id}", middleware.AuthMiddleware(deleteStudentHandler))
 
 	mux.Handle("POST /api/students/login", loginStudentHandler)
-	// --- NOVA ROTA PÚBLICA (ADICIONADO) ---
+	// Rota Pública de Auto-Cadastro
 	mux.Handle("POST /api/public/students/register", http.HandlerFunc(h.handlePublicSelfRegister))
 
 	mux.Handle("GET /api/students/me/workouts", middleware.AuthMiddleware(getMyWorkoutsHandler))
@@ -56,10 +56,9 @@ type CreateStudentRequest struct {
 	Name     string `json:"name"`
 	Email    string `json:"email"`
 	Password string `json:"password"`
-	FileURL  string `json:"file_url"` // NOVO CAMPO
+	FileURL  string `json:"file_url"`
 }
 
-// --- NOVA STRUCT (ADICIONADO) ---
 type SelfRegisterRequest struct {
 	TrainerID string `json:"trainer_id"`
 	Name      string `json:"name"`
@@ -71,25 +70,33 @@ type StudentResponse struct {
 	ID      string `json:"id"`
 	Name    string `json:"name"`
 	Email   string `json:"email"`
-	FileURL string `json:"file_url"` // NOVO CAMPO
+	FileURL string `json:"file_url"`
 }
 type UpdateStudentRequest struct {
 	Name    *string `json:"name"`
 	Email   *string `json:"email"`
-	FileURL *string `json:"file_url"` // NOVO CAMPO
+	FileURL *string `json:"file_url"`
 }
+
+// ATUALIZADO: Inclui branding do treinador
 type StudentProfileResponse struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Email       string `json:"email"`
-	FileURL     string `json:"file_url"` // NOVO CAMPO
-	TrainerID   string `json:"trainer_id"`
-	TrainerName string `json:"trainer_name"`
+	ID                  string `json:"id"`
+	Name                string `json:"name"`
+	Email               string `json:"email"`
+	FileURL             string `json:"file_url"`
+	TrainerID           string `json:"trainer_id"`
+	TrainerName         string `json:"trainer_name"`
+	BrandLogoURL        string `json:"brand_logo_url"`
+	BrandPrimaryColor   string `json:"brand_primary_color"`
+	BrandSecondaryColor string `json:"brand_secondary_color"`
+	PaymentPixKey       string `json:"payment_pix_key"`
+	PaymentLinkURL      string `json:"payment_link_url"`
+	PaymentInstructions string `json:"payment_instructions"`
 }
 
 // Handlers
 
-// --- NOVA FUNÇÃO (ADICIONADO) ---
+// --- Handler de Auto-Cadastro Público ---
 func (h *studentsHandler) handlePublicSelfRegister(w http.ResponseWriter, r *http.Request) {
 	var req SelfRegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -115,10 +122,10 @@ func (h *studentsHandler) handlePublicSelfRegister(w http.ResponseWriter, r *htt
 
 	var newStudent StudentResponse
 	query := `
-        INSERT INTO students (name, email, password_hash, trainer_id)
-        VALUES ($1, $2, $3, $4)
-        RETURNING id, name, email, COALESCE(file_url, '')
-    `
+		INSERT INTO students (name, email, password_hash, trainer_id)
+		VALUES ($1, $2, $3, $4)
+		RETURNING id, name, email, COALESCE(file_url, '')
+	`
 	err = h.db.QueryRowContext(r.Context(), query, req.Name, req.Email, string(hashedPassword), req.TrainerID).Scan(&newStudent.ID, &newStudent.Name, &newStudent.Email, &newStudent.FileURL)
 
 	if err != nil {
@@ -162,18 +169,30 @@ func (h *studentsHandler) handlePublicSelfRegister(w http.ResponseWriter, r *htt
 	})
 }
 
+// --- Handler Atualizado para buscar Branding ---
 func (h *studentsHandler) handleGetMyProfile(w http.ResponseWriter, r *http.Request) {
 	studentID := r.Context().Value(middleware.TrainerIDKey).(string)
 	var profile StudentProfileResponse
-	// Adicionado COALESCE(s.file_url, '')
+
 	query := `
-		SELECT s.id, s.name, s.email, COALESCE(s.file_url, ''), s.trainer_id, COALESCE(t.name, '') as trainer_name
+		SELECT 
+			s.id, s.name, s.email, COALESCE(s.file_url, ''), 
+			s.trainer_id, COALESCE(t.name, ''),
+			COALESCE(t.brand_logo_url, ''), 
+			COALESCE(t.brand_primary_color, '#3b82f6'), 
+			COALESCE(t.brand_secondary_color, '#000000'),
+			COALESCE(t.payment_pix_key, ''),
+			COALESCE(t.payment_link_url, ''),
+			COALESCE(t.payment_instructions, '')
 		FROM students s
 		LEFT JOIN trainers t ON s.trainer_id = t.id
 		WHERE s.id = $1
 	`
 	err := h.db.QueryRowContext(r.Context(), query, studentID).Scan(
-		&profile.ID, &profile.Name, &profile.Email, &profile.FileURL, &profile.TrainerID, &profile.TrainerName,
+		&profile.ID, &profile.Name, &profile.Email, &profile.FileURL,
+		&profile.TrainerID, &profile.TrainerName,
+		&profile.BrandLogoURL, &profile.BrandPrimaryColor, &profile.BrandSecondaryColor,
+		&profile.PaymentPixKey, &profile.PaymentLinkURL, &profile.PaymentInstructions,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -242,7 +261,6 @@ func (h *studentsHandler) handleGetMyWorkoutDetails(w http.ResponseWriter, r *ht
 	studentID := r.Context().Value(middleware.TrainerIDKey).(string)
 	workoutID := r.PathValue("id")
 	var workout types.WorkoutResponse
-	// Adicionado COALESCE(file_url, '')
 	queryWorkout := `SELECT id, student_id, name, description, is_active, COALESCE(file_url, '') FROM workouts WHERE id = $1 AND student_id = $2`
 	err := h.db.QueryRowContext(r.Context(), queryWorkout, workoutID, studentID).Scan(&workout.ID, &workout.StudentID, &workout.Name, &workout.Description, &workout.IsActive, &workout.FileURL)
 	if err != nil {
@@ -295,7 +313,6 @@ func (h *studentsHandler) handleGetMyWorkouts(w http.ResponseWriter, r *http.Req
 		http.Error(w, "ID do aluno não encontrado no contexto", http.StatusInternalServerError)
 		return
 	}
-	// Adicionado COALESCE(file_url, '')
 	query := `SELECT id, student_id, name, description, is_active, COALESCE(file_url, '') FROM workouts WHERE student_id = $1 AND is_active = true ORDER BY created_at DESC`
 	rows, err := h.db.QueryContext(r.Context(), query, studentID)
 	if err != nil {
@@ -307,7 +324,6 @@ func (h *studentsHandler) handleGetMyWorkouts(w http.ResponseWriter, r *http.Req
 	var workouts []types.WorkoutResponse
 	for rows.Next() {
 		var workout types.WorkoutResponse
-		// Adicionado &workout.FileURL
 		if err := rows.Scan(&workout.ID, &workout.StudentID, &workout.Name, &workout.Description, &workout.IsActive, &workout.FileURL); err != nil {
 			log.Printf("Erro ao escanear linha de treino: %v", err)
 			http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
@@ -381,7 +397,6 @@ func (h *studentsHandler) handleGetStudent(w http.ResponseWriter, r *http.Reques
 	trainerID := r.Context().Value(middleware.TrainerIDKey).(string)
 	studentID := r.PathValue("id")
 	var student StudentResponse
-	// Adicionado COALESCE(file_url, '')
 	query := `SELECT id, name, email, COALESCE(file_url, '') FROM students WHERE id = $1 AND trainer_id = $2`
 	err := h.db.QueryRowContext(r.Context(), query, studentID, trainerID).Scan(&student.ID, &student.Name, &student.Email, &student.FileURL)
 	if err != nil {
@@ -405,7 +420,6 @@ func (h *studentsHandler) handleUpdateStudent(w http.ResponseWriter, r *http.Req
 		http.Error(w, "Corpo da requisição inválido", http.StatusBadRequest)
 		return
 	}
-	// Adicionado file_url = COALESCE($3, file_url)
 	query := `UPDATE students SET name = COALESCE($1, name), email = COALESCE($2, email), file_url = COALESCE($3, file_url) WHERE id = $4 AND trainer_id = $5`
 	result, err := h.db.ExecContext(r.Context(), query, req.Name, req.Email, req.FileURL, studentID, trainerID)
 	if err != nil {
@@ -446,7 +460,6 @@ func (h *studentsHandler) handleListStudents(w http.ResponseWriter, r *http.Requ
 		http.Error(w, "ID do trainer não encontrado no contexto", http.StatusInternalServerError)
 		return
 	}
-	// Adicionado COALESCE(file_url, '')
 	query := `SELECT id, name, email, COALESCE(file_url, '') FROM students WHERE trainer_id = $1 ORDER BY name ASC`
 	rows, err := h.db.QueryContext(r.Context(), query, trainerID)
 	if err != nil {
@@ -458,7 +471,6 @@ func (h *studentsHandler) handleListStudents(w http.ResponseWriter, r *http.Requ
 	var students []StudentResponse
 	for rows.Next() {
 		var student StudentResponse
-		// Adicionado &student.FileURL
 		if err := rows.Scan(&student.ID, &student.Name, &student.Email, &student.FileURL); err != nil {
 			log.Printf("Erro ao escanear linha de aluno: %v", err)
 			http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
@@ -496,13 +508,11 @@ func (h *studentsHandler) handleCreateStudent(w http.ResponseWriter, r *http.Req
 		return
 	}
 	var newStudent StudentResponse
-	// Adicionado file_url na query e COALESCE no returning
 	query := `
 		INSERT INTO students (name, email, password_hash, trainer_id, file_url)
 		VALUES ($1, $2, $3, $4, $5)
 		RETURNING id, name, email, COALESCE(file_url, '')
 	`
-	// Passando req.FileURL
 	err = h.db.QueryRowContext(r.Context(), query, req.Name, req.Email, string(hashedPassword), trainerID, req.FileURL).Scan(&newStudent.ID, &newStudent.Name, &newStudent.Email, &newStudent.FileURL)
 	if err != nil {
 		if strings.Contains(err.Error(), "violates unique constraint") {
