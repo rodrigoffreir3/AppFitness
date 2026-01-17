@@ -34,7 +34,7 @@ interface Student {
   name: string;
   email: string;
   phone?: string;
-  file_url?: string; // NOME CORRIGIDO PARA O BANCO DE DADOS
+  file_url?: string;
 }
 
 interface CreateStudentRequest {
@@ -42,12 +42,14 @@ interface CreateStudentRequest {
   email: string;
   password: string;
   phone?: string;
-  file_url?: string; // NOME CORRIGIDO
+  file_url?: string;
 }
 
+// ATUALIZADO: Adicionei file_url aqui
 interface UpdateStudentRequest {
   name?: string;
   email?: string;
+  file_url?: string;
 }
 
 const StudentsView = () => {
@@ -59,13 +61,12 @@ const StudentsView = () => {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
   
-  // ESTADO INICIAL ATUALIZADO
   const [newStudent, setNewStudent] = useState({
     name: "",
     email: "",
     password: "",
     phone: "",
-    file_url: "", // NOME CORRIGIDO
+    file_url: "",
   });
 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -99,7 +100,6 @@ const StudentsView = () => {
       return;
     }
     try {
-      // PAYLOAD CORRIGIDO
       const apiRequest: CreateStudentRequest = { 
         name: newStudent.name, 
         email: newStudent.email, 
@@ -111,7 +111,6 @@ const StudentsView = () => {
       const response = await api.post<Student>('/students', apiRequest);
       toast.success("Aluno adicionado!", { description: `${response.data.name} foi cadastrado com sucesso.` });
       
-      // Resetar form com file_url
       setNewStudent({ name: "", email: "", password: "", phone: "", file_url: "" });
       setIsAddDialogOpen(false); 
       fetchStudents(); 
@@ -138,7 +137,13 @@ const StudentsView = () => {
       return;
     }
     try {
-      const apiRequest: UpdateStudentRequest = { name: editingStudent.name, email: editingStudent.email };
+      // ATUALIZADO: Agora enviamos o file_url na atualização também
+      const apiRequest: UpdateStudentRequest = { 
+          name: editingStudent.name, 
+          email: editingStudent.email,
+          file_url: editingStudent.file_url // <--- Aqui está a correção
+      };
+
       await api.put(`/students/${editingStudent.id}`, apiRequest);
       toast.success("Aluno atualizado!", { description: `Os dados de ${editingStudent.name} foram salvos.` });
       setIsEditDialogOpen(false);
@@ -301,7 +306,6 @@ const StudentsView = () => {
                   <Input id="phone" value={newStudent.phone} onChange={(e) => setNewStudent({ ...newStudent, phone: e.target.value })} disabled={formLoading} />
                 </div>
 
-                {/* UPLOADER CONFIGURADO CORRETAMENTE */}
                 <div className="border-t pt-4 mt-2">
                   <FileUploader 
                     label="Ficha de Anamnese / Saúde (PDF ou Imagem)"
@@ -331,8 +335,9 @@ const StudentsView = () => {
 
         {renderContent()}
 
+        {/* --- DIALOG DE EDIÇÃO (COM UPLOADER AGORA!) --- */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent>
+          <DialogContent className="max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Editar Aluno</DialogTitle>
               <DialogDescription>
@@ -348,6 +353,16 @@ const StudentsView = () => {
                 <Label htmlFor="edit-email">Email</Label>
                 <Input id="edit-email" type="email" value={editingStudent?.email || ''} onChange={(e) => setEditingStudent(current => current ? { ...current, email: e.target.value } : null)} disabled={formLoading} />
               </div>
+
+              {/* UPLOADER ADICIONADO AQUI TAMBÉM */}
+              <div className="border-t pt-4 mt-2">
+                <FileUploader 
+                  label="Ficha de Anamnese / Saúde (PDF ou Imagem)"
+                  currentUrl={editingStudent?.file_url}
+                  onUploadSuccess={(url) => setEditingStudent(current => current ? { ...current, file_url: url } : null)}
+                />
+              </div>
+
               <p className="text-sm text-muted-foreground">A redefinição de senha será feita em outra tela.</p>
               <Button onClick={handleUpdateStudent} className="w-full" disabled={formLoading}>
                 {formLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
