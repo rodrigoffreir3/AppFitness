@@ -78,7 +78,16 @@ const TrainerLogin = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Senha</Label>
+              {/* LINK ADICIONADO AQUI: Entre o Label e o Input */}
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password">Senha</Label>
+                <Link 
+                  to="/esqueci-senha" 
+                  className="text-xs text-primary hover:underline"
+                >
+                  Esqueceu a senha?
+                </Link>
+              </div>
               <Input 
                 id="password" 
                 type="password" 

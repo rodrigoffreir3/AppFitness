@@ -45,6 +45,7 @@ func main() {
 	handlers.RegisterDietsRoutes(mux, db)
 	handlers.RegisterSubscriptionRoutes(mux, db)
 	handlers.RegisterWebhookRoutes(mux, db)
+	handlers.RegisterAuthRoutes(mux, db)
 
 	// --- NOVO: Rota de Upload ---
 	// CORREÇÃO: Adicionado "POST " explicitamente para evitar conflitos

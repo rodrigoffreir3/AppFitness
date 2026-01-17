@@ -19,6 +19,10 @@ import TrainerSignUp from './pages/auth/TrainerSignUp.tsx';
 import StudentSelfRegistration from './pages/auth/StudentSelfRegistration.tsx';
 import NotFound from './pages/NotFound.tsx';
 
+// --- NOVAS PÁGINAS (Recuperação de Senha) ---
+import ForgotPassword from './pages/auth/ForgotPassword.tsx';
+import ResetPassword from './pages/auth/ResetPassword.tsx';
+
 // Páginas e Views do Treinador
 import TrainerDashboard from './pages/trainer/Dashboard.tsx';
 import TrainerWorkoutDetails from './pages/trainer/TrainerWorkoutDetails.tsx';
@@ -31,7 +35,6 @@ import ExercisesView from './components/trainer/ExercisesView.tsx';
 import ChatView from './components/trainer/ChatView.tsx';
 import AnnouncementsView from './components/trainer/AnnouncementsView.tsx';
 import WhiteLabelSettings from './components/trainer/WhiteLabelSettings.tsx';
-// NOVO: Import da página de segurança do Treinador
 import TrainerSecuritySettings from './components/trainer/SecuritySettings.tsx';
 
 // Páginas e Views do Aluno
@@ -41,7 +44,6 @@ import MyWorkoutsView from './components/student/MyWorkoutsView.tsx';
 import StudentDietsView from './components/student/StudentDietsView.tsx';
 import StudentChatView from './components/student/StudentChatView.tsx';
 import StudentAnnouncementsView from './components/student/StudentAnnouncementsView.tsx';
-// NOVO: Import da página de segurança do Aluno
 import StudentSecuritySettings from './components/student/StudentSecuritySettings.tsx';
 
 
@@ -59,7 +61,10 @@ const router = createBrowserRouter([
           { path: 'login/trainer', element: <TrainerLogin /> },
           { path: 'login/student', element: <StudentLogin /> },
           { path: 'signup/trainer', element: <TrainerSignUp /> },
-          { path: 'invite/:trainerId', element: <StudentSelfRegistration /> }, 
+          { path: 'invite/:trainerId', element: <StudentSelfRegistration /> },
+          // --- NOVAS ROTAS ADICIONADAS AQUI ---
+          { path: 'esqueci-senha', element: <ForgotPassword /> },
+          { path: 'redefinir-senha', element: <ResetPassword /> },
         ]
       },
       // Rotas do Treinador
@@ -84,7 +89,6 @@ const router = createBrowserRouter([
               { path: 'chat', element: <ChatView /> },
               { path: 'announcements', element: <AnnouncementsView /> },
               { path: 'settings', element: <WhiteLabelSettings /> },
-              // NOVO: Rota de Segurança
               { path: 'security', element: <TrainerSecuritySettings /> },
             ]
           },
@@ -108,7 +112,6 @@ const router = createBrowserRouter([
               { path: 'diets', element: <StudentDietsView /> },
               { path: 'chat', element: <StudentChatView /> },
               { path: 'announcements', element: <StudentAnnouncementsView /> },
-              // NOVO: Rota de Segurança
               { path: 'security', element: <StudentSecuritySettings /> },
             ]
           },

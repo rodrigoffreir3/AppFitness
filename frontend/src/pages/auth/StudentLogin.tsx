@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom"; // ADICIONADO: Link
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,21 +27,17 @@ const StudentLogin = () => {
       login(token, 'student', branding);
       
       toast({ title: "Login realizado!", description: "Redirecionando..." });
-      // O navigate é opcional aqui pois o AuthContext já força o redirecionamento, 
-      // mas mal não faz manter.
       navigate("/student/dashboard");
     } catch (error: any) {
       console.error(error);
       
-      // MUDANÇA MÍNIMA AQUI: Diferenciar a mensagem de erro
       let msg = "Email ou senha incorretos";
       
       if (error.response) {
-         // Se o backend retornar 404, sabemos que a conta foi excluída
          if (error.response.status === 404) {
-            msg = "Esta conta não existe ou foi excluída.";
+           msg = "Esta conta não existe ou foi excluída.";
          } else if (error.response.status === 403) {
-            msg = "Acesso negado.";
+           msg = "Acesso negado.";
          }
       }
 
@@ -69,7 +65,16 @@ const StudentLogin = () => {
               <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required disabled={loading} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Senha</Label>
+              {/* BLOCO ADICIONADO: Link de Esqueci Senha */}
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password">Senha</Label>
+                <Link 
+                  to="/esqueci-senha" 
+                  className="text-xs text-primary hover:underline"
+                >
+                  Esqueceu a senha?
+                </Link>
+              </div>
               <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required disabled={loading} />
             </div>
             <Button type="submit" className="w-full" disabled={loading}>

@@ -22,6 +22,10 @@ CREATE TABLE trainers (
     subscription_status VARCHAR(20) DEFAULT 'trial', -- trial, active, past_due, cancelled
     subscription_expires_at TIMESTAMPTZ,
 
+    -- Recuperação de Senha (NOVOS CAMPOS)
+    reset_password_token VARCHAR(255),
+    reset_password_expires_at TIMESTAMPTZ,
+
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -33,8 +37,12 @@ CREATE TABLE students (
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     
-    -- NOVO: Upload de Documento (Ficha de Anamnese/Saúde)
+    -- Upload de Documento (Ficha de Anamnese/Saúde)
     anamnesis_url TEXT,
+
+    -- Recuperação de Senha (NOVOS CAMPOS - opcional, mas recomendado deixar pronto)
+    reset_password_token VARCHAR(255),
+    reset_password_expires_at TIMESTAMPTZ,
 
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
@@ -48,7 +56,7 @@ CREATE TABLE workouts (
     description TEXT,
     is_active BOOLEAN DEFAULT true,
 
-    -- NOVO: Upload de Documento (Dieta da Nutricionista vinculada ao treino)
+    -- Upload de Documento (Dieta da Nutricionista vinculada ao treino)
     diet_plan_url TEXT,
 
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
