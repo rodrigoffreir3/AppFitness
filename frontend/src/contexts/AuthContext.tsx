@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
+import { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 import api from '../services/api';
 
 export interface BrandingData {
@@ -16,17 +16,17 @@ interface AuthContextType {
   branding: BrandingData;
   isLoading: boolean;
   login: (token: string, userType: 'trainer' | 'student', branding: BrandingData) => void;
-  logout: () => void;
+  logout: (redirect?: boolean) => void;
   updateBranding: (newBranding: BrandingData) => void;
   logoUrl: string | null;
   primaryColor: string | null;
-  // Funções de controle de tema
   clearThemeColors: () => void;
   restoreThemeColors: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Função auxiliar fora do componente para não atrapalhar a renderização
 const hexToHSL = (hex: string): string => {
   let r = 0, g = 0, b = 0;
   if (hex.length === 4) {
@@ -38,23 +38,20 @@ const hexToHSL = (hex: string): string => {
     g = parseInt("0x" + hex[3] + hex[4]);
     b = parseInt("0x" + hex[5] + hex[6]);
   }
-  r /= 255;
-  g /= 255;
-  b /= 255;
+  r /= 255; g /= 255; b /= 255;
   const cmin = Math.min(r, g, b), cmax = Math.max(r, g, b), delta = cmax - cmin;
-  let h = 0, s = 0, l = 0;
-  if (delta === 0) h = 0;
-  else if (cmax === r) h = ((g - b) / delta) % 6;
-  else if (cmax === g) h = (b - r) / delta + 2;
-  else h = (r - g) / delta + 4;
+  let h = 0, s = 0, l = (cmax + cmin) / 2;
+  if (delta !== 0) {
+    if (cmax === r) h = ((g - b) / delta) % 6;
+    else if (cmax === g) h = (b - r) / delta + 2;
+    else h = (r - g) / delta + 4;
+    s = delta / (1 - Math.abs(2 * l - 1));
+  }
   h = Math.round(h * 60); if (h < 0) h += 360;
-  l = (cmax + cmin) / 2;
-  s = delta === 0 ? 0 : delta / (1 - Math.abs(2 * l - 1));
-  s = +(s * 100).toFixed(1); l = +(l * 100).toFixed(1);
-  return `${h} ${s}% ${l}%`;
+  return `${h} ${+(s * 100).toFixed(1)}% ${+(l * 100).toFixed(1)}%`;
 };
 
-export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userType, setUserType] = useState<'trainer' | 'student' | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -62,86 +59,84 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const applyThemeColors = (pColor?: string, sColor?: string) => {
     try {
+      const root = document.documentElement.style;
       if (!pColor) {
-        document.documentElement.style.removeProperty('--primary');
-        document.documentElement.style.removeProperty('--ring');
-        document.documentElement.style.removeProperty('--sidebar-primary');
-        document.documentElement.style.removeProperty('--sidebar-ring');
+        ['--primary', '--ring', '--sidebar-primary', '--sidebar-ring'].forEach(p => root.removeProperty(p));
       } else {
-        const hslPrimary = hexToHSL(pColor);
-        document.documentElement.style.setProperty('--primary', hslPrimary);
-        document.documentElement.style.setProperty('--ring', hslPrimary);
-        document.documentElement.style.setProperty('--sidebar-primary', hslPrimary);
-        document.documentElement.style.setProperty('--sidebar-ring', hslPrimary);
+        const hsl = hexToHSL(pColor);
+        ['--primary', '--ring', '--sidebar-primary', '--sidebar-ring'].forEach(p => root.setProperty(p, hsl));
       }
-      
       if (!sColor) {
-        document.documentElement.style.removeProperty('--secondary');
-        document.documentElement.style.removeProperty('--sidebar-accent');
+        ['--secondary', '--sidebar-accent'].forEach(p => root.removeProperty(p));
       } else {
-        const hslSecondary = hexToHSL(sColor);
-        document.documentElement.style.setProperty('--secondary', hslSecondary);
-        document.documentElement.style.setProperty('--sidebar-accent', hslSecondary);
+        const hsl = hexToHSL(sColor);
+        ['--secondary', '--sidebar-accent'].forEach(p => root.setProperty(p, hsl));
       }
     } catch (e) {
       console.error("Erro ao aplicar cores:", e);
     }
   };
 
-  const clearThemeColors = () => applyThemeColors(undefined, undefined);
-  const restoreThemeColors = () => applyThemeColors(branding.primary_color, branding.secondary_color);
+  const logout = (redirect = true) => {
+    localStorage.clear();
+    setIsAuthenticated(false);
+    setUserType(null);
+    setBranding({});
+    ['--primary', '--secondary', '--ring', '--sidebar-primary', '--sidebar-accent'].forEach(p => document.documentElement.style.removeProperty(p));
+    
+    // Só redireciona se solicitado (evita loop em erros de inicialização)
+    if (redirect) window.location.href = '/';
+  };
 
   useEffect(() => {
     const checkAuth = async () => {
       try {
         const storedType = localStorage.getItem('userType') as 'trainer' | 'student' | null;
-        
-        // Tenta recuperar branding local primeiro
-        const storedBrandingJSON = localStorage.getItem('appBranding');
-        let storedBranding: BrandingData = {};
-        if (storedBrandingJSON && storedBrandingJSON !== "undefined") {
-            try { storedBranding = JSON.parse(storedBrandingJSON); } catch(e) { /* ignore */ }
-        }
-
         let token = null;
-        if (storedType === 'trainer') {
-            token = localStorage.getItem('trainerAuthToken');
-        } else if (storedType === 'student') {
-            token = localStorage.getItem('studentAuthToken');
+        if (storedType === 'trainer') token = localStorage.getItem('trainerAuthToken');
+        else if (storedType === 'student') token = localStorage.getItem('studentAuthToken');
+
+        // Tenta recuperar branding do cache local para evitar "piscada" branca
+        const cachedBrandingStr = localStorage.getItem('appBranding');
+        if (cachedBrandingStr) {
+            try {
+                const cachedBranding = JSON.parse(cachedBrandingStr);
+                setBranding(cachedBranding);
+                applyThemeColors(cachedBranding.primary_color, cachedBranding.secondary_color);
+            } catch (e) { /* ignore */ }
         }
 
         if (token && storedType) {
-          setIsAuthenticated(true);
-          setUserType(storedType);
-          
-          // ATUALIZADO: Se for aluno, tentamos buscar o perfil para pegar as cores atualizadas do banco
-          if (storedType === 'student') {
-             try {
-                 // Configura api para usar o token (interceptor já deve fazer isso se token estiver no localStorage)
-                 const response = await api.get('/students/me/profile');
-                 const profile = response.data;
-                 storedBranding = {
-                     logo_url: profile.brand_logo_url,
-                     primary_color: profile.brand_primary_color,
-                     secondary_color: profile.brand_secondary_color,
-                     payment_pix_key: profile.payment_pix_key,
-                     payment_link_url: profile.payment_link_url,
-                     payment_instructions: profile.payment_instructions
-                 };
-                 // Atualiza localStorage
-                 localStorage.setItem('appBranding', JSON.stringify(storedBranding));
-             } catch (err) {
-                 console.warn("Não foi possível atualizar branding do aluno:", err);
-             }
-          }
+          try {
+            // Valida sessão no backend
+            const endpoint = storedType === 'trainer' ? '/trainers/me' : '/students/me/profile';
+            const response = await api.get(endpoint);
+            const data = response.data;
 
-          setBranding(storedBranding);
-          applyThemeColors(storedBranding.primary_color, storedBranding.secondary_color);
-        } else {
-          logout(false); 
+            const updatedBranding: BrandingData = {
+              logo_url: data.brand_logo_url || data.logo_url,
+              primary_color: data.brand_primary_color || data.primary_color,
+              secondary_color: data.brand_secondary_color || data.secondary_color,
+              payment_pix_key: data.payment_pix_key,
+              payment_link_url: data.payment_link_url,
+              payment_instructions: data.payment_instructions
+            };
+
+            setIsAuthenticated(true);
+            setUserType(storedType);
+            setBranding(updatedBranding);
+            localStorage.setItem('appBranding', JSON.stringify(updatedBranding));
+            applyThemeColors(updatedBranding.primary_color, updatedBranding.secondary_color);
+          } catch (err: any) {
+            // Se o backend disser que o token é inválido (401) ou usuário não existe (404)
+            // Fazemos logout SILENCIOSO (false) para não recarregar a página
+            if (err.response?.status === 401 || err.response?.status === 404) {
+              logout(false);
+            }
+          }
         }
-      } catch (err) {
-        console.error("Erro na inicialização da auth:", err);
+      } catch (e) {
+        console.error("Auth init error:", e);
         logout(false);
       } finally {
         setIsLoading(false);
@@ -153,24 +148,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const login = (token: string, type: 'trainer' | 'student', newBranding: BrandingData) => {
     localStorage.removeItem('trainerAuthToken');
     localStorage.removeItem('studentAuthToken');
-    
     localStorage.setItem(type === 'trainer' ? 'trainerAuthToken' : 'studentAuthToken', token);
     localStorage.setItem('userType', type);
-    
-    // Salva Branding
     localStorage.setItem('appBranding', JSON.stringify(newBranding));
     
-    setUserType(type);
     setIsAuthenticated(true);
+    setUserType(type);
     setBranding(newBranding);
     applyThemeColors(newBranding.primary_color, newBranding.secondary_color);
-
-    // FORÇA O REDIRECIONAMENTO COM RELOAD
-    if (type === 'student') {
-        window.location.href = '/student/dashboard';
-    } else {
-        window.location.href = '/trainer/dashboard';
-    }
+    
+    window.location.href = type === 'student' ? '/student/dashboard' : '/trainer/dashboard';
   };
 
   const updateBranding = (newBranding: BrandingData) => {
@@ -182,33 +169,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     });
   };
 
-  const logout = (redirect = true) => {
-    localStorage.clear();
-    setIsAuthenticated(false);
-    setUserType(null);
-    setBranding({});
-    
-    document.documentElement.style.removeProperty('--primary');
-    document.documentElement.style.removeProperty('--secondary');
-    document.documentElement.style.removeProperty('--ring');
-    document.documentElement.style.removeProperty('--sidebar-primary');
-    document.documentElement.style.removeProperty('--sidebar-accent');
-
-    if (redirect) window.location.href = '/'; 
-  };
-
   const value = {
     isAuthenticated,
     userType,
     branding,
     isLoading,
     login,
-    logout: () => logout(true),
+    logout,
     updateBranding,
     logoUrl: branding.logo_url || null,
     primaryColor: branding.primary_color || null,
-    clearThemeColors,
-    restoreThemeColors,
+    clearThemeColors: () => applyThemeColors(),
+    restoreThemeColors: () => applyThemeColors(branding.primary_color, branding.secondary_color),
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

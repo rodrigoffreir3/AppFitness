@@ -38,20 +38,22 @@ func RegisterStudentsRoutes(mux *http.ServeMux, db *sql.DB) {
 	mux.Handle("DELETE /api/students/{id}", middleware.AuthMiddleware(deleteStudentHandler))
 
 	mux.Handle("POST /api/students/login", loginStudentHandler)
-	// Rota Pública de Auto-Cadastro
 	mux.Handle("POST /api/public/students/register", http.HandlerFunc(h.handlePublicSelfRegister))
 
 	mux.Handle("GET /api/students/me/workouts", middleware.AuthMiddleware(getMyWorkoutsHandler))
 	mux.Handle("GET /api/students/me/workouts/{id}", middleware.AuthMiddleware(getMyWorkoutDetailsHandler))
 	mux.Handle("GET /api/students/me/announcements", middleware.AuthMiddleware(getMyAnnouncementsHandler))
 	mux.Handle("GET /api/students/me/profile", middleware.AuthMiddleware(getMyProfileHandler))
+
+	// --- ROTAS DE SEGURANÇA (NOVO) ---
+	mux.Handle("PUT /api/students/me/password", middleware.AuthMiddleware(http.HandlerFunc(h.handleUpdatePassword)))
+	mux.Handle("DELETE /api/students/me", middleware.AuthMiddleware(http.HandlerFunc(h.handleDeleteAccount)))
 }
 
 type studentsHandler struct {
 	db *sql.DB
 }
 
-// Structs
 type CreateStudentRequest struct {
 	Name     string `json:"name"`
 	Email    string `json:"email"`
@@ -72,13 +74,13 @@ type StudentResponse struct {
 	Email   string `json:"email"`
 	FileURL string `json:"file_url"`
 }
+
 type UpdateStudentRequest struct {
 	Name    *string `json:"name"`
 	Email   *string `json:"email"`
 	FileURL *string `json:"file_url"`
 }
 
-// ATUALIZADO: Inclui branding do treinador
 type StudentProfileResponse struct {
 	ID                  string `json:"id"`
 	Name                string `json:"name"`
@@ -96,7 +98,6 @@ type StudentProfileResponse struct {
 
 // Handlers
 
-// --- Handler de Auto-Cadastro Público ---
 func (h *studentsHandler) handlePublicSelfRegister(w http.ResponseWriter, r *http.Request) {
 	var req SelfRegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -104,7 +105,6 @@ func (h *studentsHandler) handlePublicSelfRegister(w http.ResponseWriter, r *htt
 		return
 	}
 
-	// 1. Validar se o Treinador existe e está ativo
 	var subscriptionStatus string
 	err := h.db.QueryRowContext(r.Context(), "SELECT COALESCE(subscription_status, 'trial') FROM trainers WHERE id=$1", req.TrainerID).Scan(&subscriptionStatus)
 	if err != nil {
@@ -117,7 +117,6 @@ func (h *studentsHandler) handlePublicSelfRegister(w http.ResponseWriter, r *htt
 		return
 	}
 
-	// 2. Criar o Aluno (Senha Hash)
 	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(req.Password), 10)
 
 	var newStudent StudentResponse
@@ -138,14 +137,12 @@ func (h *studentsHandler) handlePublicSelfRegister(w http.ResponseWriter, r *htt
 		return
 	}
 
-	// 3. Gerar Token JWT para login imediato
 	claims := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"sub": newStudent.ID,
 		"exp": time.Now().Add(time.Hour * 72).Unix(),
 	})
 	tokenString, _ := claims.SignedString([]byte(os.Getenv("JWT_SECRET")))
 
-	// Buscar Branding do Treinador para já retornar no login
 	var branding types.BrandingResponse
 	brandingQuery := `
 		SELECT 
@@ -169,7 +166,6 @@ func (h *studentsHandler) handlePublicSelfRegister(w http.ResponseWriter, r *htt
 	})
 }
 
-// --- Handler Atualizado para buscar Branding ---
 func (h *studentsHandler) handleGetMyProfile(w http.ResponseWriter, r *http.Request) {
 	studentID := r.Context().Value(middleware.TrainerIDKey).(string)
 	var profile StudentProfileResponse
@@ -527,4 +523,54 @@ func (h *studentsHandler) handleCreateStudent(w http.ResponseWriter, r *http.Req
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(newStudent)
+}
+
+// --- FUNÇÕES DE SEGURANÇA (NOVO) ---
+
+func (h *studentsHandler) handleUpdatePassword(w http.ResponseWriter, r *http.Request) {
+	// Reutiliza a struct do trainer (UpdatePasswordRequest) pois está no mesmo package 'handlers'
+	studentID := r.Context().Value(middleware.TrainerIDKey).(string)
+	var req UpdatePasswordRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "JSON Inválido", http.StatusBadRequest)
+		return
+	}
+
+	var currentHash string
+	err := h.db.QueryRowContext(r.Context(), "SELECT password_hash FROM students WHERE id=$1", studentID).Scan(&currentHash)
+	if err != nil {
+		http.Error(w, "Aluno não encontrado", http.StatusNotFound)
+		return
+	}
+
+	err = bcrypt.CompareHashAndPassword([]byte(currentHash), []byte(req.OldPassword))
+	if err != nil {
+		http.Error(w, "A senha atual está incorreta.", http.StatusUnauthorized)
+		return
+	}
+
+	newHash, _ := bcrypt.GenerateFromPassword([]byte(req.NewPassword), 10)
+
+	_, err = h.db.ExecContext(r.Context(), "UPDATE students SET password_hash=$1 WHERE id=$2", string(newHash), studentID)
+	if err != nil {
+		http.Error(w, "Erro ao atualizar senha", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Senha alterada com sucesso!"))
+}
+
+func (h *studentsHandler) handleDeleteAccount(w http.ResponseWriter, r *http.Request) {
+	studentID := r.Context().Value(middleware.TrainerIDKey).(string)
+
+	_, err := h.db.ExecContext(r.Context(), "DELETE FROM students WHERE id=$1", studentID)
+	if err != nil {
+		log.Printf("Erro ao deletar conta aluno: %v", err)
+		http.Error(w, "Erro ao excluir conta", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Sua conta de aluno foi excluída."))
 }

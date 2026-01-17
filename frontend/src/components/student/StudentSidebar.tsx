@@ -10,7 +10,8 @@ import {
   CreditCard,
   Copy,
   ExternalLink,
-  Utensils // NOVO ÍCONE
+  Utensils,
+  KeyRound // <--- ADICIONADO
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
@@ -41,24 +42,25 @@ const StudentSidebar = () => {
 
   const navLinks = [
     { to: "/student/dashboard", icon: LayoutDashboard, label: "Meus Treinos", end: true },
-    { to: "/student/dashboard/diets", icon: Utensils, label: "Dietas", end: false }, // NOVO LINK
+    { to: "/student/dashboard/diets", icon: Utensils, label: "Dietas", end: false },
     { to: "/student/dashboard/chat", icon: MessageSquare, label: "Chat", end: false },
     { to: "/student/dashboard/announcements", icon: Bell, label: "Avisos", end: false },
+    // NOVO LINK PARA TESTAR A LÓGICA DE SEGURANÇA
+    { to: "/student/dashboard/security", icon: KeyRound, label: "Segurança", end: false },
   ];
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
-    toast.success("Copiado para a área de transferência!");
+    toast.success("Copiado!", { description: "Chave Pix copiada para a área de transferência." });
   };
 
   return (
     <aside
       className={cn(
-        "relative hidden h-screen flex-col border-r bg-card md:flex transition-all duration-300 ease-in-out",
+        "hidden h-screen flex-col border-r bg-card md:flex transition-all duration-300 ease-in-out sticky top-0",
         isCollapsed ? "w-20" : "w-64"
       )}
     >
-      {/* Cabeçalho */}
       <div className="flex h-20 items-center border-b px-4 overflow-hidden bg-primary text-primary-foreground">
         <div className={cn("flex items-center gap-2 font-semibold w-full h-full", isCollapsed && "justify-center")}>
           {branding?.logo_url ? (
@@ -98,7 +100,6 @@ const StudentSidebar = () => {
                     <NavLink to={link.to}>
                       <link.icon className={cn("h-5 w-5 shrink-0", isCollapsed && "h-6 w-6")} />
                       {!isCollapsed && <span>{link.label}</span>}
-                      <span className="sr-only">{link.label}</span>
                     </NavLink>
                   </Button>
                 </TooltipTrigger>
@@ -108,7 +109,6 @@ const StudentSidebar = () => {
           );
         })}
 
-        {/* Botão de Pagamento */}
         <TooltipProvider delayDuration={0}>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -121,16 +121,13 @@ const StudentSidebar = () => {
               >
                 <CreditCard className={cn("h-5 w-5 shrink-0", isCollapsed && "h-6 w-6")} />
                 {!isCollapsed && <span>Assinatura</span>}
-                <span className="sr-only">Assinatura</span>
               </Button>
             </TooltipTrigger>
             {isCollapsed && <TooltipContent side="right">Assinatura</TooltipContent>}
           </Tooltip>
         </TooltipProvider>
-
       </nav>
 
-      {/* Rodapé */}
       <div className="mt-auto border-t p-4 bg-secondary text-secondary-foreground">
         <TooltipProvider delayDuration={0}>
           <Tooltip>
@@ -145,7 +142,6 @@ const StudentSidebar = () => {
               >
                 <LogOut className={cn("h-5 w-5 shrink-0", isCollapsed && "h-6 w-6")} />
                 {!isCollapsed && <span>Sair</span>}
-                <span className="sr-only">Sair</span>
               </Button>
             </TooltipTrigger>
             {isCollapsed && <TooltipContent side="right">Sair</TooltipContent>}
@@ -156,23 +152,19 @@ const StudentSidebar = () => {
       <Button
         variant="outline"
         size="icon"
-        className="absolute top-1/2 -right-4 h-8 w-8 rounded-full shadow-md z-50 bg-background border-input"
+        className="absolute top-1/2 -right-4 h-8 w-8 rounded-full shadow-md z-50 bg-background border-input hover:bg-muted"
         onClick={() => setIsCollapsed(!isCollapsed)}
       >
         {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
       </Button>
 
-      {/* Modal Pagamento */}
       <Dialog open={isPaymentOpen} onOpenChange={setIsPaymentOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Dados de Pagamento</DialogTitle>
-            <DialogDescription>
-              Utilize os dados abaixo para realizar o pagamento ao seu treinador.
-            </DialogDescription>
+            <DialogDescription>Utilize os dados abaixo para o pagamento.</DialogDescription>
           </DialogHeader>
           <div className="space-y-6 py-2">
-            
             {branding?.payment_pix_key && (
               <div className="space-y-2">
                 <Label>Chave PIX</Label>
@@ -184,37 +176,19 @@ const StudentSidebar = () => {
                 </div>
               </div>
             )}
-
             {branding?.payment_link_url && (
               <div className="space-y-2">
                 <Label>Link de Pagamento</Label>
                 <Button variant="outline" className="w-full justify-between" asChild>
                   <a href={branding.payment_link_url} target="_blank" rel="noreferrer">
-                    Abrir Link de Pagamento
-                    <ExternalLink className="h-4 w-4 ml-2" />
+                    Abrir Link <ExternalLink className="h-4 w-4 ml-2" />
                   </a>
                 </Button>
-              </div>
-            )}
-
-            {branding?.payment_instructions && (
-              <div className="space-y-2">
-                <Label>Instruções</Label>
-                <div className="p-3 bg-muted rounded-md text-sm text-muted-foreground whitespace-pre-wrap">
-                  {branding.payment_instructions}
-                </div>
-              </div>
-            )}
-
-            {!branding?.payment_pix_key && !branding?.payment_link_url && !branding?.payment_instructions && (
-              <div className="text-center text-muted-foreground py-4">
-                Seu treinador ainda não configurou os dados de pagamento.
               </div>
             )}
           </div>
         </DialogContent>
       </Dialog>
-
     </aside>
   );
 };

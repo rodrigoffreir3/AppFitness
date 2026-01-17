@@ -23,14 +23,33 @@ const StudentLogin = () => {
       const response = await api.post('/students/login', { email, password });
       const { token, branding } = response.data;
       
-      // Agora passamos o objeto branding completo (incluindo pix, link, cores)
+      // Login com dados completos
       login(token, 'student', branding);
       
-      toast({ title: "Login realizado!", description: "A redirecionar..." });
+      toast({ title: "Login realizado!", description: "Redirecionando..." });
+      // O navigate é opcional aqui pois o AuthContext já força o redirecionamento, 
+      // mas mal não faz manter.
       navigate("/student/dashboard");
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      toast({ title: "Erro no login", description: "Email ou senha incorretos", variant: "destructive" });
+      
+      // MUDANÇA MÍNIMA AQUI: Diferenciar a mensagem de erro
+      let msg = "Email ou senha incorretos";
+      
+      if (error.response) {
+         // Se o backend retornar 404, sabemos que a conta foi excluída
+         if (error.response.status === 404) {
+            msg = "Esta conta não existe ou foi excluída.";
+         } else if (error.response.status === 403) {
+            msg = "Acesso negado.";
+         }
+      }
+
+      toast({ 
+        title: "Erro no login", 
+        description: msg, 
+        variant: "destructive" 
+      });
     } finally {
       setLoading(false);
     }

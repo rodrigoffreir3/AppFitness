@@ -25,8 +25,12 @@ func RegisterTrainersRoutes(mux *http.ServeMux, db *sql.DB) {
 	mux.Handle("GET /api/trainers/me", middleware.AuthMiddleware(http.HandlerFunc(h.handleGetTrainerMe)))
 	mux.Handle("PUT /api/trainers/me", middleware.AuthMiddleware(http.HandlerFunc(h.handleUpdateTrainerMe)))
 
-	// --- NOVA ROTA PÚBLICA (ADICIONADO) ---
+	// --- NOVA ROTA PÚBLICA (LINK DE CONVITE) ---
 	mux.Handle("GET /api/public/trainers/{id}", http.HandlerFunc(h.handleGetPublicTrainerInfo))
+
+	// --- ROTAS DE SEGURANÇA (NOVO) ---
+	mux.Handle("PUT /api/trainers/me/password", middleware.AuthMiddleware(http.HandlerFunc(h.handleUpdatePassword)))
+	mux.Handle("DELETE /api/trainers/me", middleware.AuthMiddleware(http.HandlerFunc(h.handleDeleteAccount)))
 }
 
 type trainersHandler struct {
@@ -39,24 +43,21 @@ type CreateTrainerRequest struct {
 	Password string `json:"password"`
 }
 
-// Resposta completa do perfil do treinador (incluindo dados privados de assinatura)
+// Resposta completa do perfil do treinador
 type TrainerProfileResponse struct {
-	ID                  string `json:"id"`
-	Name                string `json:"name"`
-	Email               string `json:"email"`
-	BrandLogoURL        string `json:"brand_logo_url,omitempty"`
-	BrandPrimaryColor   string `json:"brand_primary_color,omitempty"`
-	BrandSecondaryColor string `json:"brand_secondary_color,omitempty"`
-	// Dados de Pagamento para o Aluno
-	PaymentPixKey       string `json:"payment_pix_key,omitempty"`
-	PaymentLinkURL      string `json:"payment_link_url,omitempty"`
-	PaymentInstructions string `json:"payment_instructions,omitempty"`
-	// Dados de Assinatura (Privado)
-	SubscriptionStatus string     `json:"subscription_status"`
-	SubscriptionExp    *time.Time `json:"subscription_expires_at,omitempty"`
+	ID                  string     `json:"id"`
+	Name                string     `json:"name"`
+	Email               string     `json:"email"`
+	BrandLogoURL        string     `json:"brand_logo_url,omitempty"`
+	BrandPrimaryColor   string     `json:"brand_primary_color,omitempty"`
+	BrandSecondaryColor string     `json:"brand_secondary_color,omitempty"`
+	PaymentPixKey       string     `json:"payment_pix_key,omitempty"`
+	PaymentLinkURL      string     `json:"payment_link_url,omitempty"`
+	PaymentInstructions string     `json:"payment_instructions,omitempty"`
+	SubscriptionStatus  string     `json:"subscription_status"`
+	SubscriptionExp     *time.Time `json:"subscription_expires_at,omitempty"`
 }
 
-// --- NOVA STRUCT (ADICIONADO) ---
 type PublicTrainerInfoResponse struct {
 	Name         string `json:"name"`
 	BrandLogoURL string `json:"brand_logo_url"`
@@ -68,17 +69,20 @@ type UpdateTrainerRequest struct {
 	BrandLogoURL        *string `json:"brand_logo_url"`
 	BrandPrimaryColor   *string `json:"brand_primary_color"`
 	BrandSecondaryColor *string `json:"brand_secondary_color"`
-	// Novos campos de pagamento
 	PaymentPixKey       *string `json:"payment_pix_key"`
 	PaymentLinkURL      *string `json:"payment_link_url"`
 	PaymentInstructions *string `json:"payment_instructions"`
 }
 
-// --- NOVA FUNÇÃO (ADICIONADO) ---
+// Struct Compartilhada para Troca de Senha (usada também pelo student)
+type UpdatePasswordRequest struct {
+	OldPassword string `json:"old_password"`
+	NewPassword string `json:"new_password"`
+}
+
 func (h *trainersHandler) handleGetPublicTrainerInfo(w http.ResponseWriter, r *http.Request) {
 	trainerID := r.PathValue("id")
 
-	// Buscamos apenas dados públicos e se ele está ativo
 	query := `
 		SELECT name, COALESCE(brand_logo_url, ''), COALESCE(subscription_status, 'trial')
 		FROM trainers WHERE id = $1
@@ -95,7 +99,6 @@ func (h *trainersHandler) handleGetPublicTrainerInfo(w http.ResponseWriter, r *h
 		return
 	}
 
-	// Só mostramos o perfil se o treinador estiver ATIVO (Pagamento em dia) ou TRIAL
 	isActive := (status == "ACTIVE" || status == "trial")
 
 	json.NewEncoder(w).Encode(PublicTrainerInfoResponse{
@@ -122,7 +125,6 @@ func (h *trainersHandler) handleUpdateTrainerMe(w http.ResponseWriter, r *http.R
 	args := []interface{}{}
 	argID := 1
 
-	// Helper para adicionar campos dinamicamente
 	addSet := func(field string, val *string) {
 		if val != nil {
 			queryParts = append(queryParts, fmt.Sprintf("%s = $%d", field, argID))
@@ -215,7 +217,6 @@ func (h *trainersHandler) handleCreateTrainer(w http.ResponseWriter, r *http.Req
 		http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
 		return
 	}
-	// Define trial de 7 dias
 	trialExpires := time.Now().Add(24 * 7 * time.Hour)
 
 	query := `
@@ -264,7 +265,6 @@ func (h *trainersHandler) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var branding types.BrandingResponse
-	// Query atualizada para buscar branding + dados de pagamento
 	brandingQuery := `
 		SELECT 
 			COALESCE(brand_logo_url, ''), 
@@ -283,7 +283,6 @@ func (h *trainersHandler) handleLogin(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Aviso: erro ao buscar detalhes do trainer ID %s: %v", trainerID, err)
 	}
 
-	// --- ATUALIZADO: Token expira em 72 horas ---
 	claims := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"sub": trainerID,
 		"exp": time.Now().Add(time.Hour * 72).Unix(),
@@ -300,4 +299,55 @@ func (h *trainersHandler) handleLogin(w http.ResponseWriter, r *http.Request) {
 		Token:    tokenString,
 		Branding: branding,
 	})
+}
+
+// --- FUNÇÕES DE SEGURANÇA ---
+
+func (h *trainersHandler) handleUpdatePassword(w http.ResponseWriter, r *http.Request) {
+	trainerID := r.Context().Value(middleware.TrainerIDKey).(string)
+	var req UpdatePasswordRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "JSON Inválido", http.StatusBadRequest)
+		return
+	}
+
+	var currentPasswordHash string
+	err := h.db.QueryRowContext(r.Context(), "SELECT password_hash FROM trainers WHERE id=$1", trainerID).Scan(&currentPasswordHash)
+	if err != nil {
+		http.Error(w, "Treinador não encontrado", http.StatusNotFound)
+		return
+	}
+
+	err = bcrypt.CompareHashAndPassword([]byte(currentPasswordHash), []byte(req.OldPassword))
+	if err != nil {
+		http.Error(w, "A senha atual está incorreta.", http.StatusUnauthorized)
+		return
+	}
+
+	newHashedPassword, _ := bcrypt.GenerateFromPassword([]byte(req.NewPassword), 10)
+
+	_, err = h.db.ExecContext(r.Context(), "UPDATE trainers SET password_hash=$1 WHERE id=$2", string(newHashedPassword), trainerID)
+	if err != nil {
+		http.Error(w, "Erro ao atualizar senha", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Senha alterada com sucesso!"))
+}
+
+func (h *trainersHandler) handleDeleteAccount(w http.ResponseWriter, r *http.Request) {
+	trainerID := r.Context().Value(middleware.TrainerIDKey).(string)
+
+	// OBS: O banco deve ter ON DELETE CASCADE configurado nas chaves estrangeiras,
+	// caso contrário isso falhará se houver alunos vinculados.
+	_, err := h.db.ExecContext(r.Context(), "DELETE FROM trainers WHERE id=$1", trainerID)
+	if err != nil {
+		log.Printf("Erro ao deletar conta trainer: %v", err)
+		http.Error(w, "Erro ao excluir conta (verifique se há pendências)", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Conta excluída permanentemente."))
 }

@@ -27,15 +27,24 @@ api.interceptors.request.use(
   }
 );
 
-// Interceptor de Resposta: O "Limpa Trilhos" Automático
+// Interceptor de Resposta: O "Limpa Trilhos" Automático (AGORA INTELIGENTE)
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response) {
       const { status, config } = error.response;
       
-      // Logout forçado em caso de erro 401 ou 404 em rotas de perfil
-      if (status === 401 || (status === 404 && config.url.includes('/me'))) {
+      // Verifica se é uma rota de autenticação (Login/Registro) para não redirecionar em caso de erro de senha
+      const isAuthRoute = config.url?.includes('/login') || config.url?.includes('/register') || config.url?.includes('/public');
+      
+      // Verifica se o usuário já está na página de login ou root
+      const isAtPublicPage = window.location.pathname === '/' || window.location.pathname.includes('/login');
+
+      // Logout forçado APENAS se:
+      // 1. Não for rota de auth (erro de senha)
+      // 2. Usuário não estiver já na tela de login
+      // 3. For erro 401 ou 404 em rotas de perfil (/me)
+      if (!isAuthRoute && !isAtPublicPage && (status === 401 || (status === 404 && config.url?.includes('/me')))) {
         console.warn("Sessão inválida detectada. Realizando logout forçado...");
         localStorage.clear();
         document.documentElement.style.removeProperty('--primary');
@@ -49,8 +58,7 @@ api.interceptors.response.use(
 
 export default api;
 
-// --- ADICIONADO: Função Auxiliar de Upload ---
-// Usa a instância 'api' acima, então já vai com Token de autenticação
+// --- Função Auxiliar de Upload ---
 export const uploadFile = async (file: File): Promise<string> => {
     const formData = new FormData();
     formData.append('file', file);
@@ -58,9 +66,8 @@ export const uploadFile = async (file: File): Promise<string> => {
     const response = await api.post('/upload', formData, {
         headers: {
             'Content-Type': 'multipart/form-data',
-            // Authorization é injetado automaticamente pelo interceptor acima
         }
     });
 
-    return response.data.url; // Retorna ex: "/uploads/xyz.pdf"
+    return response.data.url; 
 };

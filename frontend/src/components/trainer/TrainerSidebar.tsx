@@ -10,7 +10,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Utensils,
-  CreditCard // <--- Import Novo
+  CreditCard,
+  KeyRound
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
@@ -37,14 +38,15 @@ const TrainerSidebar = () => {
     { to: "/trainer/dashboard/exercises", icon: BookCopy, label: "Exercícios", end: false },
     { to: "/trainer/dashboard/chat", icon: MessageSquare, label: "Chat", end: false },
     { to: "/trainer/dashboard/announcements", icon: Bell, label: "Avisos", end: false },
-    { to: "/trainer/dashboard/subscription", icon: CreditCard, label: "Assinatura", end: false }, // <--- Link Novo
+    { to: "/trainer/dashboard/subscription", icon: CreditCard, label: "Assinatura", end: false },
     { to: "/trainer/dashboard/settings", icon: Settings, label: "Personalizar", end: false },
+    { to: "/trainer/dashboard/security", icon: KeyRound, label: "Segurança", end: false },
   ];
 
   return (
     <aside
       className={cn(
-        "relative hidden h-screen flex-col border-r bg-card md:flex transition-all duration-300 ease-in-out",
+        "hidden h-screen flex-col border-r bg-card md:flex transition-all duration-300 ease-in-out sticky top-0",
         isCollapsed ? "w-20" : "w-64"
       )}
     >
@@ -52,30 +54,23 @@ const TrainerSidebar = () => {
       <div className="flex h-20 items-center border-b px-4 overflow-hidden bg-primary text-primary-foreground transition-all">
         <NavLink to="/trainer/dashboard" className={cn("flex items-center gap-2 font-semibold w-full h-full", isCollapsed && "justify-center")}>
           {branding?.logo_url ? (
-             <img 
-               src={branding.logo_url} 
-               alt="Logo" 
-               className={cn(
-                 "object-contain transition-all max-h-[85%]", 
-                 isCollapsed ? "w-10" : "w-auto max-w-full"
-               )} 
-             />
+            <img 
+              src={branding.logo_url} 
+              alt="Logo" 
+              className={cn("object-contain transition-all max-h-[85%]", isCollapsed ? "w-10" : "w-auto max-w-full")} 
+            />
           ) : (
             <div className="flex items-center gap-2 whitespace-nowrap">
-               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/20 text-primary-foreground shrink-0 backdrop-blur-sm">
-                 <Dumbbell className="h-6 w-6" />
-               </div>
-               {!isCollapsed && (
-                 <span className="text-xl font-bold">
-                   AppFitness
-                 </span>
-               )}
-             </div>
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/20 text-primary-foreground shrink-0 backdrop-blur-sm">
+                <Dumbbell className="h-6 w-6" />
+              </div>
+              {!isCollapsed && <span className="text-xl font-bold">AppFitness</span>}
+            </div>
           )}
         </NavLink>
       </div>
 
-      {/* Navegação */}
+      {/* Navegação Principal */}
       <nav className="flex-1 space-y-2 overflow-x-hidden overflow-y-auto py-4 px-3">
         {navLinks.map((link) => {
           const isActive = link.end 
@@ -99,7 +94,6 @@ const TrainerSidebar = () => {
                     <NavLink to={link.to}>
                       <link.icon className={cn("h-5 w-5 shrink-0", isCollapsed && "h-6 w-6")} />
                       {!isCollapsed && <span>{link.label}</span>}
-                      <span className="sr-only">{link.label}</span>
                     </NavLink>
                   </Button>
                 </TooltipTrigger>
@@ -110,7 +104,7 @@ const TrainerSidebar = () => {
         })}
       </nav>
 
-      {/* Rodapé */}
+      {/* Rodapé - Botão Sair */}
       <div className="mt-auto border-t p-4 bg-secondary text-secondary-foreground">
         <TooltipProvider delayDuration={0}>
           <Tooltip>
@@ -123,9 +117,8 @@ const TrainerSidebar = () => {
                   isCollapsed && "justify-center px-2"
                 )}
               >
-                <LogOut className={cn("h-5 w-5 shrink-0", isCollapsed && "h-6 w-6")} />
+                <LogOut className={cn("h-5 w-5 shrink-0")} />
                 {!isCollapsed && <span>Sair</span>}
-                <span className="sr-only">Sair</span>
               </Button>
             </TooltipTrigger>
             {isCollapsed && <TooltipContent side="right">Sair</TooltipContent>}
@@ -133,6 +126,7 @@ const TrainerSidebar = () => {
         </TooltipProvider>
       </div>
 
+      {/* Botão de Colapso (Trigger Absoluto) */}
       <Button
         variant="outline"
         size="icon"
