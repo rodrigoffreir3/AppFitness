@@ -31,8 +31,11 @@ services:
   postgres:
     image: postgres:14-alpine
     restart: always
-    env_file:
-      - .env # Agora isto contém as variáveis POSTGRES_... corretas
+    # MELHORIA: Mapeamento explícito para garantir que o banco pegue a senha do .env
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
     volumes:
       - appfitness-data:/var/lib/postgresql/data
       - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql

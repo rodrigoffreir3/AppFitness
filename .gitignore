@@ -1,22 +1,41 @@
-# Arquivos de Sistema
-.DS_Store
-*.log
-
-# Pasta de dados do Banco de Dados
-# NUNCA fazer commit dos dados vivos de um banco.
-postgres/data/
-
-# Dependências do Frontend
-# A pasta node_modules pode ter milhares de arquivos e é recriada com 'npm install'.
-frontend/node_modules/
-frontend/dist/
-
-# Arquivos de Build/Executáveis do Go
-# Estes são gerados a partir do código-fonte.
-appfitness
-appfitness.exe
-
+# --- Segredos e Ambiente (CRÍTICO) ---
 .env
 .env.local
+.env.*.local
+*.pem
+*.key
+*.cert
+
+# --- Arquivos de Sistema e IDEs ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.log
+
+# --- Dados do Banco de Dados ---
+# NUNCA fazer commit dos dados vivos.
 postgres/data/
-uploads/
+
+# --- Uploads ---
+# Ignora todos os arquivos dentro de uploads, mas mantém a pasta no Git
+# Isso evita erro de "pasta não encontrada" no deploy
+uploads/*
+!uploads/.gitkeep
+
+# --- Backend (Go) ---
+# Binários e builds
+/bin/
+appfitness
+appfitness.exe
+main
+main.exe
+debug
+__debug_bin
+
+# --- Frontend (Node/React) ---
+frontend/node_modules/
+frontend/dist/
+frontend/coverage/
+frontend/.env
+frontend/.env.local
