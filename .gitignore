@@ -15,3 +15,8 @@ frontend/dist/
 # Estes são gerados a partir do código-fonte.
 appfitness
 appfitness.exe
+
+.env
+.env.local
+postgres/data/
+uploads/

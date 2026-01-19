@@ -12,7 +12,7 @@ type EmailService struct {
 	user     string
 	password string
 	from     string
-	baseURL  string // URL do Frontend para o link
+	baseURL  string
 }
 
 func NewEmailService() *EmailService {
@@ -33,14 +33,23 @@ func NewEmailService() *EmailService {
 }
 
 func (s *EmailService) SendResetPasswordEmail(toEmail, token string) error {
-	// Monta o link que o usuário vai clicar
-	// Ex: http://localhost:5173/redefinir-senha?token=xyz...
 	resetLink := fmt.Sprintf("%s/redefinir-senha?token=%s", s.baseURL, token)
 
-	subject := "Subject: Redefinicao de Senha - AppFitness\n"
-	mime := "MIME-version: 1.0;\nContent-Type: text/html; charset=\"UTF-8\";\n\n"
+	// --- CORREÇÃO AQUI: Cabeçalhos Completos (RFC 822) ---
+	// O Resend exige que o "From" esteja aqui no texto também
+	headers := make(map[string]string)
+	headers["From"] = s.from
+	headers["To"] = toEmail
+	headers["Subject"] = "Redefinicao de Senha - AppFitness"
+	headers["MIME-Version"] = "1.0"
+	headers["Content-Type"] = "text/html; charset=\"UTF-8\""
 
-	// Template HTML simples do e-mail
+	message := ""
+	for k, v := range headers {
+		message += fmt.Sprintf("%s: %s\r\n", k, v)
+	}
+	message += "\r\n" // Linha vazia obrigatória entre headers e corpo
+
 	htmlBody := fmt.Sprintf(`
 		<html>
 			<body style="font-family: Arial, sans-serif; color: #333;">
@@ -63,14 +72,13 @@ func (s *EmailService) SendResetPasswordEmail(toEmail, token string) error {
 		</html>
 	`, resetLink, resetLink)
 
-	msg := []byte(subject + mime + htmlBody)
+	message += htmlBody
 
-	// Autenticação SMTP
 	auth := smtp.PlainAuth("", s.user, s.password, s.host)
 	addr := fmt.Sprintf("%s:%s", s.host, s.port)
 
 	// Envio
-	err := smtp.SendMail(addr, auth, s.from, []string{toEmail}, msg)
+	err := smtp.SendMail(addr, auth, s.from, []string{toEmail}, []byte(message))
 	if err != nil {
 		return fmt.Errorf("erro ao enviar email SMTP: %v", err)
 	}

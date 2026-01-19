@@ -22,7 +22,7 @@ CREATE TABLE trainers (
     subscription_status VARCHAR(20) DEFAULT 'trial', -- trial, active, past_due, cancelled
     subscription_expires_at TIMESTAMPTZ,
 
-    -- Recuperação de Senha (NOVOS CAMPOS)
+    -- Recuperação de Senha
     reset_password_token VARCHAR(255),
     reset_password_expires_at TIMESTAMPTZ,
 
@@ -40,10 +40,21 @@ CREATE TABLE students (
     -- Upload de Documento (Ficha de Anamnese/Saúde)
     anamnesis_url TEXT,
 
-    -- Recuperação de Senha (NOVOS CAMPOS - opcional, mas recomendado deixar pronto)
+    -- Recuperação de Senha
     reset_password_token VARCHAR(255),
     reset_password_expires_at TIMESTAMPTZ,
 
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Tabela: diets (Planos Alimentares) - ADICIONADA PARA CORRIGIR O ERRO 500
+CREATE TABLE diets (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    trainer_id UUID NOT NULL REFERENCES trainers(id) ON DELETE CASCADE,
+    student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    content TEXT, -- Pode armazenar HTML, JSON ou descrição texto
+    is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -56,7 +67,7 @@ CREATE TABLE workouts (
     description TEXT,
     is_active BOOLEAN DEFAULT true,
 
-    -- Upload de Documento (Dieta da Nutricionista vinculada ao treino)
+    -- Upload de Documento (Dieta vinculada especificamente ao treino, se houver)
     diet_plan_url TEXT,
 
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
@@ -105,6 +116,8 @@ CREATE TABLE announcements (
 
 -- Índices para otimizar as buscas por chaves estrangeiras
 CREATE INDEX ON students (trainer_id);
+CREATE INDEX ON diets (trainer_id);  -- Novo índice
+CREATE INDEX ON diets (student_id);  -- Novo índice
 CREATE INDEX ON workouts (student_id);
 CREATE INDEX ON workouts (trainer_id);
 CREATE INDEX ON workout_exercises (workout_id);

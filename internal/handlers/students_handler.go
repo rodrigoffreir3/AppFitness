@@ -45,7 +45,7 @@ func RegisterStudentsRoutes(mux *http.ServeMux, db *sql.DB) {
 	mux.Handle("GET /api/students/me/announcements", middleware.AuthMiddleware(getMyAnnouncementsHandler))
 	mux.Handle("GET /api/students/me/profile", middleware.AuthMiddleware(getMyProfileHandler))
 
-	// --- ROTAS DE SEGURANÇA (NOVO) ---
+	// --- ROTAS DE SEGURANÇA ---
 	mux.Handle("PUT /api/students/me/password", middleware.AuthMiddleware(http.HandlerFunc(h.handleUpdatePassword)))
 	mux.Handle("DELETE /api/students/me", middleware.AuthMiddleware(http.HandlerFunc(h.handleDeleteAccount)))
 }
@@ -58,7 +58,7 @@ type CreateStudentRequest struct {
 	Name     string `json:"name"`
 	Email    string `json:"email"`
 	Password string `json:"password"`
-	FileURL  string `json:"file_url"`
+	FileURL  string `json:"file_url"` // No banco: anamnesis_url
 }
 
 type SelfRegisterRequest struct {
@@ -72,7 +72,7 @@ type StudentResponse struct {
 	ID      string `json:"id"`
 	Name    string `json:"name"`
 	Email   string `json:"email"`
-	FileURL string `json:"file_url"`
+	FileURL string `json:"file_url"` // Mapeia para anamnesis_url
 }
 
 type UpdateStudentRequest struct {
@@ -120,10 +120,11 @@ func (h *studentsHandler) handlePublicSelfRegister(w http.ResponseWriter, r *htt
 	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(req.Password), 10)
 
 	var newStudent StudentResponse
+	// CORREÇÃO: Trocado file_url por anamnesis_url
 	query := `
 		INSERT INTO students (name, email, password_hash, trainer_id)
 		VALUES ($1, $2, $3, $4)
-		RETURNING id, name, email, COALESCE(file_url, '')
+		RETURNING id, name, email, COALESCE(anamnesis_url, '')
 	`
 	err = h.db.QueryRowContext(r.Context(), query, req.Name, req.Email, string(hashedPassword), req.TrainerID).Scan(&newStudent.ID, &newStudent.Name, &newStudent.Email, &newStudent.FileURL)
 
@@ -170,9 +171,10 @@ func (h *studentsHandler) handleGetMyProfile(w http.ResponseWriter, r *http.Requ
 	studentID := r.Context().Value(middleware.TrainerIDKey).(string)
 	var profile StudentProfileResponse
 
+	// CORREÇÃO: Trocado s.file_url por s.anamnesis_url
 	query := `
 		SELECT 
-			s.id, s.name, s.email, COALESCE(s.file_url, ''), 
+			s.id, s.name, s.email, COALESCE(s.anamnesis_url, ''), 
 			s.trainer_id, COALESCE(t.name, ''),
 			COALESCE(t.brand_logo_url, ''), 
 			COALESCE(t.brand_primary_color, '#3b82f6'), 
@@ -257,7 +259,9 @@ func (h *studentsHandler) handleGetMyWorkoutDetails(w http.ResponseWriter, r *ht
 	studentID := r.Context().Value(middleware.TrainerIDKey).(string)
 	workoutID := r.PathValue("id")
 	var workout types.WorkoutResponse
-	queryWorkout := `SELECT id, student_id, name, description, is_active, COALESCE(file_url, '') FROM workouts WHERE id = $1 AND student_id = $2`
+
+	// CORREÇÃO: Trocado file_url por diet_plan_url (na tabela workouts)
+	queryWorkout := `SELECT id, student_id, name, description, is_active, COALESCE(diet_plan_url, '') FROM workouts WHERE id = $1 AND student_id = $2`
 	err := h.db.QueryRowContext(r.Context(), queryWorkout, workoutID, studentID).Scan(&workout.ID, &workout.StudentID, &workout.Name, &workout.Description, &workout.IsActive, &workout.FileURL)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -309,7 +313,8 @@ func (h *studentsHandler) handleGetMyWorkouts(w http.ResponseWriter, r *http.Req
 		http.Error(w, "ID do aluno não encontrado no contexto", http.StatusInternalServerError)
 		return
 	}
-	query := `SELECT id, student_id, name, description, is_active, COALESCE(file_url, '') FROM workouts WHERE student_id = $1 AND is_active = true ORDER BY created_at DESC`
+	// CORREÇÃO: Trocado file_url por diet_plan_url (na tabela workouts)
+	query := `SELECT id, student_id, name, description, is_active, COALESCE(diet_plan_url, '') FROM workouts WHERE student_id = $1 AND is_active = true ORDER BY created_at DESC`
 	rows, err := h.db.QueryContext(r.Context(), query, studentID)
 	if err != nil {
 		log.Printf("Erro ao buscar treinos do aluno: %v", err)
@@ -393,7 +398,8 @@ func (h *studentsHandler) handleGetStudent(w http.ResponseWriter, r *http.Reques
 	trainerID := r.Context().Value(middleware.TrainerIDKey).(string)
 	studentID := r.PathValue("id")
 	var student StudentResponse
-	query := `SELECT id, name, email, COALESCE(file_url, '') FROM students WHERE id = $1 AND trainer_id = $2`
+	// CORREÇÃO: Trocado file_url por anamnesis_url
+	query := `SELECT id, name, email, COALESCE(anamnesis_url, '') FROM students WHERE id = $1 AND trainer_id = $2`
 	err := h.db.QueryRowContext(r.Context(), query, studentID, trainerID).Scan(&student.ID, &student.Name, &student.Email, &student.FileURL)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -416,7 +422,8 @@ func (h *studentsHandler) handleUpdateStudent(w http.ResponseWriter, r *http.Req
 		http.Error(w, "Corpo da requisição inválido", http.StatusBadRequest)
 		return
 	}
-	query := `UPDATE students SET name = COALESCE($1, name), email = COALESCE($2, email), file_url = COALESCE($3, file_url) WHERE id = $4 AND trainer_id = $5`
+	// CORREÇÃO: Trocado file_url por anamnesis_url
+	query := `UPDATE students SET name = COALESCE($1, name), email = COALESCE($2, email), anamnesis_url = COALESCE($3, anamnesis_url) WHERE id = $4 AND trainer_id = $5`
 	result, err := h.db.ExecContext(r.Context(), query, req.Name, req.Email, req.FileURL, studentID, trainerID)
 	if err != nil {
 		log.Printf("Erro ao atualizar aluno: %v", err)
@@ -456,7 +463,8 @@ func (h *studentsHandler) handleListStudents(w http.ResponseWriter, r *http.Requ
 		http.Error(w, "ID do trainer não encontrado no contexto", http.StatusInternalServerError)
 		return
 	}
-	query := `SELECT id, name, email, COALESCE(file_url, '') FROM students WHERE trainer_id = $1 ORDER BY name ASC`
+	// CORREÇÃO: Trocado file_url por anamnesis_url
+	query := `SELECT id, name, email, COALESCE(anamnesis_url, '') FROM students WHERE trainer_id = $1 ORDER BY name ASC`
 	rows, err := h.db.QueryContext(r.Context(), query, trainerID)
 	if err != nil {
 		log.Printf("Erro ao buscar alunos: %v", err)
@@ -504,10 +512,11 @@ func (h *studentsHandler) handleCreateStudent(w http.ResponseWriter, r *http.Req
 		return
 	}
 	var newStudent StudentResponse
+	// CORREÇÃO: Trocado file_url por anamnesis_url
 	query := `
-		INSERT INTO students (name, email, password_hash, trainer_id, file_url)
+		INSERT INTO students (name, email, password_hash, trainer_id, anamnesis_url)
 		VALUES ($1, $2, $3, $4, $5)
-		RETURNING id, name, email, COALESCE(file_url, '')
+		RETURNING id, name, email, COALESCE(anamnesis_url, '')
 	`
 	err = h.db.QueryRowContext(r.Context(), query, req.Name, req.Email, string(hashedPassword), trainerID, req.FileURL).Scan(&newStudent.ID, &newStudent.Name, &newStudent.Email, &newStudent.FileURL)
 	if err != nil {
@@ -525,10 +534,7 @@ func (h *studentsHandler) handleCreateStudent(w http.ResponseWriter, r *http.Req
 	json.NewEncoder(w).Encode(newStudent)
 }
 
-// --- FUNÇÕES DE SEGURANÇA (NOVO) ---
-
 func (h *studentsHandler) handleUpdatePassword(w http.ResponseWriter, r *http.Request) {
-	// Reutiliza a struct do trainer (UpdatePasswordRequest) pois está no mesmo package 'handlers'
 	studentID := r.Context().Value(middleware.TrainerIDKey).(string)
 	var req UpdatePasswordRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

@@ -7,16 +7,27 @@ services:
     ports:
       - "8080:8080"
     environment:
+      # Dados do Banco (Agora seguros, lendo do .env)
       - DB_HOST=postgres
       - DB_PORT=5432
-      - DB_USER=admin
-      - DB_PASSWORD=password
-      - DB_NAME=appfitness_db
-      - JWT_SECRET=${JWT_SECRET}       # Melhor usar assim para pegar do .env
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      
+      # Segurança e Configurações Gerais
+      - JWT_SECRET=${JWT_SECRET}
       - PORT=8080
-      # --- CORREÇÃO AQUI: Passando as variáveis do Asaas para o container ---
+      
+      # Integração Asaas
       - ASAAS_API_URL=${ASAAS_API_URL}
       - ASAAS_API_KEY=${ASAAS_API_KEY}
+
+      # --- NOVO: Configurações de E-mail (CRUCIAL PARA O RESEND) ---
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - SMTP_FROM=${SMTP_FROM}
     depends_on:
       - postgres
     volumes:
@@ -30,9 +41,10 @@ services:
     container_name: appfitness-db
     restart: always
     environment:
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: appfitness_db
+      # Puxando as mesmas variáveis do .env para garantir sincronia com a API
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
     volumes:
       - ./postgres/data:/var/lib/postgresql/data
       - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
