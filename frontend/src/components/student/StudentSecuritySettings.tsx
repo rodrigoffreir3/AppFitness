@@ -42,7 +42,6 @@ export default function StudentSecuritySettings() {
 
     setLoading(true);
     try {
-        // ENDPOINT DO ALUNO
         await api.put('/students/me/password', {
             old_password: passwords.old_password,
             new_password: passwords.new_password
@@ -60,7 +59,6 @@ export default function StudentSecuritySettings() {
 
   const handleDeleteAccount = async () => {
       try {
-          // ENDPOINT DO ALUNO
           await api.delete('/students/me');
           toast.success("Conta excluída.");
           logout(); 

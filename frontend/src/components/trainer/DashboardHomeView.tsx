@@ -14,11 +14,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { PlusCircle, UserCog } from 'lucide-react';
+import { PlusCircle, UserCog, Users, Copy, CheckCircle2 } from 'lucide-react';
 import api from '@/services/api';
-import { Link } from 'react-router-dom'; // 1. Importar Link
+import { Link } from 'react-router-dom';
+import { toast } from "sonner";
 
-// (Interfaces permanecem as mesmas)
 interface TrainerProfile {
   id: string;
   name: string;
@@ -37,8 +37,6 @@ export default function DashboardHomeView() {
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-
-  // 2. Remover o hook 'useTrainerLayout()'
 
   useEffect(() => {
     const fetchData = async () => {
@@ -61,6 +59,21 @@ export default function DashboardHomeView() {
     fetchData();
   }, []);
 
+  // --- FUNÇÃO DE COPIAR LINK ---
+  const copyInviteLink = () => {
+    if (!trainer?.id) {
+        toast.error("Aguarde o carregamento dos dados.");
+        return;
+    }
+    const link = `${window.location.origin}/invite/${trainer.id}`;
+    
+    navigator.clipboard.writeText(link);
+    toast.success("Link copiado!", { 
+      description: "Envie para seu aluno se cadastrar.",
+      icon: <CheckCircle2 className="h-4 w-4 text-green-500"/>
+    });
+  };
+
   if (loading) {
     return <div className="p-8 text-center text-muted-foreground">Carregando dashboard...</div>;
   }
@@ -75,10 +88,28 @@ export default function DashboardHomeView() {
           <p className="text-muted-foreground">Aqui está um resumo da sua atividade e seus alunos.</p>
       </div>
 
+      {/* --- CARD DE CONVITE --- */}
+      <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+        <CardContent className="p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="space-y-1">
+            <h3 className="text-lg font-semibold text-blue-900 flex items-center gap-2">
+              <Users className="h-5 w-5 text-blue-600" />
+              Traga novos alunos
+            </h3>
+            <p className="text-sm text-blue-700">
+              Copie seu link exclusivo. O aluno cria a conta sozinho e já cai na sua lista.
+            </p>
+          </div>
+          <Button onClick={copyInviteLink} className="w-full sm:w-auto shrink-0 bg-blue-600 hover:bg-blue-700 text-white shadow-md">
+            <Copy className="mr-2 h-4 w-4" />
+            Copiar Link de Cadastro
+          </Button>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-xl font-semibold">Meus Alunos</CardTitle>
-          {/* 3. Mudar o botão para usar Link */}
           <Button size="sm" className="gap-1" asChild>
              <Link to="/trainer/dashboard/students">
                <PlusCircle className="h-4 w-4" />
@@ -102,7 +133,6 @@ export default function DashboardHomeView() {
                     <TableCell className="font-medium">{student.name}</TableCell>
                     <TableCell className="hidden md:table-cell">{student.email}</TableCell>
                     <TableCell className="text-right">
-                      {/* 4. Mudar o botão para usar Link */}
                       <Button variant="outline" size="sm" asChild>
                         <Link to="/trainer/dashboard/students">
                           Ver Detalhes
