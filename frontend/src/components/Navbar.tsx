@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
-import { Dumbbell, Menu, User, Users, LayoutDashboard, LogOut } from "lucide-react";
-import { useState } from "react";
+import { Dumbbell, Menu, User, Users, LayoutDashboard, LogOut, Smartphone } from "lucide-react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -13,6 +13,37 @@ import {
 const Navbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { isAuthenticated, userType, logout, branding } = useAuth();
+  
+  // --- LÓGICA DO PWA (INSTALAÇÃO) ---
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+
+  useEffect(() => {
+    // Escuta o evento que o Chrome dispara quando o app pode ser instalado
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault(); // Impede o banner padrão do Chrome
+      setDeferredPrompt(e); // Guarda o evento para usarmos no nosso botão
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    
+    // Mostra o prompt nativo de instalação do celular/PC
+    deferredPrompt.prompt();
+    
+    // Espera o usuário responder (Aceitar ou Cancelar)
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setDeferredPrompt(null); // Esconde o botão se ele instalou
+    }
+  };
+  // -----------------------------------
 
   const dashboardLink = userType === 'trainer' ? '/trainer/dashboard' : '/student/dashboard';
 
@@ -51,6 +82,14 @@ const Navbar = () => {
           <div className="hidden md:flex items-center gap-3">
             {isAuthenticated ? (
               <div className="flex items-center gap-3">
+                {/* BOTÃO DE INSTALAR (SÓ APARECE SE FOR POSSÍVEL INSTALAR) */}
+                {deferredPrompt && (
+                  <Button variant="default" onClick={handleInstallClick} className="animate-pulse bg-green-600 hover:bg-green-700 text-white border-none shadow-lg">
+                    <Smartphone className="w-4 h-4 mr-2" />
+                    Instalar App
+                  </Button>
+                )}
+
                 <Button variant="outline" asChild>
                    <Link to={dashboardLink}>
                      <LayoutDashboard className="w-4 h-4 mr-2" />
@@ -105,6 +144,15 @@ const Navbar = () => {
               {isAuthenticated ? (
                 <>
                   <p className="text-sm font-semibold text-muted-foreground mb-2">Minha Conta</p>
+                  
+                  {/* BOTÃO DE INSTALAR (MOBILE) */}
+                  {deferredPrompt && (
+                    <Button variant="default" className="w-full justify-start gap-2 bg-green-600 hover:bg-green-700 text-white" onClick={handleInstallClick}>
+                      <Smartphone className="w-4 h-4" />
+                      Instalar Aplicativo
+                    </Button>
+                  )}
+
                   <Button className="w-full justify-start gap-2" asChild onClick={() => setMobileMenuOpen(false)}>
                     <Link to={dashboardLink}>
                         <LayoutDashboard className="w-4 h-4" />
