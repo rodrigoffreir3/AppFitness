@@ -134,7 +134,7 @@ const StudentSidebar = () => {
             <TooltipTrigger asChild>
               <Button
                 variant="ghost"
-                onClick={logout}
+                onClick={() => logout()}
                 className={cn(
                   "w-full justify-start gap-3 hover:bg-white/10 hover:text-white",
                   isCollapsed && "justify-center px-2"
