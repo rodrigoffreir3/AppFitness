@@ -1,6 +1,7 @@
 import path from "path"
 import react from "@vitejs/plugin-react"
 import { defineConfig, loadEnv } from "vite"
+import { VitePWA } from 'vite-plugin-pwa' // <-- 1. Adicionamos a importação do PWA
 
 export default defineConfig(({ mode }) => {
   // Carrega as variáveis de ambiente do arquivo .env (se existir)
@@ -10,6 +11,12 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [
       react(),
+      // <-- 2. Adicionamos o Motor do PWA aqui dentro dos plugins
+      VitePWA({
+        registerType: 'autoUpdate', // O app atualiza sozinho no celular quando houver código novo
+        includeAssets: ['favicon.ico', 'icon-192x192.png', 'icon-512x512.png'],
+        manifest: false // Mantemos 'false' porque já criamos o arquivo na mão na pasta public
+      })
     ],
     resolve: {
       alias: {
