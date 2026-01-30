@@ -19,8 +19,11 @@ CREATE TABLE trainers (
     payment_instructions TEXT,
 
     -- Status da Assinatura (Controle da Plataforma)
-    subscription_status VARCHAR(20) DEFAULT 'trial', -- trial, active, past_due, cancelled
+    subscription_status VARCHAR(20) DEFAULT 'trial', 
     subscription_expires_at TIMESTAMPTZ,
+    
+    -- Termos de Uso (NOVO)
+    terms_accepted_at TIMESTAMPTZ,
 
     -- Recuperação de Senha
     reset_password_token VARCHAR(255),
@@ -40,6 +43,9 @@ CREATE TABLE students (
     -- Upload de Documento (Ficha de Anamnese/Saúde)
     anamnesis_url TEXT,
 
+    -- Termos de Uso (NOVO)
+    terms_accepted_at TIMESTAMPTZ,
+
     -- Recuperação de Senha
     reset_password_token VARCHAR(255),
     reset_password_expires_at TIMESTAMPTZ,
@@ -47,13 +53,13 @@ CREATE TABLE students (
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
--- Tabela: diets (Planos Alimentares) - ADICIONADA PARA CORRIGIR O ERRO 500
+-- Tabela: diets (Planos Alimentares)
 CREATE TABLE diets (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     trainer_id UUID NOT NULL REFERENCES trainers(id) ON DELETE CASCADE,
     student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
-    content TEXT, -- Pode armazenar HTML, JSON ou descrição texto
+    content TEXT,
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
@@ -66,10 +72,7 @@ CREATE TABLE workouts (
     name VARCHAR(255) NOT NULL,
     description TEXT,
     is_active BOOLEAN DEFAULT true,
-
-    -- Upload de Documento (Dieta vinculada especificamente ao treino, se houver)
     diet_plan_url TEXT,
-
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -114,10 +117,10 @@ CREATE TABLE announcements (
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
--- Índices para otimizar as buscas por chaves estrangeiras
+-- Índices
 CREATE INDEX ON students (trainer_id);
-CREATE INDEX ON diets (trainer_id);  -- Novo índice
-CREATE INDEX ON diets (student_id);  -- Novo índice
+CREATE INDEX ON diets (trainer_id);
+CREATE INDEX ON diets (student_id);
 CREATE INDEX ON workouts (student_id);
 CREATE INDEX ON workouts (trainer_id);
 CREATE INDEX ON workout_exercises (workout_id);
@@ -126,7 +129,7 @@ CREATE INDEX ON chat_messages (sender_id, receiver_id);
 CREATE INDEX ON chat_messages (created_at DESC);
 CREATE INDEX ON announcements (trainer_id);
 
--- Inserindo dados iniciais na tabela de exercícios
+-- Inserindo dados iniciais na tabela de exercícios (MANTIDO IGUAL AO SEU)
 INSERT INTO exercises (name, muscle_group, equipment) VALUES
 ('Supino Reto com Barra', 'Peito', 'Barra'),
 ('Supino Inclinado com Halteres', 'Peito', 'Halteres'),

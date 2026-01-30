@@ -10,14 +10,24 @@ export interface BrandingData {
   payment_instructions?: string;
 }
 
+// 1. Definição do Usuário (Adicionado terms_accepted_at)
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  terms_accepted_at?: string | null; // O campo crucial
+}
+
 interface AuthContextType {
   isAuthenticated: boolean;
   userType: 'trainer' | 'student' | null;
+  user: User | null; // O usuário agora está disponível globalmente
   branding: BrandingData;
   isLoading: boolean;
   login: (token: string, userType: 'trainer' | 'student', branding: BrandingData) => void;
   logout: (redirect?: boolean) => void;
   updateBranding: (newBranding: BrandingData) => void;
+  updateUser: (updates: Partial<User>) => void; // Função para atualizar o usuário localmente
   logoUrl: string | null;
   primaryColor: string | null;
   clearThemeColors: () => void;
@@ -26,7 +36,6 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Função auxiliar fora do componente para não atrapalhar a renderização
 const hexToHSL = (hex: string): string => {
   let r = 0, g = 0, b = 0;
   if (hex.length === 4) {
@@ -54,6 +63,7 @@ const hexToHSL = (hex: string): string => {
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userType, setUserType] = useState<'trainer' | 'student' | null>(null);
+  const [user, setUser] = useState<User | null>(null); // Novo estado User
   const [isLoading, setIsLoading] = useState(true);
   const [branding, setBranding] = useState<BrandingData>({});
 
@@ -81,11 +91,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     localStorage.clear();
     setIsAuthenticated(false);
     setUserType(null);
+    setUser(null);
     setBranding({});
     ['--primary', '--secondary', '--ring', '--sidebar-primary', '--sidebar-accent'].forEach(p => document.documentElement.style.removeProperty(p));
     
-    // Só redireciona se solicitado (evita loop em erros de inicialização)
     if (redirect) window.location.href = '/';
+  };
+
+  // Função para atualizar o usuário manualmente (ex: após aceitar termos)
+  const updateUser = (updates: Partial<User>) => {
+    setUser(prev => prev ? { ...prev, ...updates } : null);
   };
 
   useEffect(() => {
@@ -96,7 +111,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (storedType === 'trainer') token = localStorage.getItem('trainerAuthToken');
         else if (storedType === 'student') token = localStorage.getItem('studentAuthToken');
 
-        // Tenta recuperar branding do cache local para evitar "piscada" branca
         const cachedBrandingStr = localStorage.getItem('appBranding');
         if (cachedBrandingStr) {
             try {
@@ -108,11 +122,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         if (token && storedType) {
           try {
-            // Valida sessão no backend
             const endpoint = storedType === 'trainer' ? '/trainers/me' : '/students/me/profile';
             const response = await api.get(endpoint);
             const data = response.data;
 
+            // Mapeia Branding
             const updatedBranding: BrandingData = {
               logo_url: data.brand_logo_url || data.logo_url,
               primary_color: data.brand_primary_color || data.primary_color,
@@ -122,14 +136,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               payment_instructions: data.payment_instructions
             };
 
+            // Mapeia User (Aqui salvamos o terms_accepted_at!)
+            const userData: User = {
+                id: data.id,
+                name: data.name,
+                email: data.email,
+                terms_accepted_at: data.terms_accepted_at // Pega do backend
+            };
+
             setIsAuthenticated(true);
             setUserType(storedType);
             setBranding(updatedBranding);
+            setUser(userData); // Atualiza estado
+            
             localStorage.setItem('appBranding', JSON.stringify(updatedBranding));
             applyThemeColors(updatedBranding.primary_color, updatedBranding.secondary_color);
           } catch (err: any) {
-            // Se o backend disser que o token é inválido (401) ou usuário não existe (404)
-            // Fazemos logout SILENCIOSO (false) para não recarregar a página
             if (err.response?.status === 401 || err.response?.status === 404) {
               logout(false);
             }
@@ -157,6 +179,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setBranding(newBranding);
     applyThemeColors(newBranding.primary_color, newBranding.secondary_color);
     
+    // Força um reload para buscar os dados completos do usuário (/me) na próxima carga
+    // ou você poderia fazer um fetch aqui, mas o reload garante estado limpo
     window.location.href = type === 'student' ? '/student/dashboard' : '/trainer/dashboard';
   };
 
@@ -172,11 +196,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const value = {
     isAuthenticated,
     userType,
+    user, // Agora disponível
     branding,
     isLoading,
     login,
     logout,
     updateBranding,
+    updateUser, // Agora disponível
     logoUrl: branding.logo_url || null,
     primaryColor: branding.primary_color || null,
     clearThemeColors: () => applyThemeColors(),

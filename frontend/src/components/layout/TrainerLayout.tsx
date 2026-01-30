@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet, NavLink, useLocation } from 'react-router-dom';
 import TrainerSidebar from '@/components/trainer/TrainerSidebar';
 import { useAuth } from '@/contexts/AuthContext';
@@ -11,17 +11,44 @@ import {
   Users, 
   BookCopy, 
   MessageCircle, 
-  Bell, // CORREÇÃO: Usando Bell (Sino) para Avisos
+  Bell, 
   Settings, 
   LogOut 
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+// NOVO: Importando o Modal
+import { TermsModal } from "@/components/legal/TermsModal";
 
 const TrainerLayout: React.FC = () => {
-  const { branding, logout } = useAuth();
+  // ALTERADO: Adicionado 'user' para verificar o aceite
+  const { branding, logout, user } = useAuth();
   const location = useLocation();
   
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  
+  // NOVO: Estado para controlar a visibilidade do modal
+  const [showTerms, setShowTerms] = useState(false);
+
+  // NOVO: Verifica se o usuário já aceitou os termos ao carregar
+  useEffect(() => {
+    // Se o usuário está logado E a data de aceite é nula/vazia
+    if (user && !user.terms_accepted_at) {
+       setShowTerms(true);
+    }
+  }, [user]);
+
+  // NOVO: Função chamada quando o usuário clica em "Li e Concordo"
+  const handleAcceptTerms = async () => {
+    try {
+      // TODO: Aqui você vai conectar com sua API real no futuro
+      // await api.post('/users/accept-terms');
+      
+      console.log("Termos aceitos pelo usuário:", user?.email);
+      setShowTerms(false); // Fecha o modal e libera o acesso
+    } catch (error) {
+      console.error("Erro ao salvar aceite", error);
+    }
+  };
 
   const navLinks = [
     { to: "/trainer/dashboard", icon: LayoutDashboard, label: "Início", end: true },
@@ -29,7 +56,7 @@ const TrainerLayout: React.FC = () => {
     { to: "/trainer/dashboard/workouts", icon: Dumbbell, label: "Fichas de Treino", end: false },
     { to: "/trainer/dashboard/exercises", icon: BookCopy, label: "Exercícios", end: false },
     { to: "/trainer/dashboard/chat", icon: MessageCircle, label: "Chat", end: false },
-    { to: "/trainer/dashboard/announcements", icon: Bell, label: "Avisos", end: false }, // CORREÇÃO: Ícone Bell
+    { to: "/trainer/dashboard/announcements", icon: Bell, label: "Avisos", end: false },
     { to: "/trainer/dashboard/settings", icon: Settings, label: "Personalizar", end: false },
   ];
 
@@ -56,6 +83,9 @@ const TrainerLayout: React.FC = () => {
   return (
     <div className="flex h-screen bg-background flex-col md:flex-row">
       
+      {/* NOVO: O Modal é renderizado aqui. Ele bloqueará a tela se showTerms for true */}
+      <TermsModal isOpen={showTerms} onAccept={handleAcceptTerms} />
+
       {/* --- MOBILE HEADER --- */}
       <div className="md:hidden h-16 bg-primary text-primary-foreground flex items-center justify-between px-4 shrink-0 shadow-md z-50">
         <div className="flex items-center gap-2 font-bold text-lg h-full py-2">

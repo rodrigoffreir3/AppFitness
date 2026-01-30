@@ -25,10 +25,13 @@ func RegisterTrainersRoutes(mux *http.ServeMux, db *sql.DB) {
 	mux.Handle("GET /api/trainers/me", middleware.AuthMiddleware(http.HandlerFunc(h.handleGetTrainerMe)))
 	mux.Handle("PUT /api/trainers/me", middleware.AuthMiddleware(http.HandlerFunc(h.handleUpdateTrainerMe)))
 
-	// --- NOVA ROTA PÚBLICA (LINK DE CONVITE) ---
+	// --- NOVA ROTA: Aceitar Termos ---
+	mux.Handle("POST /api/trainers/terms", middleware.AuthMiddleware(http.HandlerFunc(h.handleAcceptTerms)))
+
+	// Rota Pública
 	mux.Handle("GET /api/public/trainers/{id}", http.HandlerFunc(h.handleGetPublicTrainerInfo))
 
-	// --- ROTAS DE SEGURANÇA (NOVO) ---
+	// Rotas de Segurança
 	mux.Handle("PUT /api/trainers/me/password", middleware.AuthMiddleware(http.HandlerFunc(h.handleUpdatePassword)))
 	mux.Handle("DELETE /api/trainers/me", middleware.AuthMiddleware(http.HandlerFunc(h.handleDeleteAccount)))
 }
@@ -56,6 +59,7 @@ type TrainerProfileResponse struct {
 	PaymentInstructions string     `json:"payment_instructions,omitempty"`
 	SubscriptionStatus  string     `json:"subscription_status"`
 	SubscriptionExp     *time.Time `json:"subscription_expires_at,omitempty"`
+	TermsAcceptedAt     *time.Time `json:"terms_accepted_at,omitempty"` // NOVO CAMPO
 }
 
 type PublicTrainerInfoResponse struct {
@@ -74,10 +78,30 @@ type UpdateTrainerRequest struct {
 	PaymentInstructions *string `json:"payment_instructions"`
 }
 
-// Struct Compartilhada para Troca de Senha (usada também pelo student)
 type UpdatePasswordRequest struct {
 	OldPassword string `json:"old_password"`
 	NewPassword string `json:"new_password"`
+}
+
+// --- NOVO HANDLER: Aceitar Termos ---
+func (h *trainersHandler) handleAcceptTerms(w http.ResponseWriter, r *http.Request) {
+	trainerID, ok := r.Context().Value(middleware.TrainerIDKey).(string)
+	if !ok {
+		http.Error(w, "Erro de autenticação", http.StatusInternalServerError)
+		return
+	}
+
+	// Atualiza a coluna terms_accepted_at com a hora atual
+	query := `UPDATE trainers SET terms_accepted_at = NOW() WHERE id = $1`
+	_, err := h.db.ExecContext(r.Context(), query, trainerID)
+	if err != nil {
+		log.Printf("Erro ao aceitar termos (trainer): %v", err)
+		http.Error(w, "Erro ao salvar aceite dos termos", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Termos aceitos com sucesso"))
 }
 
 func (h *trainersHandler) handleGetPublicTrainerInfo(w http.ResponseWriter, r *http.Request) {
@@ -168,6 +192,7 @@ func (h *trainersHandler) handleGetTrainerMe(w http.ResponseWriter, r *http.Requ
 	}
 	var resp TrainerProfileResponse
 
+	// ATUALIZADO: Inclui terms_accepted_at
 	query := `
 		SELECT 
 			id, name, email, 
@@ -178,7 +203,8 @@ func (h *trainersHandler) handleGetTrainerMe(w http.ResponseWriter, r *http.Requ
 			COALESCE(payment_link_url, ''),
 			COALESCE(payment_instructions, ''),
 			COALESCE(subscription_status, 'trial'),
-			subscription_expires_at
+			subscription_expires_at,
+            terms_accepted_at 
 		FROM trainers WHERE id = $1
 	`
 	err := h.db.QueryRowContext(r.Context(), query, trainerID).Scan(
@@ -186,6 +212,7 @@ func (h *trainersHandler) handleGetTrainerMe(w http.ResponseWriter, r *http.Requ
 		&resp.BrandLogoURL, &resp.BrandPrimaryColor, &resp.BrandSecondaryColor,
 		&resp.PaymentPixKey, &resp.PaymentLinkURL, &resp.PaymentInstructions,
 		&resp.SubscriptionStatus, &resp.SubscriptionExp,
+		&resp.TermsAcceptedAt, // Scan do novo campo
 	)
 
 	if err != nil {
@@ -301,8 +328,6 @@ func (h *trainersHandler) handleLogin(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// --- FUNÇÕES DE SEGURANÇA ---
-
 func (h *trainersHandler) handleUpdatePassword(w http.ResponseWriter, r *http.Request) {
 	trainerID := r.Context().Value(middleware.TrainerIDKey).(string)
 	var req UpdatePasswordRequest
@@ -339,8 +364,6 @@ func (h *trainersHandler) handleUpdatePassword(w http.ResponseWriter, r *http.Re
 func (h *trainersHandler) handleDeleteAccount(w http.ResponseWriter, r *http.Request) {
 	trainerID := r.Context().Value(middleware.TrainerIDKey).(string)
 
-	// OBS: O banco deve ter ON DELETE CASCADE configurado nas chaves estrangeiras,
-	// caso contrário isso falhará se houver alunos vinculados.
 	_, err := h.db.ExecContext(r.Context(), "DELETE FROM trainers WHERE id=$1", trainerID)
 	if err != nil {
 		log.Printf("Erro ao deletar conta trainer: %v", err)

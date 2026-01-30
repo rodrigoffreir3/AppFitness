@@ -45,7 +45,10 @@ func RegisterStudentsRoutes(mux *http.ServeMux, db *sql.DB) {
 	mux.Handle("GET /api/students/me/announcements", middleware.AuthMiddleware(getMyAnnouncementsHandler))
 	mux.Handle("GET /api/students/me/profile", middleware.AuthMiddleware(getMyProfileHandler))
 
-	// --- ROTAS DE SEGURANÇA ---
+	// --- NOVA ROTA: Aceitar Termos ---
+	mux.Handle("POST /api/students/terms", middleware.AuthMiddleware(http.HandlerFunc(h.handleAcceptTerms)))
+
+	// Rotas de Segurança
 	mux.Handle("PUT /api/students/me/password", middleware.AuthMiddleware(http.HandlerFunc(h.handleUpdatePassword)))
 	mux.Handle("DELETE /api/students/me", middleware.AuthMiddleware(http.HandlerFunc(h.handleDeleteAccount)))
 }
@@ -58,7 +61,7 @@ type CreateStudentRequest struct {
 	Name     string `json:"name"`
 	Email    string `json:"email"`
 	Password string `json:"password"`
-	FileURL  string `json:"file_url"` // No banco: anamnesis_url
+	FileURL  string `json:"file_url"`
 }
 
 type SelfRegisterRequest struct {
@@ -72,7 +75,7 @@ type StudentResponse struct {
 	ID      string `json:"id"`
 	Name    string `json:"name"`
 	Email   string `json:"email"`
-	FileURL string `json:"file_url"` // Mapeia para anamnesis_url
+	FileURL string `json:"file_url"`
 }
 
 type UpdateStudentRequest struct {
@@ -82,21 +85,41 @@ type UpdateStudentRequest struct {
 }
 
 type StudentProfileResponse struct {
-	ID                  string `json:"id"`
-	Name                string `json:"name"`
-	Email               string `json:"email"`
-	FileURL             string `json:"file_url"`
-	TrainerID           string `json:"trainer_id"`
-	TrainerName         string `json:"trainer_name"`
-	BrandLogoURL        string `json:"brand_logo_url"`
-	BrandPrimaryColor   string `json:"brand_primary_color"`
-	BrandSecondaryColor string `json:"brand_secondary_color"`
-	PaymentPixKey       string `json:"payment_pix_key"`
-	PaymentLinkURL      string `json:"payment_link_url"`
-	PaymentInstructions string `json:"payment_instructions"`
+	ID                  string     `json:"id"`
+	Name                string     `json:"name"`
+	Email               string     `json:"email"`
+	FileURL             string     `json:"file_url"`
+	TrainerID           string     `json:"trainer_id"`
+	TrainerName         string     `json:"trainer_name"`
+	BrandLogoURL        string     `json:"brand_logo_url"`
+	BrandPrimaryColor   string     `json:"brand_primary_color"`
+	BrandSecondaryColor string     `json:"brand_secondary_color"`
+	PaymentPixKey       string     `json:"payment_pix_key"`
+	PaymentLinkURL      string     `json:"payment_link_url"`
+	PaymentInstructions string     `json:"payment_instructions"`
+	TermsAcceptedAt     *time.Time `json:"terms_accepted_at,omitempty"` // NOVO CAMPO
 }
 
-// Handlers
+// --- NOVO HANDLER: Aceitar Termos ---
+func (h *studentsHandler) handleAcceptTerms(w http.ResponseWriter, r *http.Request) {
+	studentID, ok := r.Context().Value(middleware.TrainerIDKey).(string) // Middleware usa essa key para ID do user
+	if !ok {
+		http.Error(w, "Erro de autenticação", http.StatusInternalServerError)
+		return
+	}
+
+	// Atualiza a coluna terms_accepted_at com a hora atual
+	query := `UPDATE students SET terms_accepted_at = NOW() WHERE id = $1`
+	_, err := h.db.ExecContext(r.Context(), query, studentID)
+	if err != nil {
+		log.Printf("Erro ao aceitar termos (student): %v", err)
+		http.Error(w, "Erro ao salvar aceite dos termos", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Termos aceitos com sucesso"))
+}
 
 func (h *studentsHandler) handlePublicSelfRegister(w http.ResponseWriter, r *http.Request) {
 	var req SelfRegisterRequest
@@ -120,7 +143,6 @@ func (h *studentsHandler) handlePublicSelfRegister(w http.ResponseWriter, r *htt
 	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(req.Password), 10)
 
 	var newStudent StudentResponse
-	// CORREÇÃO: Trocado file_url por anamnesis_url
 	query := `
 		INSERT INTO students (name, email, password_hash, trainer_id)
 		VALUES ($1, $2, $3, $4)
@@ -171,7 +193,7 @@ func (h *studentsHandler) handleGetMyProfile(w http.ResponseWriter, r *http.Requ
 	studentID := r.Context().Value(middleware.TrainerIDKey).(string)
 	var profile StudentProfileResponse
 
-	// CORREÇÃO: Trocado s.file_url por s.anamnesis_url
+	// ATUALIZADO: Inclui s.terms_accepted_at
 	query := `
 		SELECT 
 			s.id, s.name, s.email, COALESCE(s.anamnesis_url, ''), 
@@ -181,7 +203,8 @@ func (h *studentsHandler) handleGetMyProfile(w http.ResponseWriter, r *http.Requ
 			COALESCE(t.brand_secondary_color, '#000000'),
 			COALESCE(t.payment_pix_key, ''),
 			COALESCE(t.payment_link_url, ''),
-			COALESCE(t.payment_instructions, '')
+			COALESCE(t.payment_instructions, ''),
+            s.terms_accepted_at
 		FROM students s
 		LEFT JOIN trainers t ON s.trainer_id = t.id
 		WHERE s.id = $1
@@ -191,6 +214,7 @@ func (h *studentsHandler) handleGetMyProfile(w http.ResponseWriter, r *http.Requ
 		&profile.TrainerID, &profile.TrainerName,
 		&profile.BrandLogoURL, &profile.BrandPrimaryColor, &profile.BrandSecondaryColor,
 		&profile.PaymentPixKey, &profile.PaymentLinkURL, &profile.PaymentInstructions,
+		&profile.TermsAcceptedAt, // Scan novo campo
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -260,7 +284,6 @@ func (h *studentsHandler) handleGetMyWorkoutDetails(w http.ResponseWriter, r *ht
 	workoutID := r.PathValue("id")
 	var workout types.WorkoutResponse
 
-	// CORREÇÃO: Trocado file_url por diet_plan_url (na tabela workouts)
 	queryWorkout := `SELECT id, student_id, name, description, is_active, COALESCE(diet_plan_url, '') FROM workouts WHERE id = $1 AND student_id = $2`
 	err := h.db.QueryRowContext(r.Context(), queryWorkout, workoutID, studentID).Scan(&workout.ID, &workout.StudentID, &workout.Name, &workout.Description, &workout.IsActive, &workout.FileURL)
 	if err != nil {
@@ -313,7 +336,6 @@ func (h *studentsHandler) handleGetMyWorkouts(w http.ResponseWriter, r *http.Req
 		http.Error(w, "ID do aluno não encontrado no contexto", http.StatusInternalServerError)
 		return
 	}
-	// CORREÇÃO: Trocado file_url por diet_plan_url (na tabela workouts)
 	query := `SELECT id, student_id, name, description, is_active, COALESCE(diet_plan_url, '') FROM workouts WHERE student_id = $1 AND is_active = true ORDER BY created_at DESC`
 	rows, err := h.db.QueryContext(r.Context(), query, studentID)
 	if err != nil {
@@ -398,7 +420,6 @@ func (h *studentsHandler) handleGetStudent(w http.ResponseWriter, r *http.Reques
 	trainerID := r.Context().Value(middleware.TrainerIDKey).(string)
 	studentID := r.PathValue("id")
 	var student StudentResponse
-	// CORREÇÃO: Trocado file_url por anamnesis_url
 	query := `SELECT id, name, email, COALESCE(anamnesis_url, '') FROM students WHERE id = $1 AND trainer_id = $2`
 	err := h.db.QueryRowContext(r.Context(), query, studentID, trainerID).Scan(&student.ID, &student.Name, &student.Email, &student.FileURL)
 	if err != nil {
@@ -422,7 +443,6 @@ func (h *studentsHandler) handleUpdateStudent(w http.ResponseWriter, r *http.Req
 		http.Error(w, "Corpo da requisição inválido", http.StatusBadRequest)
 		return
 	}
-	// CORREÇÃO: Trocado file_url por anamnesis_url
 	query := `UPDATE students SET name = COALESCE($1, name), email = COALESCE($2, email), anamnesis_url = COALESCE($3, anamnesis_url) WHERE id = $4 AND trainer_id = $5`
 	result, err := h.db.ExecContext(r.Context(), query, req.Name, req.Email, req.FileURL, studentID, trainerID)
 	if err != nil {
@@ -463,7 +483,6 @@ func (h *studentsHandler) handleListStudents(w http.ResponseWriter, r *http.Requ
 		http.Error(w, "ID do trainer não encontrado no contexto", http.StatusInternalServerError)
 		return
 	}
-	// CORREÇÃO: Trocado file_url por anamnesis_url
 	query := `SELECT id, name, email, COALESCE(anamnesis_url, '') FROM students WHERE trainer_id = $1 ORDER BY name ASC`
 	rows, err := h.db.QueryContext(r.Context(), query, trainerID)
 	if err != nil {
@@ -512,7 +531,6 @@ func (h *studentsHandler) handleCreateStudent(w http.ResponseWriter, r *http.Req
 		return
 	}
 	var newStudent StudentResponse
-	// CORREÇÃO: Trocado file_url por anamnesis_url
 	query := `
 		INSERT INTO students (name, email, password_hash, trainer_id, anamnesis_url)
 		VALUES ($1, $2, $3, $4, $5)
