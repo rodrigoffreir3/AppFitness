@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet, NavLink, useLocation } from 'react-router-dom';
 import StudentSidebar from '@/components/student/StudentSidebar';
 import { useAuth } from '@/contexts/AuthContext';
@@ -16,7 +16,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-// Imports para o Modal de Pagamento
+// Imports para o Modal de Pagamento e Termos
 import {
   Dialog,
   DialogContent,
@@ -27,13 +27,35 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { TermsModal } from "@/components/legal/TermsModal"; // NOVO
+import api from '@/services/api'; // NOVO
 
 const StudentLayout: React.FC = () => {
-  const { branding, logout } = useAuth();
+  // ADICIONADO: user e updateUser
+  const { branding, logout, user, updateUser } = useAuth();
   const location = useLocation();
   
   const [isMobileOpen, setIsMobileOpen] = useState(false);
-  const [isPaymentOpen, setIsPaymentOpen] = useState(false); // Estado do Modal
+  const [isPaymentOpen, setIsPaymentOpen] = useState(false);
+  const [showTerms, setShowTerms] = useState(false); // NOVO
+
+  // Lógica do Modal de Termos
+  useEffect(() => {
+    if (user && !user.terms_accepted_at) {
+       setShowTerms(true);
+    }
+  }, [user]);
+
+  const handleAcceptTerms = async () => {
+    try {
+      await api.post('/students/terms');
+      updateUser({ terms_accepted_at: new Date().toISOString() });
+      setShowTerms(false);
+    } catch (error) {
+      console.error("Erro ao salvar aceite", error);
+      toast.error("Erro ao salvar aceite dos termos.");
+    }
+  };
 
   const navLinks = [
     { to: "/student/dashboard", icon: LayoutDashboard, label: "Meus Treinos", end: true },
@@ -69,6 +91,9 @@ const StudentLayout: React.FC = () => {
   return (
     <div className="flex h-screen bg-background flex-col md:flex-row">
       
+      {/* NOVO: Modal de Termos (Bloqueante) */}
+      <TermsModal isOpen={showTerms} onAccept={handleAcceptTerms} />
+
       {/* --- MOBILE HEADER --- */}
       <div className="md:hidden h-16 bg-primary text-primary-foreground flex items-center justify-between px-4 shrink-0 shadow-md z-50">
         <div className="flex items-center gap-2 font-bold text-lg h-full py-2">
@@ -107,13 +132,13 @@ const StudentLayout: React.FC = () => {
                 <MobileLink key={link.to} {...link} />
               ))}
 
-              {/* Botão de Assinatura (ADICIONADO NO MOBILE) */}
+              {/* Botão de Assinatura */}
               <Button
                 variant="ghost"
                 className="w-full justify-start gap-3 mb-1 text-muted-foreground"
                 onClick={() => {
-                  setIsMobileOpen(false); // Fecha o menu
-                  setIsPaymentOpen(true); // Abre o modal
+                  setIsMobileOpen(false); 
+                  setIsPaymentOpen(true); 
                 }}
               >
                 <CreditCard className="h-5 w-5" />
@@ -146,7 +171,7 @@ const StudentLayout: React.FC = () => {
          </div>
       </main>
 
-      {/* --- MODAL DE PAGAMENTO (REPLICADO AQUI PARA FUNCIONAR NO MOBILE) --- */}
+      {/* --- MODAL DE PAGAMENTO --- */}
       <Dialog open={isPaymentOpen} onOpenChange={setIsPaymentOpen}>
         <DialogContent className="sm:max-w-md w-[90%] rounded-lg">
           <DialogHeader>

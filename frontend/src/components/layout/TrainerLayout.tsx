@@ -16,35 +16,33 @@ import {
   LogOut 
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-// NOVO: Importando o Modal
 import { TermsModal } from "@/components/legal/TermsModal";
+import api from '@/services/api'; // ADICIONADO
 
 const TrainerLayout: React.FC = () => {
-  // ALTERADO: Adicionado 'user' para verificar o aceite
-  const { branding, logout, user } = useAuth();
+  // ADICIONADO: updateUser
+  const { branding, logout, user, updateUser } = useAuth();
   const location = useLocation();
   
   const [isMobileOpen, setIsMobileOpen] = useState(false);
-  
-  // NOVO: Estado para controlar a visibilidade do modal
   const [showTerms, setShowTerms] = useState(false);
 
-  // NOVO: Verifica se o usuário já aceitou os termos ao carregar
   useEffect(() => {
-    // Se o usuário está logado E a data de aceite é nula/vazia
     if (user && !user.terms_accepted_at) {
        setShowTerms(true);
     }
   }, [user]);
 
-  // NOVO: Função chamada quando o usuário clica em "Li e Concordo"
   const handleAcceptTerms = async () => {
     try {
-      // TODO: Aqui você vai conectar com sua API real no futuro
-      // await api.post('/users/accept-terms');
+      // 1. Salva no Banco
+      await api.post('/trainers/terms');
       
-      console.log("Termos aceitos pelo usuário:", user?.email);
-      setShowTerms(false); // Fecha o modal e libera o acesso
+      // 2. Atualiza o Local Storage/Contexto (Fundamental para o modal não voltar)
+      updateUser({ terms_accepted_at: new Date().toISOString() });
+      
+      // 3. Fecha o Modal
+      setShowTerms(false);
     } catch (error) {
       console.error("Erro ao salvar aceite", error);
     }
@@ -83,7 +81,6 @@ const TrainerLayout: React.FC = () => {
   return (
     <div className="flex h-screen bg-background flex-col md:flex-row">
       
-      {/* NOVO: O Modal é renderizado aqui. Ele bloqueará a tela se showTerms for true */}
       <TermsModal isOpen={showTerms} onAccept={handleAcceptTerms} />
 
       {/* --- MOBILE HEADER --- */}
