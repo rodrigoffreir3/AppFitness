@@ -47,6 +47,7 @@ interface WorkoutExercise {
   id: string;
   exercise_id: string;
   exercise_name: string;
+  video_url?: string; // <--- CORREÇÃO 1: Adicionei este campo que faltava
   sets: number;
   reps: string;
   rest_period_seconds: number;
@@ -362,7 +363,7 @@ const TrainerWorkoutDetails = () => {
               <div className="grid gap-2">
                 <Label>Exercício</Label>
                 
-                {/* Se estiver editando, apenas mostra o nome (geralmente não se troca o exercício na edição, mas a lógica permite se quiser destravar) */}
+                {/* Se estiver editando, apenas mostra o nome */}
                 {editingId ? (
                    <div className="p-3 bg-muted rounded-md font-medium text-sm border flex items-center gap-2">
                       <Dumbbell className="h-4 w-4 text-primary" />
@@ -383,7 +384,6 @@ const TrainerWorkoutDetails = () => {
                       <div className="p-4 border-b space-y-4">
                         <div className="flex items-center justify-between">
                           <h3 className="font-semibold text-lg">Biblioteca de Exercícios</h3>
-                          {/* Botão X é nativo do DialogContent, mas podemos por um explícito se quiser */}
                         </div>
                         
                         <div className="relative">
@@ -528,13 +528,38 @@ const TrainerWorkoutDetails = () => {
         ) : (
           exercises.map((exercise) => (
             <Card key={exercise.id} className="overflow-hidden group hover:border-primary/30 transition-all">
-              <div className="flex flex-col sm:flex-row">
-                {/* Ordem */}
-                <div className="bg-muted/30 p-4 flex items-center justify-center sm:w-16 border-r border-border/50 font-mono text-lg font-bold text-muted-foreground">
-                  #{exercise.order}
+              <div className="flex flex-col sm:flex-row h-full">
+                
+                {/* CORREÇÃO 2: Renderização do Vídeo ou Ordem */}
+                <div className="relative w-full sm:w-32 bg-black/5 flex items-center justify-center border-r border-border/50">
+                  {exercise.video_url ? (
+                    <video 
+                      src={exercise.video_url} 
+                      className="w-full h-full object-cover max-h-24 sm:max-h-full"
+                      muted 
+                      playsInline
+                      onMouseOver={e => e.currentTarget.play()}
+                      onMouseOut={e => {
+                        e.currentTarget.pause();
+                        e.currentTarget.currentTime = 0;
+                      }}
+                    />
+                  ) : (
+                    // Se não tiver vídeo, mostra só o número da ordem grandão
+                    <span className="font-mono text-2xl font-bold text-muted-foreground/50">
+                      #{exercise.order}
+                    </span>
+                  )}
+                  
+                  {/* Badge da Ordem (sobreposto ao vídeo) */}
+                  {exercise.video_url && (
+                    <div className="absolute top-1 left-1 bg-black/60 text-white text-xs px-1.5 py-0.5 rounded font-mono">
+                      #{exercise.order}
+                    </div>
+                  )}
                 </div>
                 
-                {/* Dados */}
+                {/* Dados do Exercício */}
                 <div className="flex-1 p-4 flex flex-col justify-center">
                   <h3 className="font-semibold text-lg mb-2">{exercise.exercise_name}</h3>
                   

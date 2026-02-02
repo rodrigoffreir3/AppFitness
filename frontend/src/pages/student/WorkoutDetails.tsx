@@ -21,6 +21,7 @@ interface WorkoutExerciseResponse {
   id: string;
   exercise_id: string;
   exercise_name: string;
+  video_url?: string; // <--- CAMPO ADICIONADO
   sets: number;
   reps: string;
   rest_period_seconds: number;
@@ -124,8 +125,24 @@ const WorkoutDetails = () => {
         {data.exercises.length > 0 ? (
           data.exercises.map((exercise) => (
             <Card key={exercise.id} className="overflow-hidden">
-              <CardHeader>
-                <CardTitle className="text-xl">{exercise.exercise_name}</CardTitle>
+              {/* CORREÇÃO: Renderização do Vídeo no Topo do Card */}
+              {exercise.video_url && (
+                <div className="w-full aspect-video bg-black">
+                   <video 
+                      src={exercise.video_url} 
+                      className="w-full h-full object-contain"
+                      controls
+                      playsInline
+                      poster="/placeholder.svg" // Opcional: poster se quiser
+                    />
+                </div>
+              )}
+              
+              <CardHeader className={exercise.video_url ? "pt-4" : ""}>
+                <CardTitle className="text-xl flex items-center justify-between">
+                   <span>{exercise.exercise_name}</span>
+                   <span className="text-sm font-normal text-muted-foreground bg-muted px-2 py-1 rounded">#{exercise.order}</span>
+                </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 {/* Detalhes: Séries, Reps, Descanso */}

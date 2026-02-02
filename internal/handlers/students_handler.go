@@ -45,7 +45,7 @@ func RegisterStudentsRoutes(mux *http.ServeMux, db *sql.DB) {
 	mux.Handle("GET /api/students/me/announcements", middleware.AuthMiddleware(getMyAnnouncementsHandler))
 	mux.Handle("GET /api/students/me/profile", middleware.AuthMiddleware(getMyProfileHandler))
 
-	// --- NOVA ROTA: Aceitar Termos ---
+	// Rota: Aceitar Termos
 	mux.Handle("POST /api/students/terms", middleware.AuthMiddleware(http.HandlerFunc(h.handleAcceptTerms)))
 
 	// Rotas de Segurança
@@ -97,18 +97,16 @@ type StudentProfileResponse struct {
 	PaymentPixKey       string     `json:"payment_pix_key"`
 	PaymentLinkURL      string     `json:"payment_link_url"`
 	PaymentInstructions string     `json:"payment_instructions"`
-	TermsAcceptedAt     *time.Time `json:"terms_accepted_at,omitempty"` // NOVO CAMPO
+	TermsAcceptedAt     *time.Time `json:"terms_accepted_at,omitempty"`
 }
 
-// --- NOVO HANDLER: Aceitar Termos ---
 func (h *studentsHandler) handleAcceptTerms(w http.ResponseWriter, r *http.Request) {
-	studentID, ok := r.Context().Value(middleware.TrainerIDKey).(string) // Middleware usa essa key para ID do user
+	studentID, ok := r.Context().Value(middleware.TrainerIDKey).(string)
 	if !ok {
 		http.Error(w, "Erro de autenticação", http.StatusInternalServerError)
 		return
 	}
 
-	// Atualiza a coluna terms_accepted_at com a hora atual
 	query := `UPDATE students SET terms_accepted_at = NOW() WHERE id = $1`
 	_, err := h.db.ExecContext(r.Context(), query, studentID)
 	if err != nil {
@@ -193,7 +191,6 @@ func (h *studentsHandler) handleGetMyProfile(w http.ResponseWriter, r *http.Requ
 	studentID := r.Context().Value(middleware.TrainerIDKey).(string)
 	var profile StudentProfileResponse
 
-	// ATUALIZADO: Inclui s.terms_accepted_at
 	query := `
 		SELECT 
 			s.id, s.name, s.email, COALESCE(s.anamnesis_url, ''), 
@@ -214,7 +211,7 @@ func (h *studentsHandler) handleGetMyProfile(w http.ResponseWriter, r *http.Requ
 		&profile.TrainerID, &profile.TrainerName,
 		&profile.BrandLogoURL, &profile.BrandPrimaryColor, &profile.BrandSecondaryColor,
 		&profile.PaymentPixKey, &profile.PaymentLinkURL, &profile.PaymentInstructions,
-		&profile.TermsAcceptedAt, // Scan novo campo
+		&profile.TermsAcceptedAt,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -279,6 +276,7 @@ func (h *studentsHandler) handleGetMyAnnouncements(w http.ResponseWriter, r *htt
 	json.NewEncoder(w).Encode(announcements)
 }
 
+// CORREÇÃO AQUI: handleGetMyWorkoutDetails agora busca o video_url
 func (h *studentsHandler) handleGetMyWorkoutDetails(w http.ResponseWriter, r *http.Request) {
 	studentID := r.Context().Value(middleware.TrainerIDKey).(string)
 	workoutID := r.PathValue("id")
@@ -295,8 +293,10 @@ func (h *studentsHandler) handleGetMyWorkoutDetails(w http.ResponseWriter, r *ht
 		http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
 		return
 	}
+
+	// SQL ATUALIZADO: Inclui COALESCE(e.video_url, '')
 	queryExercises := `
-		SELECT we.id, we.exercise_id, e.name, we.sets, we.reps, we.rest_period_seconds,
+		SELECT we.id, we.exercise_id, e.name, COALESCE(e.video_url, ''), we.sets, we.reps, we.rest_period_seconds,
 			   we."order", we.notes, we.execution_details
 		FROM workout_exercises we
 		JOIN exercises e ON we.exercise_id = e.id
@@ -312,7 +312,8 @@ func (h *studentsHandler) handleGetMyWorkoutDetails(w http.ResponseWriter, r *ht
 	var exercises []types.WorkoutExerciseResponse
 	for rows.Next() {
 		var ex types.WorkoutExerciseResponse
-		if err := rows.Scan(&ex.ID, &ex.ExerciseID, &ex.ExerciseName, &ex.Sets, &ex.Reps, &ex.RestPeriodSeconds, &ex.Order, &ex.Notes, &ex.ExecutionDetails); err != nil {
+		// SCAN ATUALIZADO: Inclui &ex.VideoURL
+		if err := rows.Scan(&ex.ID, &ex.ExerciseID, &ex.ExerciseName, &ex.VideoURL, &ex.Sets, &ex.Reps, &ex.RestPeriodSeconds, &ex.Order, &ex.Notes, &ex.ExecutionDetails); err != nil {
 			log.Printf("Erro ao escanear exercício do treino para o aluno: %v", err)
 			http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
 			return
