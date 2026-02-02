@@ -22,7 +22,7 @@ CREATE TABLE trainers (
     subscription_status VARCHAR(20) DEFAULT 'trial', 
     subscription_expires_at TIMESTAMPTZ,
     
-    -- Termos de Uso (NOVO)
+    -- Termos de Uso
     terms_accepted_at TIMESTAMPTZ,
 
     -- Recuperação de Senha
@@ -43,7 +43,7 @@ CREATE TABLE students (
     -- Upload de Documento (Ficha de Anamnese/Saúde)
     anamnesis_url TEXT,
 
-    -- Termos de Uso (NOVO)
+    -- Termos de Uso
     terms_accepted_at TIMESTAMPTZ,
 
     -- Recuperação de Senha
@@ -72,7 +72,6 @@ CREATE TABLE workouts (
     name VARCHAR(255) NOT NULL,
     description TEXT,
     is_active BOOLEAN DEFAULT true,
-    diet_plan_url TEXT,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -91,6 +90,10 @@ CREATE TABLE workout_exercises (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     workout_id UUID NOT NULL REFERENCES workouts(id) ON DELETE CASCADE,
     exercise_id UUID NOT NULL REFERENCES exercises(id) ON DELETE RESTRICT,
+    
+    -- Cache do nome para evitar joins lentos na listagem
+    exercise_name VARCHAR(255), 
+    
     sets INTEGER,
     reps VARCHAR(50),
     rest_period_seconds INTEGER,
@@ -117,7 +120,7 @@ CREATE TABLE announcements (
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
--- Índices
+-- Índices de Performance
 CREATE INDEX ON students (trainer_id);
 CREATE INDEX ON diets (trainer_id);
 CREATE INDEX ON diets (student_id);
@@ -128,53 +131,5 @@ CREATE INDEX ON workout_exercises (exercise_id);
 CREATE INDEX ON chat_messages (sender_id, receiver_id);
 CREATE INDEX ON chat_messages (created_at DESC);
 CREATE INDEX ON announcements (trainer_id);
-
--- Inserindo dados iniciais na tabela de exercícios (MANTIDO IGUAL AO SEU)
-INSERT INTO exercises (name, muscle_group, equipment) VALUES
-('Supino Reto com Barra', 'Peito', 'Barra'),
-('Supino Inclinado com Halteres', 'Peito', 'Halteres'),
-('Supino Declinado com Barra', 'Peito', 'Barra'),
-('Crucifixo Reto', 'Peito', 'Halteres'),
-('Crucifixo Inclinado', 'Peito', 'Halteres'),
-('Flexão de Braço (Push-up)', 'Peito', 'Peso Corporal'),
-('Voador (Peck Deck)', 'Peito', 'Máquina'),
-('Crossover Polia Alta', 'Peito', 'Polia'),
-('Puxada Frontal (Pulley)', 'Costas', 'Polia'),
-('Remada Curvada com Barra', 'Costas', 'Barra'),
-('Remada Unilateral com Halter (Serrote)', 'Costas', 'Halteres'),
-('Remada Sentada (Polia Baixa)', 'Costas', 'Polia'),
-('Barra Fixa (Pull-up)', 'Costas', 'Peso Corporal'),
-('Levantamento Terra (Deadlift)', 'Costas', 'Barra'),
-('Crucifixo Inverso na Máquina', 'Costas', 'Máquina'),
-('Agachamento Livre com Barra', 'Pernas', 'Barra'),
-('Leg Press 45', 'Pernas', 'Máquina'),
-('Afundo com Halteres', 'Pernas', 'Halteres'),
-('Cadeira Extensora', 'Pernas', 'Máquina'),
-('Mesa Flexora', 'Pernas', 'Máquina'),
-('Stiff com Barra', 'Pernas', 'Barra'),
-('Elevação Pélvica (Hip Thrust)', 'Pernas', 'Barra'),
-('Agachamento Búlgaro', 'Pernas', 'Halteres'),
-('Cadeira Adutora', 'Pernas', 'Máquina'),
-('Cadeira Abdutora', 'Pernas', 'Máquina'),
-('Gêmeos em Pé na Máquina (Smith)', 'Panturrilhas', 'Máquina'),
-('Gêmeos Sentado', 'Panturrilhas', 'Máquina'),
-('Desenvolvimento Militar com Barra', 'Ombros', 'Barra'),
-('Desenvolvimento com Halteres', 'Ombros', 'Halteres'),
-('Elevação Lateral com Halteres', 'Ombros', 'Halteres'),
-('Elevação Frontal com Halteres', 'Ombros', 'Halteres'),
-('Remada Alta', 'Ombros', 'Barra'),
-('Crucifixo Inverso com Halteres', 'Ombros', 'Halteres'),
-('Rosca Direta com Barra', 'Bíceps', 'Barra'),
-('Rosca Alternada com Halteres', 'Bíceps', 'Halteres'),
-('Rosca Martelo', 'Bíceps', 'Halteres'),
-('Rosca Scott na Máquina', 'Bíceps', 'Máquina'),
-('Rosca Concentrada', 'Bíceps', 'Halteres'),
-('Tríceps Pulley', 'Tríceps', 'Polia'),
-('Tríceps Testa com Barra', 'Tríceps', 'Barra'),
-('Tríceps Francês com Halter', 'Tríceps', 'Halteres'),
-('Mergulho no Banco', 'Tríceps', 'Peso Corporal'),
-('Tríceps Coice com Halter', 'Tríceps', 'Halteres'),
-('Abdominal Supra', 'Abdômen', 'Peso Corporal'),
-('Abdominal Infra (Elevação de Pernas)', 'Abdômen', 'Peso Corporal'),
-('Prancha Abdominal', 'Abdômen', 'Peso Corporal'),
-('Abdominal Oblíquo (Bicicleta)', 'Abdômen', 'Peso Corporal');
+CREATE INDEX ON exercises (muscle_group); -- Vital para o filtro de categorias
+CREATE INDEX ON exercises (name); -- Vital para a busca
