@@ -47,8 +47,6 @@ type UpdateWorkoutExerciseRequest struct {
 	ExecutionDetails  *string `json:"execution_details"`
 }
 
-// --- ALTERAÇÃO: A struct WorkoutExerciseResponse foi removida daqui ---
-
 func (h *workoutExercisesHandler) handleUpdateExerciseInWorkout(w http.ResponseWriter, r *http.Request) {
 	trainerID := r.Context().Value(middleware.TrainerIDKey).(string)
 	workoutID := r.PathValue("workout_id")
@@ -123,6 +121,7 @@ func (h *workoutExercisesHandler) handleDeleteExerciseFromWorkout(w http.Respons
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// handleListExercisesInWorkout MODIFICADO para incluir video_url
 func (h *workoutExercisesHandler) handleListExercisesInWorkout(w http.ResponseWriter, r *http.Request) {
 	trainerID := r.Context().Value(middleware.TrainerIDKey).(string)
 	workoutID := r.PathValue("workout_id")
@@ -137,9 +136,11 @@ func (h *workoutExercisesHandler) handleListExercisesInWorkout(w http.ResponseWr
 		http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
 		return
 	}
+
+	// Consulta SQL atualizada: Inclui COALESCE(e.video_url, '')
 	query := `
 		SELECT
-			we.id, we.exercise_id, e.name, we.sets, we.reps, we.rest_period_seconds,
+			we.id, we.exercise_id, e.name, COALESCE(e.video_url, ''), we.sets, we.reps, we.rest_period_seconds,
 			we."order", we.notes, we.execution_details
 		FROM workout_exercises we
 		JOIN exercises e ON we.exercise_id = e.id
@@ -153,10 +154,12 @@ func (h *workoutExercisesHandler) handleListExercisesInWorkout(w http.ResponseWr
 		return
 	}
 	defer rows.Close()
+
 	var exercises []types.WorkoutExerciseResponse
 	for rows.Next() {
 		var ex types.WorkoutExerciseResponse
-		if err := rows.Scan(&ex.ID, &ex.ExerciseID, &ex.ExerciseName, &ex.Sets, &ex.Reps, &ex.RestPeriodSeconds, &ex.Order, &ex.Notes, &ex.ExecutionDetails); err != nil {
+		// Scan atualizado: Inclui &ex.VideoURL logo após o nome
+		if err := rows.Scan(&ex.ID, &ex.ExerciseID, &ex.ExerciseName, &ex.VideoURL, &ex.Sets, &ex.Reps, &ex.RestPeriodSeconds, &ex.Order, &ex.Notes, &ex.ExecutionDetails); err != nil {
 			log.Printf("Erro ao escanear linha de exercício do treino: %v", err)
 			http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
 			return
@@ -199,7 +202,6 @@ func (h *workoutExercisesHandler) handleAddExerciseToWorkout(w http.ResponseWrit
 		return
 	}
 
-	// A resposta não inclui o nome do exercício, por isso não podemos usar a struct partilhada diretamente
 	var newExercise struct {
 		ID                string `json:"id"`
 		ExerciseID        string `json:"exercise_id"`

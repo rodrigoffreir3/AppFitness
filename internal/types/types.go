@@ -33,7 +33,7 @@ type WorkoutResponse struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	IsActive    bool   `json:"is_active"`
-	FileURL     string `json:"file_url"` // CAMPO ADICIONADO
+	FileURL     string `json:"file_url"`
 }
 
 // WorkoutExerciseResponse
@@ -41,6 +41,7 @@ type WorkoutExerciseResponse struct {
 	ID                string `json:"id"`
 	ExerciseID        string `json:"exercise_id"`
 	ExerciseName      string `json:"exercise_name"`
+	VideoURL          string `json:"video_url"` // <--- CAMPO ADICIONADO AQUI
 	Sets              int    `json:"sets"`
 	Reps              string `json:"reps"`
 	RestPeriodSeconds int    `json:"rest_period_seconds"`
