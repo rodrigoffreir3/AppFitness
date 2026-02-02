@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import api from '@/services/api';
 import { 
@@ -10,30 +10,29 @@ import {
   Clock, 
   RotateCcw, 
   Save,
-  Edit // Importado ícone de edição
+  Edit,
+  Search,
+  Play,
+  Video
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import { Card } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 
 // --- Interfaces ---
 interface Workout {
@@ -60,11 +59,14 @@ interface LibraryExercise {
   id: string;
   name: string;
   muscle_group: string;
+  equipment: string;
+  video_url?: string;
 }
 
 // Unificamos o estado do formulário
 interface ExerciseFormData {
   exercise_id: string;
+  exercise_name?: string; // Para mostrar o nome selecionado
   sets: number;
   reps: string;
   rest_period_seconds: number;
@@ -72,6 +74,73 @@ interface ExerciseFormData {
   notes: string;
   execution_details: string;
 }
+
+// --- Componente Mini Card para o Seletor ---
+const MiniExerciseCard = ({ exercise, onSelect, isSelected }: { exercise: LibraryExercise, onSelect: () => void, isSelected: boolean }) => {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  const handleMouseEnter = () => {
+    if (videoRef.current) {
+      const playPromise = videoRef.current.play();
+      if (playPromise !== undefined) {
+        playPromise.then(() => setIsPlaying(true)).catch(() => {});
+      }
+    }
+  };
+
+  const handleMouseLeave = () => {
+    if (videoRef.current) {
+      videoRef.current.pause();
+      videoRef.current.currentTime = 0;
+      setIsPlaying(false);
+    }
+  };
+
+  return (
+    <Card 
+      className={`overflow-hidden cursor-pointer transition-all group border shadow-sm ${isSelected ? 'ring-2 ring-primary border-primary' : 'hover:border-primary/50'}`}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      onClick={onSelect}
+    >
+      <div className="relative aspect-video bg-black/5 overflow-hidden">
+        {exercise.video_url ? (
+          <video
+            ref={videoRef}
+            src={exercise.video_url}
+            muted
+            loop
+            playsInline
+            className="w-full h-full object-cover"
+            preload="metadata"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400">
+             <Video className="h-8 w-8 opacity-20" />
+          </div>
+        )}
+        
+        {exercise.video_url && !isPlaying && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/10 group-hover:bg-transparent transition-all">
+            <div className="bg-black/50 p-2 rounded-full backdrop-blur-sm group-hover:opacity-0 transition-opacity">
+               <Play className="h-4 w-4 text-white fill-current" />
+            </div>
+          </div>
+        )}
+      </div>
+      
+      <CardContent className="p-2">
+        <h3 className="font-semibold text-xs truncate" title={exercise.name}>
+          {exercise.name}
+        </h3>
+        <p className="text-[10px] text-muted-foreground mt-0.5 capitalize">
+          {exercise.muscle_group || "Geral"}
+        </p>
+      </CardContent>
+    </Card>
+  );
+};
 
 const TrainerWorkoutDetails = () => {
   const { workoutId } = useParams<{ workoutId: string }>();
@@ -84,12 +153,19 @@ const TrainerWorkoutDetails = () => {
   // Estados de UI
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isSelectorOpen, setIsSelectorOpen] = useState(false); // Modal do Seletor
   const [saving, setSaving] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null); // Controla se é edição
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  // Estados para o Seletor Inteligente
+  const [searchTerm, setSearchTerm] = useState("");
+  const [activeTab, setActiveTab] = useState("todos");
+  const [categories, setCategories] = useState<string[]>([]);
 
   // Estado do Formulário
   const [formData, setFormData] = useState<ExerciseFormData>({
     exercise_id: "",
+    exercise_name: "",
     sets: 3,
     reps: "10-12",
     rest_period_seconds: 60,
@@ -113,6 +189,13 @@ const TrainerWorkoutDetails = () => {
         setWorkout(workoutRes.data);
         setExercises(exercisesRes.data);
         setLibrary(libraryRes.data);
+
+        // Extrair categorias para o seletor
+        const uniqueCategories = Array.from(
+          new Set(libraryRes.data.map((e) => e.muscle_group).filter(Boolean))
+        ).sort();
+        setCategories(uniqueCategories);
+
       } catch (err) {
         console.error("Erro ao carregar dados:", err);
         toast.error("Erro ao carregar dados do treino.");
@@ -133,6 +216,7 @@ const TrainerWorkoutDetails = () => {
       
     setFormData({
       exercise_id: "",
+      exercise_name: "",
       sets: 3,
       reps: "10-12",
       rest_period_seconds: 60,
@@ -148,6 +232,7 @@ const TrainerWorkoutDetails = () => {
     setEditingId(exercise.id);
     setFormData({
       exercise_id: exercise.exercise_id,
+      exercise_name: exercise.exercise_name,
       sets: exercise.sets,
       reps: exercise.reps,
       rest_period_seconds: exercise.rest_period_seconds,
@@ -168,19 +253,19 @@ const TrainerWorkoutDetails = () => {
     setSaving(true);
     try {
       const payload = {
-        ...formData,
+        exercise_id: formData.exercise_id, // Importante mandar o ID
         sets: Number(formData.sets),
+        reps: formData.reps,
         rest_period_seconds: Number(formData.rest_period_seconds),
-        order: Number(formData.order)
+        order: Number(formData.order),
+        notes: formData.notes,
+        execution_details: formData.execution_details
       };
 
       if (editingId) {
-        // --- MODO EDIÇÃO (PUT) ---
-        // O backend não permite mudar o exercise_id no update, mas enviamos o resto
         await api.put(`/workouts/${workoutId}/exercises/${editingId}`, payload);
         toast.success("Exercício atualizado!");
       } else {
-        // --- MODO CRIAÇÃO (POST) ---
         await api.post(`/workouts/${workoutId}/exercises`, payload);
         toast.success("Exercício adicionado!");
       }
@@ -212,6 +297,17 @@ const TrainerWorkoutDetails = () => {
       setExercises(previousList);
     }
   };
+
+  // Lógica de Filtragem do Seletor
+  const filteredLibrary = library.filter((exercise) => {
+    const matchesSearch = 
+      exercise.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      exercise.muscle_group.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesTab = activeTab === "todos" || exercise.muscle_group === activeTab;
+
+    return searchTerm ? matchesSearch : matchesTab;
+  });
 
   if (loading) {
     return (
@@ -251,38 +347,116 @@ const TrainerWorkoutDetails = () => {
           Adicionar Exercício
         </Button>
 
-        {/* Modal Único (Criação e Edição) */}
+        {/* --- MODAL PRINCIPAL: Configuração do Exercício --- */}
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogContent className="max-w-lg">
             <DialogHeader>
               <DialogTitle>{editingId ? "Editar Exercício" : "Novo Exercício"}</DialogTitle>
               <DialogDescription>
-                Configure as séries, repetições e detalhes da execução.
+                Selecione o exercício e configure a carga de treino.
               </DialogDescription>
             </DialogHeader>
             
             <div className="grid gap-4 py-4">
-              {/* Seleção do Exercício (Desabilitado na edição) */}
+              {/* O SELETOR INTELIGENTE */}
               <div className="grid gap-2">
                 <Label>Exercício</Label>
-                <Select 
-                  value={formData.exercise_id} 
-                  onValueChange={(val) => setFormData({...formData, exercise_id: val})}
-                  disabled={!!editingId} // Trava se for edição
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione da biblioteca..." />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-60">
-                    {library.map((ex) => (
-                      <SelectItem key={ex.id} value={ex.id}>
-                        {ex.name} <span className="text-muted-foreground ml-2 text-xs">({ex.muscle_group})</span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                
+                {/* Se estiver editando, apenas mostra o nome (geralmente não se troca o exercício na edição, mas a lógica permite se quiser destravar) */}
+                {editingId ? (
+                   <div className="p-3 bg-muted rounded-md font-medium text-sm border flex items-center gap-2">
+                      <Dumbbell className="h-4 w-4 text-primary" />
+                      {formData.exercise_name}
+                   </div>
+                ) : (
+                  // Botão que abre o Modal da Biblioteca
+                  <Dialog open={isSelectorOpen} onOpenChange={setIsSelectorOpen}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" className="w-full justify-between font-normal text-muted-foreground hover:text-foreground">
+                        {formData.exercise_name || "🔍 Clique para buscar na biblioteca..."}
+                        <Search className="h-4 w-4 ml-2 opacity-50" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-4xl h-[80vh] flex flex-col p-0 gap-0">
+                      
+                      {/* Header do Seletor */}
+                      <div className="p-4 border-b space-y-4">
+                        <div className="flex items-center justify-between">
+                          <h3 className="font-semibold text-lg">Biblioteca de Exercícios</h3>
+                          {/* Botão X é nativo do DialogContent, mas podemos por um explícito se quiser */}
+                        </div>
+                        
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            placeholder="Buscar por nome (ex: Supino, Agachamento)..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="pl-10"
+                            autoFocus
+                          />
+                        </div>
+
+                        {/* Abas de Categoria (Scroll Horizontal) */}
+                        {!searchTerm && (
+                          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                            <ScrollArea className="w-full whitespace-nowrap pb-2">
+                              <TabsList className="bg-transparent p-0 h-auto gap-2">
+                                <TabsTrigger 
+                                  value="todos" 
+                                  className="rounded-full border px-4 py-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                                >
+                                  Todos
+                                </TabsTrigger>
+                                {categories.map((cat) => (
+                                  <TabsTrigger 
+                                    key={cat} 
+                                    value={cat}
+                                    className="rounded-full border px-4 py-1.5 capitalize data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                                  >
+                                    {cat}
+                                  </TabsTrigger>
+                                ))}
+                              </TabsList>
+                              <ScrollBar orientation="horizontal" />
+                            </ScrollArea>
+                          </Tabs>
+                        )}
+                      </div>
+
+                      {/* Grid de Exercícios (Scroll Vertical) */}
+                      <ScrollArea className="flex-1 p-4 bg-muted/10">
+                        {filteredLibrary.length === 0 ? (
+                          <div className="flex flex-col items-center justify-center h-40 text-muted-foreground">
+                            <Search className="h-8 w-8 mb-2 opacity-20" />
+                            <p>Nenhum exercício encontrado.</p>
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                            {filteredLibrary.map((ex) => (
+                              <MiniExerciseCard 
+                                key={ex.id} 
+                                exercise={ex} 
+                                isSelected={formData.exercise_id === ex.id}
+                                onSelect={() => {
+                                  setFormData({
+                                    ...formData, 
+                                    exercise_id: ex.id, 
+                                    exercise_name: ex.name 
+                                  });
+                                  setIsSelectorOpen(false); // Fecha o seletor após escolher
+                                }}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </ScrollArea>
+                    </DialogContent>
+                  </Dialog>
+                )}
               </div>
 
+              {/* Restante do Formulário (Séries, Reps...) */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label>Séries</Label>
@@ -343,7 +517,7 @@ const TrainerWorkoutDetails = () => {
         </Dialog>
       </div>
 
-      {/* Lista de Exercícios */}
+      {/* Lista de Exercícios Adicionados à Ficha */}
       <div className="grid gap-4">
         {exercises.length === 0 ? (
           <div className="text-center py-12 border-2 border-dashed rounded-xl bg-muted/20">
@@ -353,7 +527,7 @@ const TrainerWorkoutDetails = () => {
           </div>
         ) : (
           exercises.map((exercise) => (
-            <Card key={exercise.id} className="overflow-hidden group">
+            <Card key={exercise.id} className="overflow-hidden group hover:border-primary/30 transition-all">
               <div className="flex flex-col sm:flex-row">
                 {/* Ordem */}
                 <div className="bg-muted/30 p-4 flex items-center justify-center sm:w-16 border-r border-border/50 font-mono text-lg font-bold text-muted-foreground">
@@ -380,14 +554,14 @@ const TrainerWorkoutDetails = () => {
                   </div>
 
                   {exercise.notes && (
-                    <div className="mt-3 text-sm bg-accent/10 p-2 rounded border-l-2 border-accent text-muted-foreground">
-                      {exercise.notes}
+                    <div className="mt-3 text-sm bg-yellow-50/50 p-2 rounded border border-yellow-100 text-muted-foreground">
+                      💡 {exercise.notes}
                     </div>
                   )}
                 </div>
 
                 {/* Ações (Editar e Deletar) */}
-                <div className="p-2 sm:p-4 flex items-center justify-end gap-2 border-t sm:border-t-0 sm:border-l border-border/50 bg-muted/10">
+                <div className="p-2 sm:p-4 flex items-center justify-end gap-2 border-t sm:border-t-0 sm:border-l border-border/50 bg-muted/10 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                   <Button 
                     variant="ghost" 
                     size="icon" 
