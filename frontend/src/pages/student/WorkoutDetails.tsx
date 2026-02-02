@@ -1,13 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import api from '@/services/api';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Loader2, AlertCircle, ArrowLeft, ListChecks, Clock, Info } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Loader2, AlertCircle, ArrowLeft, ListChecks, Clock, Info, Play, Pause } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
 // --- DEFINIÇÃO DE TIPOS ---
-// Baseado no students_handler.go e types.go
-// Interface do Treino (a mesma do StudentDashboard)
 interface WorkoutResponse {
   id: string;
   student_id: string;
@@ -16,12 +15,11 @@ interface WorkoutResponse {
   is_active: boolean;
 }
 
-// Interface do Exercício Detalhado (de types.go)
 interface WorkoutExerciseResponse {
   id: string;
   exercise_id: string;
   exercise_name: string;
-  video_url?: string; // <--- CAMPO ADICIONADO
+  video_url?: string;
   sets: number;
   reps: string;
   rest_period_seconds: number;
@@ -30,23 +28,146 @@ interface WorkoutExerciseResponse {
   execution_details: string;
 }
 
-// Interface para os dados completos que a API retorna
 interface WorkoutDetailsData {
   workout: WorkoutResponse;
   exercises: WorkoutExerciseResponse[];
 }
-// --- FIM DOS TIPOS ---
 
+// --- SUB-COMPONENTE: CARD DO EXERCÍCIO (Com lógica de vídeo inteligente) ---
+const StudentExerciseCard = ({ exercise }: { exercise: WorkoutExerciseResponse }) => {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  // Lógica de Mouse (Desktop)
+  const handleMouseEnter = () => {
+    if (videoRef.current) {
+      videoRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
+    }
+  };
+
+  const handleMouseLeave = () => {
+    if (videoRef.current) {
+      videoRef.current.pause();
+      videoRef.current.currentTime = 0; // Opcional: Voltar ao início ao tirar o mouse
+      setIsPlaying(false);
+    }
+  };
+
+  // Lógica de Toque/Clique (Mobile e Desktop)
+  const togglePlay = () => {
+    if (!videoRef.current) return;
+    
+    if (isPlaying) {
+      videoRef.current.pause();
+      setIsPlaying(false);
+    } else {
+      videoRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
+    }
+  };
+
+  return (
+    <Card className="overflow-hidden border shadow-sm transition-all hover:shadow-md">
+      {/* Área do Vídeo - Centralizada e contida */}
+      {exercise.video_url && (
+        <div className="pt-6 pb-2 px-4 flex justify-center">
+          <div 
+            className="relative w-full max-w-[85%] sm:max-w-[400px] aspect-video rounded-xl overflow-hidden bg-black/5 border cursor-pointer group"
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
+            onClick={togglePlay} // Permite clique para mobile
+          >
+            <video 
+              ref={videoRef}
+              src={exercise.video_url} 
+              className="w-full h-full object-cover"
+              muted 
+              loop 
+              playsInline // Essencial para não abrir em tela cheia no iPhone
+            />
+            
+            {/* Overlay de Ícone (Play/Pause) */}
+            <div className={`absolute inset-0 flex items-center justify-center bg-black/10 transition-opacity duration-300 ${isPlaying ? 'opacity-0' : 'opacity-100'}`}>
+              <div className="bg-black/40 p-3 rounded-full backdrop-blur-sm border border-white/20">
+                 {isPlaying ? (
+                   <Pause className="h-6 w-6 text-white fill-current" />
+                 ) : (
+                   <Play className="h-6 w-6 text-white fill-current ml-1" />
+                 )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      <CardHeader className={exercise.video_url ? "pt-2 pb-2" : ""}>
+        <div className="flex items-center justify-between">
+           <CardTitle className="text-xl font-bold text-foreground">
+             {exercise.exercise_name}
+           </CardTitle>
+           <Badge variant="secondary" className="text-muted-foreground font-mono">
+             #{exercise.order}
+           </Badge>
+        </div>
+      </CardHeader>
+
+      <CardContent className="space-y-4 pt-2">
+        {/* Detalhes Principais */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="flex flex-col bg-primary/5 p-3 rounded-lg border border-primary/10">
+            <div className="flex items-center gap-2 mb-1 text-primary">
+              <ListChecks className="h-4 w-4" />
+              <span className="text-xs font-semibold uppercase tracking-wider">Carga</span>
+            </div>
+            <p className="font-medium text-sm text-foreground">
+              <span className="text-lg font-bold">{exercise.sets}</span> séries <span className="text-muted-foreground">x</span> <span className="text-lg font-bold">{exercise.reps}</span> reps
+            </p>
+          </div>
+
+          <div className="flex flex-col bg-primary/5 p-3 rounded-lg border border-primary/10">
+            <div className="flex items-center gap-2 mb-1 text-primary">
+              <Clock className="h-4 w-4" />
+              <span className="text-xs font-semibold uppercase tracking-wider">Descanso</span>
+            </div>
+            <p className="font-medium text-sm text-foreground">
+              <span className="text-lg font-bold">{exercise.rest_period_seconds}</span> <span className="text-xs text-muted-foreground">segundos</span>
+            </p>
+          </div>
+        </div>
+
+        {/* Detalhes da Execução (Colapsável ou visualmente distinto) */}
+        {exercise.execution_details && (
+          <div className="text-sm bg-muted/30 p-3 rounded-md border border-border/50">
+            <h4 className="font-medium mb-1 flex items-center gap-1.5 text-foreground/80">
+              <Info className="h-3.5 w-3.5" /> Técnica
+            </h4>
+            <p className="text-muted-foreground whitespace-pre-wrap leading-relaxed">
+              {exercise.execution_details}
+            </p>
+          </div>
+        )}
+
+        {/* Observações do Treinador */}
+        {exercise.notes && (
+          <div className="text-sm bg-yellow-50 dark:bg-yellow-950/20 p-3 rounded-md border border-yellow-200/50 dark:border-yellow-900/50">
+            <h4 className="font-medium mb-1 text-yellow-700 dark:text-yellow-500">Observações</h4>
+            <p className="text-muted-foreground whitespace-pre-wrap">
+              {exercise.notes}
+            </p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
+
+// --- COMPONENTE PRINCIPAL ---
 const WorkoutDetails = () => {
   const { workoutId } = useParams<{ workoutId: string }>();
   
-  // --- ESTADOS ---
   const [data, setData] = useState<WorkoutDetailsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  // --- FIM DOS ESTADOS ---
 
-  // --- useEffect PARA BUSCAR OS DADOS ---
   useEffect(() => {
     if (!workoutId) return;
 
@@ -65,10 +186,8 @@ const WorkoutDetails = () => {
     };
 
     fetchWorkoutDetails();
-  }, [workoutId]); // Depende do workoutId da URL
-  // --- FIM DO useEffect ---
+  }, [workoutId]);
 
-  // --- RENDERIZAÇÃO DE LOADING E ERRO ---
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -98,11 +217,10 @@ const WorkoutDetails = () => {
     );
   }
 
-  // --- RENDERIZAÇÃO DE SUCESSO ---
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-3xl mx-auto pb-10">
       {/* Botão de Voltar */}
-      <Button asChild variant="outline" size="sm" className="w-fit">
+      <Button asChild variant="ghost" size="sm" className="w-fit -ml-2 text-muted-foreground hover:text-foreground">
         <Link to="/student/dashboard">
           <ArrowLeft className="mr-2 h-4 w-4" />
           Voltar para Meus Treinos
@@ -110,86 +228,23 @@ const WorkoutDetails = () => {
       </Button>
 
       {/* Cabeçalho do Treino */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-3xl">{data.workout.name}</CardTitle>
-          {data.workout.description && (
-            <CardDescription className="text-base pt-1">{data.workout.description}</CardDescription>
-          )}
-        </CardHeader>
-      </Card>
+      <div className="space-y-2">
+        <h1 className="text-3xl font-bold tracking-tight">{data.workout.name}</h1>
+        {data.workout.description && (
+          <p className="text-muted-foreground text-lg">{data.workout.description}</p>
+        )}
+      </div>
 
-      {/* Lista de Exercícios */}
-      <div className="space-y-4">
-        <h2 className="text-2xl font-semibold">Exercícios</h2>
+      {/* Lista de Exercícios usando o novo componente */}
+      <div className="space-y-6">
         {data.exercises.length > 0 ? (
           data.exercises.map((exercise) => (
-            <Card key={exercise.id} className="overflow-hidden">
-              {/* CORREÇÃO: Renderização do Vídeo no Topo do Card */}
-              {exercise.video_url && (
-                <div className="w-full aspect-video bg-black">
-                   <video 
-                      src={exercise.video_url} 
-                      className="w-full h-full object-contain"
-                      controls
-                      playsInline
-                      poster="/placeholder.svg" // Opcional: poster se quiser
-                    />
-                </div>
-              )}
-              
-              <CardHeader className={exercise.video_url ? "pt-4" : ""}>
-                <CardTitle className="text-xl flex items-center justify-between">
-                   <span>{exercise.exercise_name}</span>
-                   <span className="text-sm font-normal text-muted-foreground bg-muted px-2 py-1 rounded">#{exercise.order}</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Detalhes: Séries, Reps, Descanso */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                  <div className="flex items-center gap-2">
-                    <ListChecks className="h-5 w-5 text-primary" />
-                    <div>
-                      <p className="text-sm text-muted-foreground">Séries & Reps</p>
-                      <p className="font-medium">{exercise.sets}x {exercise.reps}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-5 w-5 text-primary" />
-                    <div>
-                      <p className="text-sm text-muted-foreground">Descanso</p>
-                      <p className="font-medium">{exercise.rest_period_seconds} seg</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Notas de Execução */}
-                {exercise.execution_details && (
-                  <div>
-                    <h4 className="font-semibold mb-2 flex items-center gap-2">
-                      <Info className="h-4 w-4 text-primary" />
-                      Detalhes da Execução
-                    </h4>
-                    <p className="text-sm text-muted-foreground bg-muted p-3 rounded-md whitespace-pre-wrap">
-                      {exercise.execution_details}
-                    </p>
-                  </div>
-                )}
-
-                {/* Observações */}
-                {exercise.notes && (
-                  <div>
-                    <h4 className="font-semibold mb-2">Observações</h4>
-                    <p className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-md whitespace-pre-wrap">
-                      {exercise.notes}
-                    </p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            <StudentExerciseCard key={exercise.id} exercise={exercise} />
           ))
         ) : (
-          <p className="text-muted-foreground">Nenhum exercício foi adicionado a este treino ainda.</p>
+          <div className="text-center py-12 bg-muted/20 rounded-xl border border-dashed">
+            <p className="text-muted-foreground">Nenhum exercício foi adicionado a este treino ainda.</p>
+          </div>
         )}
       </div>
     </div>
