@@ -20,6 +20,10 @@ func RegisterStudentsRoutes(mux *http.ServeMux, db *sql.DB) {
 		db: db,
 	}
 
+	// --- SEGURANÇA: RATE LIMITER ---
+	// Permite apenas 5 tentativas de cadastro por minuto por IP
+	registerLimiter := middleware.NewRateLimiter(5, time.Minute)
+
 	createStudentHandler := http.HandlerFunc(h.handleCreateStudent)
 	listStudentsHandler := http.HandlerFunc(h.handleListStudents)
 	getStudentHandler := http.HandlerFunc(h.handleGetStudent)
@@ -38,7 +42,9 @@ func RegisterStudentsRoutes(mux *http.ServeMux, db *sql.DB) {
 	mux.Handle("DELETE /api/students/{id}", middleware.AuthMiddleware(deleteStudentHandler))
 
 	mux.Handle("POST /api/students/login", loginStudentHandler)
-	mux.Handle("POST /api/public/students/register", http.HandlerFunc(h.handlePublicSelfRegister))
+
+	// --- ROTA PROTEGIDA COM RATE LIMIT ---
+	mux.Handle("POST /api/public/students/register", registerLimiter.Limit(http.HandlerFunc(h.handlePublicSelfRegister)))
 
 	mux.Handle("GET /api/students/me/workouts", middleware.AuthMiddleware(getMyWorkoutsHandler))
 	mux.Handle("GET /api/students/me/workouts/{id}", middleware.AuthMiddleware(getMyWorkoutDetailsHandler))
@@ -201,7 +207,7 @@ func (h *studentsHandler) handleGetMyProfile(w http.ResponseWriter, r *http.Requ
 			COALESCE(t.payment_pix_key, ''),
 			COALESCE(t.payment_link_url, ''),
 			COALESCE(t.payment_instructions, ''),
-            s.terms_accepted_at
+			s.terms_accepted_at
 		FROM students s
 		LEFT JOIN trainers t ON s.trainer_id = t.id
 		WHERE s.id = $1
