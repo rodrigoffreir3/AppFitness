@@ -9,22 +9,15 @@ services:
     container_name: metsuke-backend
     restart: always
     environment:
-      # Conexão com o Banco
       - DB_HOST=postgres
       - DB_PORT=5432
       - DB_USER=${DB_USER}
       - DB_PASSWORD=${DB_PASSWORD}
       - DB_NAME=${DB_NAME}
-      
-      # Configurações do App
       - JWT_SECRET=${JWT_SECRET}
       - PORT=8080
-      
-      # Integrações (Pode deixar com valores de teste por enquanto)
-      - ASAAS_API_URL=${ASAAS_API_URL} # Ex: https://sandbox.asaas.com/api/v3
+      - ASAAS_API_URL=${ASAAS_API_URL}
       - ASAAS_API_KEY=${ASAAS_API_KEY}
-      
-      # E-mail (Se não configurou o Zoho ainda, o envio falhará, mas o app sobe)
       - SMTP_HOST=${SMTP_HOST}
       - SMTP_PORT=${SMTP_PORT}
       - SMTP_USER=${SMTP_USER}
@@ -37,15 +30,13 @@ services:
     networks:
       - metsuke-network
 
-  # --- 2. FRONTEND (Nginx servindo o que o Vite construiu) ---
+  # --- 2. FRONTEND (Nginx) ---
   frontend:
     image: nginx:alpine
     container_name: metsuke-frontend
     restart: always
     volumes:
-      # IMPORTANTE: Mapeia a pasta 'dist' que você criou com 'npm run build'
       - ./frontend/dist:/usr/share/nginx/html
-    # Configuração automática para SPA (React Router) não quebrar no F5
     command: >
       /bin/sh -c "echo 'server {
       listen 80;
@@ -56,7 +47,7 @@ services:
     networks:
       - metsuke-network
 
-  # --- 3. GATEWAY (Caddy: O Porteiro com HTTPS) ---
+  # --- 3. GATEWAY (Caddy) ---
   caddy:
     image: caddy:2-alpine
     container_name: metsuke-caddy
@@ -68,7 +59,6 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile
       - caddy_data:/data
       - caddy_config:/config
-      # Mapeamento para uploads (se ainda usar local)
       - ./uploads:/srv/uploads
     depends_on:
       - backend
@@ -76,7 +66,7 @@ services:
     networks:
       - metsuke-network
 
-  # --- 4. BANCO DE DADOS ---
+  # --- 4. BANCO DE DADOS (Herdando o antigo) ---
   postgres:
     image: postgres:14-alpine
     container_name: metsuke-db
@@ -86,13 +76,19 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_NAME}
     volumes:
-      - metsuke-data:/var/lib/postgresql/data
+      # Mapeia o volume externo (antigo) para dentro deste container novo
+      - appfitness-data:/var/lib/postgresql/data
       - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - metsuke-network
 
+# --- VOLUMES ---
 volumes:
-  metsuke-data:
+  # AQUI ESTÁ O SEGREDO:
+  appfitness-data:
+    external: true
+    name: appfitness_appfitness-data  # Nome confirmado na VPS
+
   caddy_data:
   caddy_config:
 
