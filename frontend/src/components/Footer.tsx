@@ -12,7 +12,7 @@ const Footer = () => {
                 <Dumbbell className="w-6 h-6 text-primary-foreground" />
               </div>
               <span className="text-xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-                AppFitness
+                Metsuke
               </span>
             </div>
             <p className="text-sm text-muted-foreground">
@@ -54,7 +54,7 @@ const Footer = () => {
         </div>
 
         <div className="mt-12 pt-8 border-t border-border text-center text-sm text-muted-foreground">
-          <p>© 2024 AppFitness. Todos os direitos reservados.</p>
+          <p>© 2026 Metsuke Fitness. Todos os direitos reservados.</p>
         </div>
       </div>
     </footer>

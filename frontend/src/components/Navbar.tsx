@@ -66,7 +66,7 @@ const Navbar = () => {
                </div>
             )}
             <span className="text-xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-              {isAuthenticated && branding.logo_url ? "" : "AppFitness"}
+              {isAuthenticated && branding.logo_url ? "" : "Metsuke"}
             </span>
           </div>
 

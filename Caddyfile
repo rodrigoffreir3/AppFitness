@@ -1,28 +1,23 @@
-:80 {
-    # Diretório raiz para o frontend (React)
-    root * /srv/app
-
-    # --- BLOCO DA API (BACKEND) ---
-    # Diz ao Caddy: "Se o caminho começar com /api/"
-    @api path /api/*
-    # "Então, lida com ele aqui dentro e pára"
-    handle @api {
-        # Redireciona o WebSocket
-        reverse_proxy /api/ws* api:8080
-
-        # Redireciona o resto da API REST (login, etc.)
-        reverse_proxy /api/* api:8080
+metsuke.app.br {
+    # 1. API Backend (Redireciona as chamadas /api para o serviço backend)
+    handle /api/* {
+        reverse_proxy backend:8080
     }
 
-    # --- BLOCO DO FRONTEND (React SPA) ---
-    # "Para tudo o resto, lida aqui"
-    handle {
-        # Tenta servir o ficheiro (ex: /assets/index.js)
-        # Se não encontrar, serve o /index.html (para o React Router funcionar)
-        try_files {path} /index.html
+    # 2. Uploads Locais (Caso ainda use armazenamento em disco)
+    handle_path /uploads/* {
+        root * /srv/uploads
         file_server
     }
 
-    # Compressão
+    # 3. Frontend (Todo o resto vai para o React)
+    reverse_proxy frontend:80
+
+    # Compressão para velocidade
     encode gzip
+}
+
+# Redireciona quem digitar www para o domínio principal
+www.metsuke.app.br {
+    redir https://metsuke.app.br{uri}
 }

@@ -16,7 +16,7 @@ const Hero = () => {
         <div className="max-w-5xl mx-auto text-center space-y-8">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary border border-primary/20 animate-fade-in">
             <Dumbbell className="w-4 h-4" />
-            <span className="text-sm font-medium">Plataforma White Label para Personal Trainers</span>
+            <span className="text-sm font-medium">Metsuke - Plataforma White Label para Personal Trainers</span>
           </div>
 
           <h1 className="text-5xl md:text-7xl font-bold leading-tight animate-fade-in-up">
@@ -26,7 +26,7 @@ const Hero = () => {
           </h1>
 
           <p className="text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto animate-fade-in-up" style={{ animationDelay: "0.1s" }}>
-            A estrutura é nossa, a personalização é sua. Gerencie alunos, crie fichas de treino e mantenha seu time conectado em uma plataforma 100% customizável com sua marca.
+            A estrutura é nossa, a personalização é sua. O <strong>Metsuke</strong> permite gerenciar alunos, criar fichas de treino e manter seu time conectado em uma plataforma 100% customizável com sua marca.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-fade-in-up" style={{ animationDelay: "0.2s" }}>
@@ -43,7 +43,7 @@ const Hero = () => {
             </Button>
           </div>
 
-          {/* Grid de Features (Mantida, apenas omitida para brevidade) */}
+          {/* Grid de Features (Mantida) */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 pt-12 animate-fade-in-up" style={{ animationDelay: "0.3s" }}>
              <div className="flex flex-col items-center gap-2 p-4 rounded-lg bg-card/50 backdrop-blur-sm border border-border hover:border-primary/50 transition-all hover:shadow-md">
               <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">

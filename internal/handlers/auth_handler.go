@@ -92,7 +92,8 @@ func (h *authHandler) handleForgotPassword(w http.ResponseWriter, r *http.Reques
 	}
 
 	go func() {
-		if err := h.emailService.SendResetPasswordEmail(req.Email, token); err != nil {
+		// CORREÇÃO AQUI: SendPasswordResetEmail (conforme definido no email_service.go)
+		if err := h.emailService.SendPasswordResetEmail(req.Email, token); err != nil {
 			log.Printf("ERRO CRÍTICO: Falha ao enviar email de recuperação para %s: %v", req.Email, err)
 		} else {
 			log.Printf("Email de recuperação enviado para %s (Tipo: %s)", req.Email, table)
