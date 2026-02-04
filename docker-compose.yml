@@ -1,28 +1,25 @@
+version: '3.8'
+
 services:
-  # --- O CORAÇÃO DO SISTEMA: API (Backend em Go) ---
-  api:
+  # --- BACKEND (API em Go) ---
+  backend:
     build: .
-    container_name: appfitness-backend
+    container_name: metsuke-backend-dev
     restart: always
     ports:
       - "8080:8080"
     environment:
-      # Dados do Banco (Agora seguros, lendo do .env)
       - DB_HOST=postgres
       - DB_PORT=5432
       - DB_USER=${DB_USER}
       - DB_PASSWORD=${DB_PASSWORD}
       - DB_NAME=${DB_NAME}
-      
-      # Segurança e Configurações Gerais
       - JWT_SECRET=${JWT_SECRET}
       - PORT=8080
       
-      # Integração Asaas
+      # Integrações
       - ASAAS_API_URL=${ASAAS_API_URL}
       - ASAAS_API_KEY=${ASAAS_API_KEY}
-
-      # --- NOVO: Configurações de E-mail (CRUCIAL PARA O RESEND) ---
       - SMTP_HOST=${SMTP_HOST}
       - SMTP_PORT=${SMTP_PORT}
       - SMTP_USER=${SMTP_USER}
@@ -33,15 +30,14 @@ services:
     volumes:
       - ./uploads:/app/uploads
     networks:
-      - appfitness-network
+      - metsuke-network
 
-  # --- BANCO DE DADOS (PostgreSQL) ---
+  # --- BANCO DE DADOS ---
   postgres:
     image: postgres:14-alpine
-    container_name: appfitness-db
+    container_name: metsuke-db-dev
     restart: always
     environment:
-      # Puxando as mesmas variáveis do .env para garantir sincronia com a API
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_NAME}
@@ -51,18 +47,18 @@ services:
     ports:
       - "5433:5432"
     networks:
-      - appfitness-network
+      - metsuke-network
 
-  # --- GERENCIADOR DO BANCO (Adminer) ---
+  # --- ADMINER (Visualizar Banco) ---
   adminer:
     image: adminer
-    container_name: appfitness-adminer
+    container_name: metsuke-adminer
     restart: always
     ports:
       - "8081:8080"
     networks:
-      - appfitness-network
+      - metsuke-network
 
 networks:
-  appfitness-network:
+  metsuke-network:
     driver: bridge

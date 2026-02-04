@@ -1,50 +1,101 @@
-services:
-  # 1. Serviço da API (Backend Go)
-  api:
-    build:
-      context: . 
-      dockerfile: Dockerfile 
-    restart: always
-    env_file:
-      - .env 
-    depends_on:
-      - postgres 
-    networks:
-      - appfitness-network
+version: '3.8'
 
-  # 2. Serviço do Web Server (Frontend Caddy)
-  web:
-    image: caddy:2-alpine 
+services:
+  # --- 1. BACKEND (Sua API em Go) ---
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: metsuke-backend
+    restart: always
+    environment:
+      # Conexão com o Banco
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      
+      # Configurações do App
+      - JWT_SECRET=${JWT_SECRET}
+      - PORT=8080
+      
+      # Integrações (Pode deixar com valores de teste por enquanto)
+      - ASAAS_API_URL=${ASAAS_API_URL} # Ex: https://sandbox.asaas.com/api/v3
+      - ASAAS_API_KEY=${ASAAS_API_KEY}
+      
+      # E-mail (Se não configurou o Zoho ainda, o envio falhará, mas o app sobe)
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - SMTP_FROM=${SMTP_FROM}
+    depends_on:
+      - postgres
+    volumes:
+      - ./uploads:/app/uploads
+    networks:
+      - metsuke-network
+
+  # --- 2. FRONTEND (Nginx servindo o que o Vite construiu) ---
+  frontend:
+    image: nginx:alpine
+    container_name: metsuke-frontend
+    restart: always
+    volumes:
+      # IMPORTANTE: Mapeia a pasta 'dist' que você criou com 'npm run build'
+      - ./frontend/dist:/usr/share/nginx/html
+    # Configuração automática para SPA (React Router) não quebrar no F5
+    command: >
+      /bin/sh -c "echo 'server {
+      listen 80;
+      root /usr/share/nginx/html;
+      index index.html;
+      location / { try_files \$$uri /index.html; }
+      }' > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"
+    networks:
+      - metsuke-network
+
+  # --- 3. GATEWAY (Caddy: O Porteiro com HTTPS) ---
+  caddy:
+    image: caddy:2-alpine
+    container_name: metsuke-caddy
     restart: always
     ports:
       - "80:80"
-      - "443:443" 
+      - "443:443"
     volumes:
-      - ./frontend/dist:/srv/app
       - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+      # Mapeamento para uploads (se ainda usar local)
+      - ./uploads:/srv/uploads
     depends_on:
-      - api 
+      - backend
+      - frontend
     networks:
-      - appfitness-network
+      - metsuke-network
 
-  # 3. Serviço da Base de Dados (PostgreSQL)
+  # --- 4. BANCO DE DADOS ---
   postgres:
     image: postgres:14-alpine
+    container_name: metsuke-db
     restart: always
-    # MELHORIA: Mapeamento explícito para garantir que o banco pegue a senha do .env
     environment:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_NAME}
     volumes:
-      - appfitness-data:/var/lib/postgresql/data
+      - metsuke-data:/var/lib/postgresql/data
       - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
-      - appfitness-network
+      - metsuke-network
 
 volumes:
-  appfitness-data: 
+  metsuke-data:
+  caddy_data:
+  caddy_config:
 
 networks:
-  appfitness-network:
+  metsuke-network:
     driver: bridge
