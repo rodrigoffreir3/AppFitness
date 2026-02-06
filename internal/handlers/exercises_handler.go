@@ -2,36 +2,37 @@ package handlers
 
 import (
 	"appfitness/internal/middleware"
+	"appfitness/internal/services" // <--- Importar services
 	"database/sql"
 	"encoding/json"
 	"log"
 	"net/http"
 )
 
-// RegisterExercisesRoutes regista as rotas da biblioteca de exercícios.
-func RegisterExercisesRoutes(mux *http.ServeMux, db *sql.DB) {
-	h := &exercisesHandler{db: db}
+// Alterada assinatura para receber storage
+func RegisterExercisesRoutes(mux *http.ServeMux, db *sql.DB, storage *services.StorageService) {
+	h := &exercisesHandler{
+		db:      db,
+		storage: storage, // Injeção
+	}
 	listHandler := http.HandlerFunc(h.handleListExercises)
-	// Protegemos a rota para que apenas utilizadores logados possam ver a biblioteca
 	mux.Handle("GET /api/exercises", middleware.AuthMiddleware(listHandler))
 }
 
 type exercisesHandler struct {
-	db *sql.DB
+	db      *sql.DB
+	storage *services.StorageService // Campo novo
 }
 
-// Atualizado para incluir VideoURL e permitir nulos (ponteiro *string)
 type ExerciseResponse struct {
 	ID          string  `json:"id"`
 	Name        string  `json:"name"`
 	MuscleGroup string  `json:"muscle_group"`
 	Equipment   string  `json:"equipment"`
-	VideoURL    *string `json:"video_url"` // Novo campo
+	VideoURL    *string `json:"video_url"`
 }
 
 func (h *exercisesHandler) handleListExercises(w http.ResponseWriter, r *http.Request) {
-	// A query agora usa COALESCE para evitar erro 500 se o campo for NULL no banco
-	// E busca também o video_url
 	query := `
 		SELECT 
 			id, 
@@ -44,8 +45,8 @@ func (h *exercisesHandler) handleListExercises(w http.ResponseWriter, r *http.Re
 
 	rows, err := h.db.QueryContext(r.Context(), query)
 	if err != nil {
-		log.Printf("Erro ao listar exercícios da biblioteca: %v", err)
-		http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
+		log.Printf("Erro ao listar exercícios: %v", err)
+		http.Error(w, "Erro interno", http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
@@ -53,16 +54,26 @@ func (h *exercisesHandler) handleListExercises(w http.ResponseWriter, r *http.Re
 	var exercises []ExerciseResponse
 	for rows.Next() {
 		var ex ExerciseResponse
-		// Adicionado &ex.VideoURL no Scan
 		if err := rows.Scan(&ex.ID, &ex.Name, &ex.MuscleGroup, &ex.Equipment, &ex.VideoURL); err != nil {
-			log.Printf("Erro ao escanear exercício da biblioteca: %v", err)
-			http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
-			return
+			log.Printf("Erro scan: %v", err)
+			continue
 		}
+
+		// --- ASSINATURA DA URL ---
+		if ex.VideoURL != nil && *ex.VideoURL != "" {
+			// Gera link temporário seguro
+			signed, err := h.storage.GetSignedURL(*ex.VideoURL)
+			if err == nil {
+				ex.VideoURL = &signed
+			} else {
+				log.Printf("Erro ao assinar video %s: %v", ex.Name, err)
+			}
+		}
+		// -------------------------
+
 		exercises = append(exercises, ex)
 	}
 
-	// Garante que retorna array vazio [] em vez de null se não tiver nada
 	if exercises == nil {
 		exercises = []ExerciseResponse{}
 	}

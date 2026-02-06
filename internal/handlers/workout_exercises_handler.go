@@ -1,8 +1,8 @@
-// internal/handlers/workout_exercises_handler.go
 package handlers
 
 import (
 	"appfitness/internal/middleware"
+	"appfitness/internal/services" // Importamos o services
 	"appfitness/internal/types"
 	"database/sql"
 	"encoding/json"
@@ -10,8 +10,12 @@ import (
 	"net/http"
 )
 
-func RegisterWorkoutExercisesRoutes(mux *http.ServeMux, db *sql.DB) {
-	h := &workoutExercisesHandler{db: db}
+// RegisterWorkoutExercisesRoutes agora recebe o *services.StorageService
+func RegisterWorkoutExercisesRoutes(mux *http.ServeMux, db *sql.DB, storage *services.StorageService) {
+	h := &workoutExercisesHandler{
+		db:      db,
+		storage: storage, // Injeção do serviço
+	}
 
 	addHandler := http.HandlerFunc(h.handleAddExerciseToWorkout)
 	listHandler := http.HandlerFunc(h.handleListExercisesInWorkout)
@@ -25,7 +29,8 @@ func RegisterWorkoutExercisesRoutes(mux *http.ServeMux, db *sql.DB) {
 }
 
 type workoutExercisesHandler struct {
-	db *sql.DB
+	db      *sql.DB
+	storage *services.StorageService // Campo para o serviço de storage
 }
 
 type AddExerciseRequest struct {
@@ -121,10 +126,12 @@ func (h *workoutExercisesHandler) handleDeleteExerciseFromWorkout(w http.Respons
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// handleListExercisesInWorkout MODIFICADO para incluir video_url
+// handleListExercisesInWorkout busca os exercícios e ASSINA AS URLs DE VÍDEO
 func (h *workoutExercisesHandler) handleListExercisesInWorkout(w http.ResponseWriter, r *http.Request) {
 	trainerID := r.Context().Value(middleware.TrainerIDKey).(string)
 	workoutID := r.PathValue("workout_id")
+
+	// Verifica se o treino existe e pertence ao trainer
 	var ownerTrainerID string
 	err := h.db.QueryRowContext(r.Context(), "SELECT trainer_id FROM workouts WHERE id = $1 AND trainer_id = $2", workoutID, trainerID).Scan(&ownerTrainerID)
 	if err != nil {
@@ -137,7 +144,7 @@ func (h *workoutExercisesHandler) handleListExercisesInWorkout(w http.ResponseWr
 		return
 	}
 
-	// Consulta SQL atualizada: Inclui COALESCE(e.video_url, '')
+	// Consulta SQL: Busca dados do exercício JOIN dados da biblioteca (nome, vídeo)
 	query := `
 		SELECT
 			we.id, we.exercise_id, e.name, COALESCE(e.video_url, ''), we.sets, we.reps, we.rest_period_seconds,
@@ -158,22 +165,39 @@ func (h *workoutExercisesHandler) handleListExercisesInWorkout(w http.ResponseWr
 	var exercises []types.WorkoutExerciseResponse
 	for rows.Next() {
 		var ex types.WorkoutExerciseResponse
-		// Scan atualizado: Inclui &ex.VideoURL logo após o nome
+		// Scan mapeia as colunas do banco para a struct
 		if err := rows.Scan(&ex.ID, &ex.ExerciseID, &ex.ExerciseName, &ex.VideoURL, &ex.Sets, &ex.Reps, &ex.RestPeriodSeconds, &ex.Order, &ex.Notes, &ex.ExecutionDetails); err != nil {
 			log.Printf("Erro ao escanear linha de exercício do treino: %v", err)
 			http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
 			return
 		}
+
+		// --- MUDANÇA PRINCIPAL AQUI ---
+		// Se houver URL de vídeo, geramos uma URL assinada temporária
+		if ex.VideoURL != "" {
+			signedURL, err := h.storage.GetSignedURL(ex.VideoURL)
+			if err == nil {
+				ex.VideoURL = signedURL // Substitui a URL original pela segura
+			} else {
+				// Se der erro ao assinar, loga mas não quebra a requisição
+				log.Printf("Erro ao assinar URL do video %s: %v", ex.ExerciseName, err)
+			}
+		}
+		// ------------------------------
+
 		exercises = append(exercises, ex)
 	}
+
 	if err = rows.Err(); err != nil {
 		log.Printf("Erro após iteração de exercícios do treino: %v", err)
 		http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
 		return
 	}
+
 	if exercises == nil {
 		exercises = []types.WorkoutExerciseResponse{}
 	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(exercises)
 }
@@ -181,6 +205,7 @@ func (h *workoutExercisesHandler) handleListExercisesInWorkout(w http.ResponseWr
 func (h *workoutExercisesHandler) handleAddExerciseToWorkout(w http.ResponseWriter, r *http.Request) {
 	trainerID := r.Context().Value(middleware.TrainerIDKey).(string)
 	workoutID := r.PathValue("workout_id")
+
 	var ownerTrainerID string
 	err := h.db.QueryRowContext(r.Context(), "SELECT trainer_id FROM workouts WHERE id = $1", workoutID).Scan(&ownerTrainerID)
 	if err != nil {
@@ -196,6 +221,7 @@ func (h *workoutExercisesHandler) handleAddExerciseToWorkout(w http.ResponseWrit
 		http.Error(w, "Este treino não pertence a você", http.StatusForbidden)
 		return
 	}
+
 	var req AddExerciseRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Corpo da requisição inválido", http.StatusBadRequest)

@@ -4,6 +4,7 @@ import (
 	"appfitness/internal/chat"
 	"appfitness/internal/database"
 	"appfitness/internal/handlers"
+	"appfitness/internal/services" // <--- 1. Importar services
 	"log"
 	"net/http"
 	"os"
@@ -28,6 +29,16 @@ func main() {
 	defer db.Close()
 	log.Println("Conexão com o banco de dados estabelecida com sucesso!")
 
+	// --- 2. INICIALIZA O STORAGE (R2) ---
+	storageService := services.NewStorageService(
+		os.Getenv("R2_ACCOUNT_ID"),
+		os.Getenv("R2_ACCESS_KEY"),
+		os.Getenv("R2_SECRET_KEY"),
+		os.Getenv("R2_BUCKET_NAME"),
+		os.Getenv("R2_PUBLIC_DOMAIN"),
+	)
+	log.Println("Serviço de Storage R2 inicializado.")
+
 	hub := chat.NewHub(db)
 	go hub.Run()
 
@@ -38,25 +49,25 @@ func main() {
 	handlers.RegisterTrainersRoutes(mux, db)
 	handlers.RegisterStudentsRoutes(mux, db)
 	handlers.RegisterWorkoutsRoutes(mux, db)
-	handlers.RegisterWorkoutExercisesRoutes(mux, db)
+
+	// --- 3. INJETAR O STORAGE NAS ROTAS DE EXERCÍCIOS ---
+	// Estas duas rotas agora precisam do storageService para assinar os vídeos
+	handlers.RegisterWorkoutExercisesRoutes(mux, db, storageService)
+	handlers.RegisterExercisesRoutes(mux, db, storageService)
+
 	handlers.RegisterChatRoutes(mux, hub, db)
 	handlers.RegisterAnnouncementsRoutes(mux, db)
-	handlers.RegisterExercisesRoutes(mux, db)
+	// handlers.RegisterExercisesRoutes removido daqui pois foi chamado acima
 	handlers.RegisterDietsRoutes(mux, db)
 	handlers.RegisterSubscriptionRoutes(mux, db)
 	handlers.RegisterWebhookRoutes(mux, db)
 	handlers.RegisterAuthRoutes(mux, db)
 
-	// --- NOVO: Rota de Upload ---
-	// CORREÇÃO: Adicionado "POST " explicitamente para evitar conflitos
+	// --- Rota de Upload ---
 	mux.HandleFunc("POST /api/upload", handlers.HandleUpload)
 
-	// --- NOVO: Servidor de Arquivos Estáticos ---
-	// Permite acessar http://localhost:8080/uploads/arquivo.pdf
+	// --- Servidor de Arquivos Estáticos ---
 	fs := http.FileServer(http.Dir("./uploads"))
-
-	// CORREÇÃO: Adicionado "GET " explicitamente.
-	// O StripPrefix remove "/uploads/" da URL antes de procurar na pasta
 	mux.Handle("GET /uploads/", http.StripPrefix("/uploads/", fs))
 
 	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
@@ -64,7 +75,7 @@ func main() {
 	})
 
 	c := cors.New(cors.Options{
-		AllowedOrigins:   []string{"http://localhost:5173"},
+		AllowedOrigins:   []string{"http://localhost:5173", "https://metsuke.com", "https://www.metsuke.com"}, // Adicionei prod por precaução
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Authorization", "Content-Type"},
 		AllowCredentials: true,
