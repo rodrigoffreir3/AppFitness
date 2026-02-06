@@ -33,7 +33,7 @@ type WorkoutResponse struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	IsActive    bool   `json:"is_active"`
-	FileURL     string `json:"file_url"`
+	FileURL     string `json:"file_url"` // Representa diet_plan_url ou arquivos anexos
 }
 
 // WorkoutExerciseResponse
@@ -41,7 +41,7 @@ type WorkoutExerciseResponse struct {
 	ID                string `json:"id"`
 	ExerciseID        string `json:"exercise_id"`
 	ExerciseName      string `json:"exercise_name"`
-	VideoURL          string `json:"video_url"` // <--- CAMPO ADICIONADO AQUI
+	VideoURL          string `json:"video_url"` // <--- CAMPO IMPORTANTE PARA O VÍDEO
 	Sets              int    `json:"sets"`
 	Reps              string `json:"reps"`
 	RestPeriodSeconds int    `json:"rest_period_seconds"`
