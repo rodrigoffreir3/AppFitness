@@ -12,8 +12,8 @@ import {
   Save,
   Edit,
   Search,
-  Play,
-  Video
+  Video,
+  Link as LinkIcon
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -47,7 +47,7 @@ interface WorkoutExercise {
   id: string;
   exercise_id: string;
   exercise_name: string;
-  video_url?: string; // <--- CORREÇÃO 1: Adicionei este campo que faltava
+  video_url?: string;
   sets: number;
   reps: string;
   rest_period_seconds: number;
@@ -64,10 +64,11 @@ interface LibraryExercise {
   video_url?: string;
 }
 
-// Unificamos o estado do formulário
+// Unificamos o estado do formulário (ADICIONADO video_url)
 interface ExerciseFormData {
   exercise_id: string;
-  exercise_name?: string; // Para mostrar o nome selecionado
+  exercise_name?: string;
+  video_url?: string; // NOVO CAMPO
   sets: number;
   reps: string;
   rest_period_seconds: number;
@@ -76,37 +77,43 @@ interface ExerciseFormData {
   execution_details: string;
 }
 
-// --- Componente Mini Card para o Seletor ---
+// --- HELPERS ---
+const isVimeo = (url: string) => url.includes('vimeo.com') || url.includes('player.vimeo.com');
+
+const getVimeoEmbedUrl = (url: string) => {
+  const vimeoRegex = /vimeo\.com\/(\d+)/;
+  const match = url.match(vimeoRegex);
+  if (match && match[1]) {
+    return `https://player.vimeo.com/video/${match[1]}?badge=0&autopause=0&player_id=0&app_id=58479`;
+  }
+  return url;
+};
+
+// --- Componente Mini Card para o Seletor (Otimizado) ---
 const MiniExerciseCard = ({ exercise, onSelect, isSelected }: { exercise: LibraryExercise, onSelect: () => void, isSelected: boolean }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [isVisible, setIsVisible] = useState(false);
 
-  const handleMouseEnter = () => {
-    if (videoRef.current) {
-      const playPromise = videoRef.current.play();
-      if (playPromise !== undefined) {
-        playPromise.then(() => setIsPlaying(true)).catch(() => {});
-      }
-    }
-  };
-
-  const handleMouseLeave = () => {
-    if (videoRef.current) {
-      videoRef.current.pause();
-      videoRef.current.currentTime = 0;
-      setIsPlaying(false);
-    }
-  };
+  useEffect(() => {
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) setIsVisible(true);
+      else setIsVisible(false);
+    }, { threshold: 0.1 });
+    if (containerRef.current) observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
 
   return (
     <Card 
+      ref={containerRef}
       className={`overflow-hidden cursor-pointer transition-all group border shadow-sm ${isSelected ? 'ring-2 ring-primary border-primary' : 'hover:border-primary/50'}`}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
+      onMouseEnter={() => { if(videoRef.current && isVisible) videoRef.current.play().catch(()=>{}) }}
+      onMouseLeave={() => { if(videoRef.current) { videoRef.current.pause(); videoRef.current.currentTime = 0; } }}
       onClick={onSelect}
     >
       <div className="relative aspect-video bg-black/5 overflow-hidden">
-        {exercise.video_url ? (
+        {exercise.video_url && isVisible ? (
           <video
             ref={videoRef}
             src={exercise.video_url}
@@ -121,16 +128,7 @@ const MiniExerciseCard = ({ exercise, onSelect, isSelected }: { exercise: Librar
              <Video className="h-8 w-8 opacity-20" />
           </div>
         )}
-        
-        {exercise.video_url && !isPlaying && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/10 group-hover:bg-transparent transition-all">
-            <div className="bg-black/50 p-2 rounded-full backdrop-blur-sm group-hover:opacity-0 transition-opacity">
-               <Play className="h-4 w-4 text-white fill-current" />
-            </div>
-          </div>
-        )}
       </div>
-      
       <CardContent className="p-2">
         <h3 className="font-semibold text-xs truncate" title={exercise.name}>
           {exercise.name}
@@ -143,6 +141,126 @@ const MiniExerciseCard = ({ exercise, onSelect, isSelected }: { exercise: Librar
   );
 };
 
+// --- NOVO COMPONENTE: ITEM DA LISTA (Otimizado para iOS) ---
+// Extraído para permitir Lazy Loading individual
+const TrainerExerciseItem = ({ 
+  exercise, 
+  onEdit, 
+  onDelete 
+}: { 
+  exercise: WorkoutExercise; 
+  onEdit: (ex: WorkoutExercise) => void;
+  onDelete: (id: string) => void;
+}) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(([entry]) => {
+      setIsVisible(entry.isIntersecting);
+    }, { threshold: 0.1, rootMargin: '100px' });
+
+    if (containerRef.current) observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  const renderVideo = () => {
+    if (!exercise.video_url) {
+      return (
+        <span className="font-mono text-2xl font-bold text-muted-foreground/50">
+          #{exercise.order}
+        </span>
+      );
+    }
+
+    if (!isVisible) return <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />;
+
+    if (isVimeo(exercise.video_url)) {
+      return (
+        <iframe 
+          src={getVimeoEmbedUrl(exercise.video_url)} 
+          className="w-full h-full" 
+          frameBorder="0" 
+          allow="autoplay; fullscreen; picture-in-picture" 
+          allowFullScreen
+        />
+      );
+    }
+
+    return (
+      <video 
+        src={exercise.video_url} 
+        className="w-full h-full object-cover max-h-24 sm:max-h-full"
+        muted 
+        playsInline
+        loop
+        onMouseOver={e => e.currentTarget.play().catch(()=>{})}
+        onMouseOut={e => { e.currentTarget.pause(); e.currentTarget.currentTime = 0; }}
+      />
+    );
+  };
+
+  return (
+    <Card className="overflow-hidden group hover:border-primary/30 transition-all">
+      <div className="flex flex-col sm:flex-row h-full">
+        <div ref={containerRef} className="relative w-full sm:w-32 bg-black/5 flex items-center justify-center border-r border-border/50 min-h-[100px] sm:min-h-full">
+          {renderVideo()}
+          {exercise.video_url && (
+            <div className="absolute top-1 left-1 bg-black/60 text-white text-xs px-1.5 py-0.5 rounded font-mono">
+              #{exercise.order}
+            </div>
+          )}
+        </div>
+        
+        <div className="flex-1 p-4 flex flex-col justify-center">
+          <h3 className="font-semibold text-lg mb-2">{exercise.exercise_name}</h3>
+          
+          <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted-foreground">
+            <div className="flex items-center gap-1.5">
+              <RotateCcw className="h-4 w-4 text-primary" />
+              <span className="font-medium text-foreground">{exercise.sets}</span> séries
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Dumbbell className="h-4 w-4 text-primary" />
+              <span className="font-medium text-foreground">{exercise.reps}</span> reps
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Clock className="h-4 w-4 text-primary" />
+              <span className="font-medium text-foreground">{exercise.rest_period_seconds}s</span> descanso
+            </div>
+          </div>
+
+          {exercise.notes && (
+            <div className="mt-3 text-sm bg-yellow-50/50 p-2 rounded border border-yellow-100 text-muted-foreground">
+              💡 {exercise.notes}
+            </div>
+          )}
+        </div>
+
+        <div className="p-2 sm:p-4 flex items-center justify-end gap-2 border-t sm:border-t-0 sm:border-l border-border/50 bg-muted/10 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="text-muted-foreground hover:text-primary hover:bg-primary/10"
+            onClick={() => onEdit(exercise)}
+          >
+            <Edit className="h-5 w-5" />
+          </Button>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+            onClick={() => onDelete(exercise.id)}
+          >
+            <Trash2 className="h-5 w-5" />
+          </Button>
+        </div>
+      </div>
+    </Card>
+  );
+};
+
+// --- PÁGINA PRINCIPAL ---
 const TrainerWorkoutDetails = () => {
   const { workoutId } = useParams<{ workoutId: string }>();
   
@@ -167,6 +285,7 @@ const TrainerWorkoutDetails = () => {
   const [formData, setFormData] = useState<ExerciseFormData>({
     exercise_id: "",
     exercise_name: "",
+    video_url: "", // Inicia vazio
     sets: 3,
     reps: "10-12",
     rest_period_seconds: 60,
@@ -218,6 +337,7 @@ const TrainerWorkoutDetails = () => {
     setFormData({
       exercise_id: "",
       exercise_name: "",
+      video_url: "",
       sets: 3,
       reps: "10-12",
       rest_period_seconds: 60,
@@ -234,6 +354,7 @@ const TrainerWorkoutDetails = () => {
     setFormData({
       exercise_id: exercise.exercise_id,
       exercise_name: exercise.exercise_name,
+      video_url: exercise.video_url || "",
       sets: exercise.sets,
       reps: exercise.reps,
       rest_period_seconds: exercise.rest_period_seconds,
@@ -255,6 +376,7 @@ const TrainerWorkoutDetails = () => {
     try {
       const payload = {
         exercise_id: formData.exercise_id, // Importante mandar o ID
+        video_url: formData.video_url, // Salva o link Custom (Vimeo) ou original
         sets: Number(formData.sets),
         reps: formData.reps,
         rest_period_seconds: Number(formData.rest_period_seconds),
@@ -442,7 +564,8 @@ const TrainerWorkoutDetails = () => {
                                   setFormData({
                                     ...formData, 
                                     exercise_id: ex.id, 
-                                    exercise_name: ex.name 
+                                    exercise_name: ex.name,
+                                    video_url: ex.video_url // Pega o vídeo padrão ao selecionar
                                   });
                                   setIsSelectorOpen(false); // Fecha o seletor após escolher
                                 }}
@@ -454,6 +577,20 @@ const TrainerWorkoutDetails = () => {
                     </DialogContent>
                   </Dialog>
                 )}
+              </div>
+
+              {/* INPUT DE VÍDEO PERSONALIZADO (NOVO) */}
+              <div className="grid gap-2">
+                <Label className="flex items-center gap-2">
+                  <LinkIcon className="h-3.5 w-3.5 text-blue-500" /> 
+                  Link de Vídeo Personalizado <span className="text-xs font-normal text-muted-foreground">(Vimeo ou MP4)</span>
+                </Label>
+                <Input 
+                  placeholder="https://vimeo.com/..." 
+                  value={formData.video_url || ""}
+                  onChange={(e) => setFormData({...formData, video_url: e.target.value})}
+                />
+                <p className="text-[10px] text-muted-foreground">Deixe em branco para usar o vídeo padrão da biblioteca.</p>
               </div>
 
               {/* Restante do Formulário (Séries, Reps...) */}
@@ -517,7 +654,7 @@ const TrainerWorkoutDetails = () => {
         </Dialog>
       </div>
 
-      {/* Lista de Exercícios Adicionados à Ficha */}
+      {/* Lista de Exercícios Adicionados à Ficha (USANDO NOVO COMPONENTE) */}
       <div className="grid gap-4">
         {exercises.length === 0 ? (
           <div className="text-center py-12 border-2 border-dashed rounded-xl bg-muted/20">
@@ -527,85 +664,12 @@ const TrainerWorkoutDetails = () => {
           </div>
         ) : (
           exercises.map((exercise) => (
-            <Card key={exercise.id} className="overflow-hidden group hover:border-primary/30 transition-all">
-              <div className="flex flex-col sm:flex-row h-full">
-                
-                {/* CORREÇÃO 2: Renderização do Vídeo ou Ordem */}
-                <div className="relative w-full sm:w-32 bg-black/5 flex items-center justify-center border-r border-border/50">
-                  {exercise.video_url ? (
-                    <video 
-                      src={exercise.video_url} 
-                      className="w-full h-full object-cover max-h-24 sm:max-h-full"
-                      muted 
-                      playsInline
-                      onMouseOver={e => e.currentTarget.play()}
-                      onMouseOut={e => {
-                        e.currentTarget.pause();
-                        e.currentTarget.currentTime = 0;
-                      }}
-                    />
-                  ) : (
-                    // Se não tiver vídeo, mostra só o número da ordem grandão
-                    <span className="font-mono text-2xl font-bold text-muted-foreground/50">
-                      #{exercise.order}
-                    </span>
-                  )}
-                  
-                  {/* Badge da Ordem (sobreposto ao vídeo) */}
-                  {exercise.video_url && (
-                    <div className="absolute top-1 left-1 bg-black/60 text-white text-xs px-1.5 py-0.5 rounded font-mono">
-                      #{exercise.order}
-                    </div>
-                  )}
-                </div>
-                
-                {/* Dados do Exercício */}
-                <div className="flex-1 p-4 flex flex-col justify-center">
-                  <h3 className="font-semibold text-lg mb-2">{exercise.exercise_name}</h3>
-                  
-                  <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted-foreground">
-                    <div className="flex items-center gap-1.5">
-                      <RotateCcw className="h-4 w-4 text-primary" />
-                      <span className="font-medium text-foreground">{exercise.sets}</span> séries
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <Dumbbell className="h-4 w-4 text-primary" />
-                      <span className="font-medium text-foreground">{exercise.reps}</span> reps
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <Clock className="h-4 w-4 text-primary" />
-                      <span className="font-medium text-foreground">{exercise.rest_period_seconds}s</span> descanso
-                    </div>
-                  </div>
-
-                  {exercise.notes && (
-                    <div className="mt-3 text-sm bg-yellow-50/50 p-2 rounded border border-yellow-100 text-muted-foreground">
-                      💡 {exercise.notes}
-                    </div>
-                  )}
-                </div>
-
-                {/* Ações (Editar e Deletar) */}
-                <div className="p-2 sm:p-4 flex items-center justify-end gap-2 border-t sm:border-t-0 sm:border-l border-border/50 bg-muted/10 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="text-muted-foreground hover:text-primary hover:bg-primary/10"
-                    onClick={() => openEditDialog(exercise)}
-                  >
-                    <Edit className="h-5 w-5" />
-                  </Button>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                    onClick={() => handleDeleteExercise(exercise.id)}
-                  >
-                    <Trash2 className="h-5 w-5" />
-                  </Button>
-                </div>
-              </div>
-            </Card>
+            <TrainerExerciseItem 
+              key={exercise.id} 
+              exercise={exercise} 
+              onEdit={openEditDialog}
+              onDelete={handleDeleteExercise}
+            />
           ))
         )}
       </div>

@@ -35,21 +35,21 @@ type CreateWorkoutRequest struct {
 	StudentID   string `json:"student_id"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
-	FileURL     string `json:"file_url"` // No banco: diet_plan_url
+	FileURL     string `json:"file_url"` // Mapeado para diet_plan_url no banco se necessário
 }
 
 type UpdateWorkoutRequest struct {
 	Name        *string `json:"name"`
 	Description *string `json:"description"`
 	IsActive    *bool   `json:"is_active"`
-	FileURL     *string `json:"file_url"` // No banco: diet_plan_url
+	FileURL     *string `json:"file_url"`
 }
 
 func (h *workoutsHandler) handleListWorkouts(w http.ResponseWriter, r *http.Request) {
 	trainerID := r.Context().Value(middleware.TrainerIDKey).(string)
 	studentID := r.URL.Query().Get("student_id")
 
-	// SE O student_id FOR FORNECIDO
+	// SE O student_id FOR FORNECIDO (Filtrar por aluno)
 	if studentID != "" {
 		var studentOwnerTrainerID string
 		err := h.db.QueryRowContext(r.Context(), "SELECT trainer_id FROM students WHERE id = $1 AND trainer_id = $2", studentID, trainerID).Scan(&studentOwnerTrainerID)
@@ -63,7 +63,6 @@ func (h *workoutsHandler) handleListWorkouts(w http.ResponseWriter, r *http.Requ
 			return
 		}
 
-		// CORREÇÃO: file_url -> diet_plan_url
 		query := `SELECT id, student_id, name, description, is_active, COALESCE(diet_plan_url, '') FROM workouts WHERE student_id = $1 ORDER BY created_at DESC`
 		rows, err := h.db.QueryContext(r.Context(), query, studentID)
 		if err != nil {
@@ -98,7 +97,7 @@ func (h *workoutsHandler) handleListWorkouts(w http.ResponseWriter, r *http.Requ
 		json.NewEncoder(w).Encode(workouts)
 
 	} else {
-		// SE O student_id FOR OMITIDO
+		// SE O student_id FOR OMITIDO (Listar todos)
 
 		type WorkoutWithStudentResponse struct {
 			ID          string `json:"id"`
@@ -110,7 +109,6 @@ func (h *workoutsHandler) handleListWorkouts(w http.ResponseWriter, r *http.Requ
 			FileURL     string `json:"file_url"`
 		}
 
-		// CORREÇÃO: w.file_url -> w.diet_plan_url
 		query := `
 			SELECT 
 				w.id, w.student_id, s.name as student_name, 
@@ -159,7 +157,6 @@ func (h *workoutsHandler) handleGetWorkout(w http.ResponseWriter, r *http.Reques
 	workoutID := r.PathValue("id")
 
 	var workout types.WorkoutResponse
-	// CORREÇÃO: file_url -> diet_plan_url
 	query := `SELECT id, student_id, name, description, is_active, COALESCE(diet_plan_url, '') FROM workouts WHERE id = $1 AND trainer_id = $2`
 	err := h.db.QueryRowContext(r.Context(), query, workoutID, trainerID).Scan(&workout.ID, &workout.StudentID, &workout.Name, &workout.Description, &workout.IsActive, &workout.FileURL)
 	if err != nil {
@@ -186,7 +183,6 @@ func (h *workoutsHandler) handleUpdateWorkout(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// CORREÇÃO: file_url -> diet_plan_url
 	query := `UPDATE workouts SET name = COALESCE($1, name), description = COALESCE($2, description), is_active = COALESCE($3, is_active), diet_plan_url = COALESCE($4, diet_plan_url) WHERE id = $5 AND trainer_id = $6`
 	result, err := h.db.ExecContext(r.Context(), query, req.Name, req.Description, req.IsActive, req.FileURL, workoutID, trainerID)
 	if err != nil {
@@ -253,7 +249,6 @@ func (h *workoutsHandler) handleCreateWorkout(w http.ResponseWriter, r *http.Req
 	}
 
 	var newWorkout types.WorkoutResponse
-	// CORREÇÃO: file_url -> diet_plan_url
 	query := `
 		INSERT INTO workouts (name, description, student_id, trainer_id, diet_plan_url)
 		VALUES ($1, $2, $3, $4, $5)

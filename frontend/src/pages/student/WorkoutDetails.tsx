@@ -33,29 +33,66 @@ interface WorkoutDetailsData {
   exercises: WorkoutExerciseResponse[];
 }
 
-// --- SUB-COMPONENTE: CARD DO EXERCÍCIO (Com lógica de vídeo inteligente) ---
+// --- HELPER: Detectar Vimeo ---
+const isVimeo = (url: string) => url.includes('vimeo.com') || url.includes('player.vimeo.com');
+
+const getVimeoEmbedUrl = (url: string) => {
+  const vimeoRegex = /vimeo\.com\/(\d+)/;
+  const match = url.match(vimeoRegex);
+  if (match && match[1]) {
+    return `https://player.vimeo.com/video/${match[1]}?title=0&byline=0&portrait=0`;
+  }
+  return url;
+};
+
+// --- SUB-COMPONENTE: CARD DO EXERCÍCIO (Otimizado + Vimeo) ---
 const StudentExerciseCard = ({ exercise }: { exercise: WorkoutExerciseResponse }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isVisible, setIsVisible] = useState(false); // Lazy Load State
+
+  // Lazy Loading Logic
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+        } else {
+          setIsVisible(false);
+          setIsPlaying(false); // Pausa se sair da tela para poupar bateria
+        }
+      },
+      { threshold: 0.1, rootMargin: '200px' } // Carrega um pouco antes de aparecer
+    );
+
+    if (containerRef.current) {
+      observer.observe(containerRef.current);
+    }
+
+    return () => {
+      if (containerRef.current) observer.disconnect();
+    };
+  }, []);
 
   // Lógica de Mouse (Desktop)
   const handleMouseEnter = () => {
-    if (videoRef.current) {
+    if (videoRef.current && isVisible && !isVimeo(exercise.video_url || '')) {
       videoRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
     }
   };
 
   const handleMouseLeave = () => {
-    if (videoRef.current) {
+    if (videoRef.current && !isVimeo(exercise.video_url || '')) {
       videoRef.current.pause();
-      videoRef.current.currentTime = 0; // Opcional: Voltar ao início ao tirar o mouse
+      videoRef.current.currentTime = 0;
       setIsPlaying(false);
     }
   };
 
   // Lógica de Toque/Clique (Mobile e Desktop)
   const togglePlay = () => {
-    if (!videoRef.current) return;
+    if (!videoRef.current || !isVisible || isVimeo(exercise.video_url || '')) return;
     
     if (isPlaying) {
       videoRef.current.pause();
@@ -65,36 +102,66 @@ const StudentExerciseCard = ({ exercise }: { exercise: WorkoutExerciseResponse }
     }
   };
 
+  const renderVideoContent = () => {
+    if (!isVisible) {
+      return (
+        <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+          <Loader2 className="h-6 w-6 text-gray-300 animate-spin" />
+        </div>
+      );
+    }
+
+    if (exercise.video_url && isVimeo(exercise.video_url)) {
+      return (
+        <iframe 
+          src={getVimeoEmbedUrl(exercise.video_url)} 
+          className="w-full h-full" 
+          frameBorder="0" 
+          allow="autoplay; fullscreen; picture-in-picture" 
+          allowFullScreen
+          title={exercise.exercise_name}
+        />
+      );
+    }
+
+    return (
+      <>
+        <video 
+          ref={videoRef}
+          src={exercise.video_url} 
+          className="w-full h-full object-cover"
+          muted 
+          loop 
+          playsInline // Essencial para iPhone
+          preload="metadata"
+        />
+        <div 
+          className={`absolute inset-0 flex items-center justify-center bg-black/10 transition-opacity duration-300 ${isPlaying ? 'opacity-0' : 'opacity-100'}`}
+        >
+          <div className="bg-black/40 p-3 rounded-full backdrop-blur-sm border border-white/20">
+             {isPlaying ? (
+               <Pause className="h-6 w-6 text-white fill-current" />
+             ) : (
+               <Play className="h-6 w-6 text-white fill-current ml-1" />
+             )}
+          </div>
+        </div>
+      </>
+    );
+  };
+
   return (
     <Card className="overflow-hidden border shadow-sm transition-all hover:shadow-md">
-      {/* Área do Vídeo - Centralizada e contida */}
+      {/* Área do Vídeo */}
       {exercise.video_url && (
-        <div className="pt-6 pb-2 px-4 flex justify-center">
+        <div ref={containerRef} className="pt-6 pb-2 px-4 flex justify-center">
           <div 
             className="relative w-full max-w-[85%] sm:max-w-[400px] aspect-video rounded-xl overflow-hidden bg-black/5 border cursor-pointer group"
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
-            onClick={togglePlay} // Permite clique para mobile
+            onClick={togglePlay}
           >
-            <video 
-              ref={videoRef}
-              src={exercise.video_url} 
-              className="w-full h-full object-cover"
-              muted 
-              loop 
-              playsInline // Essencial para não abrir em tela cheia no iPhone
-            />
-            
-            {/* Overlay de Ícone (Play/Pause) */}
-            <div className={`absolute inset-0 flex items-center justify-center bg-black/10 transition-opacity duration-300 ${isPlaying ? 'opacity-0' : 'opacity-100'}`}>
-              <div className="bg-black/40 p-3 rounded-full backdrop-blur-sm border border-white/20">
-                 {isPlaying ? (
-                   <Pause className="h-6 w-6 text-white fill-current" />
-                 ) : (
-                   <Play className="h-6 w-6 text-white fill-current ml-1" />
-                 )}
-              </div>
-            </div>
+            {renderVideoContent()}
           </div>
         </div>
       )}
@@ -134,7 +201,6 @@ const StudentExerciseCard = ({ exercise }: { exercise: WorkoutExerciseResponse }
           </div>
         </div>
 
-        {/* Detalhes da Execução (Colapsável ou visualmente distinto) */}
         {exercise.execution_details && (
           <div className="text-sm bg-muted/30 p-3 rounded-md border border-border/50">
             <h4 className="font-medium mb-1 flex items-center gap-1.5 text-foreground/80">
@@ -146,7 +212,6 @@ const StudentExerciseCard = ({ exercise }: { exercise: WorkoutExerciseResponse }
           </div>
         )}
 
-        {/* Observações do Treinador */}
         {exercise.notes && (
           <div className="text-sm bg-yellow-50 dark:bg-yellow-950/20 p-3 rounded-md border border-yellow-200/50 dark:border-yellow-900/50">
             <h4 className="font-medium mb-1 text-yellow-700 dark:text-yellow-500">Observações</h4>
@@ -219,7 +284,6 @@ const WorkoutDetails = () => {
 
   return (
     <div className="space-y-6 max-w-3xl mx-auto pb-10">
-      {/* Botão de Voltar */}
       <Button asChild variant="ghost" size="sm" className="w-fit -ml-2 text-muted-foreground hover:text-foreground">
         <Link to="/student/dashboard">
           <ArrowLeft className="mr-2 h-4 w-4" />
@@ -227,7 +291,6 @@ const WorkoutDetails = () => {
         </Link>
       </Button>
 
-      {/* Cabeçalho do Treino */}
       <div className="space-y-2">
         <h1 className="text-3xl font-bold tracking-tight">{data.workout.name}</h1>
         {data.workout.description && (
@@ -235,7 +298,6 @@ const WorkoutDetails = () => {
         )}
       </div>
 
-      {/* Lista de Exercícios usando o novo componente */}
       <div className="space-y-6">
         {data.exercises.length > 0 ? (
           data.exercises.map((exercise) => (

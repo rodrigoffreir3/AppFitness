@@ -25,8 +25,6 @@ import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
 import { useNavigate } from 'react-router-dom';
 
-// REMOVIDO: Import do FileUploader
-
 interface WorkoutWithStudent {
   id: string;
   student_id: string;
@@ -34,7 +32,6 @@ interface WorkoutWithStudent {
   name: string;
   description: string;
   is_active: boolean;
-  // REMOVIDO: file_url
 }
 interface Student {
   id: string;
@@ -45,7 +42,6 @@ interface NewWorkoutForm {
   student_id: string;
   name: string;
   description: string;
-  // REMOVIDO: file_url
 }
 
 const WorkoutsView = () => {
@@ -82,6 +78,7 @@ const WorkoutsView = () => {
       setLoading(false);
     }
   };
+
   useEffect(() => {
     fetchData();
   }, []);
@@ -165,8 +162,6 @@ const WorkoutsView = () => {
               <Badge variant={workout.is_active ? "default" : "outline"} className={workout.is_active ? "" : "border-gray-400 text-gray-500"}>
                 {workout.is_active ? "Ativo" : "Inativo"}
               </Badge>
-
-              {/* REMOVIDO: Botão de ver arquivo */}
               
               <Button 
                 variant="outline" 
@@ -251,8 +246,6 @@ const WorkoutsView = () => {
                   disabled={formLoading}
                 />
               </div>
-
-              {/* REMOVIDO: FileUploader */}
 
               <Button onClick={handleCreateWorkout} className="w-full" disabled={formLoading}>
                 {formLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}

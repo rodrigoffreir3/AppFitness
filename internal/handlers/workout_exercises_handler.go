@@ -2,19 +2,20 @@ package handlers
 
 import (
 	"appfitness/internal/middleware"
-	"appfitness/internal/services" // Importamos o services
+	"appfitness/internal/services"
 	"appfitness/internal/types"
 	"database/sql"
 	"encoding/json"
 	"log"
 	"net/http"
+	"strings"
 )
 
-// RegisterWorkoutExercisesRoutes agora recebe o *services.StorageService
+// RegisterWorkoutExercisesRoutes registra as rotas de exercícios dentro de um treino
 func RegisterWorkoutExercisesRoutes(mux *http.ServeMux, db *sql.DB, storage *services.StorageService) {
 	h := &workoutExercisesHandler{
 		db:      db,
-		storage: storage, // Injeção do serviço
+		storage: storage,
 	}
 
 	addHandler := http.HandlerFunc(h.handleAddExerciseToWorkout)
@@ -30,7 +31,7 @@ func RegisterWorkoutExercisesRoutes(mux *http.ServeMux, db *sql.DB, storage *ser
 
 type workoutExercisesHandler struct {
 	db      *sql.DB
-	storage *services.StorageService // Campo para o serviço de storage
+	storage *services.StorageService
 }
 
 type AddExerciseRequest struct {
@@ -126,7 +127,7 @@ func (h *workoutExercisesHandler) handleDeleteExerciseFromWorkout(w http.Respons
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// handleListExercisesInWorkout busca os exercícios e ASSINA AS URLs DE VÍDEO
+// handleListExercisesInWorkout busca os exercícios e trata URLs de vídeo
 func (h *workoutExercisesHandler) handleListExercisesInWorkout(w http.ResponseWriter, r *http.Request) {
 	trainerID := r.Context().Value(middleware.TrainerIDKey).(string)
 	workoutID := r.PathValue("workout_id")
@@ -172,18 +173,20 @@ func (h *workoutExercisesHandler) handleListExercisesInWorkout(w http.ResponseWr
 			return
 		}
 
-		// --- MUDANÇA PRINCIPAL AQUI ---
-		// Se houver URL de vídeo, geramos uma URL assinada temporária
+		// --- LÓGICA DE URL ---
 		if ex.VideoURL != "" {
-			signedURL, err := h.storage.GetSignedURL(ex.VideoURL)
-			if err == nil {
-				ex.VideoURL = signedURL // Substitui a URL original pela segura
-			} else {
-				// Se der erro ao assinar, loga mas não quebra a requisição
-				log.Printf("Erro ao assinar URL do video %s: %v", ex.ExerciseName, err)
+			// Se começar com http (Vimeo/YouTube), não faz nada.
+			// Se NÃO começar com http (arquivo no R2), assina a URL.
+			if !strings.HasPrefix(ex.VideoURL, "http") {
+				signedURL, err := h.storage.GetSignedURL(ex.VideoURL)
+				if err == nil {
+					ex.VideoURL = signedURL // Substitui pela URL segura temporária
+				} else {
+					log.Printf("Erro ao assinar URL do video %s: %v", ex.ExerciseName, err)
+				}
 			}
 		}
-		// ------------------------------
+		// ---------------------
 
 		exercises = append(exercises, ex)
 	}
