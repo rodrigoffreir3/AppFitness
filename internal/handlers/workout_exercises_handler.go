@@ -42,6 +42,7 @@ type AddExerciseRequest struct {
 	Order             int    `json:"order"`
 	Notes             string `json:"notes"`
 	ExecutionDetails  string `json:"execution_details"`
+	// VideoURL ignorado propositalmente pois a tabela workout_exercises não tem essa coluna ainda
 }
 
 type UpdateWorkoutExerciseRequest struct {
@@ -132,7 +133,6 @@ func (h *workoutExercisesHandler) handleListExercisesInWorkout(w http.ResponseWr
 	trainerID := r.Context().Value(middleware.TrainerIDKey).(string)
 	workoutID := r.PathValue("workout_id")
 
-	// Verifica se o treino existe e pertence ao trainer
 	var ownerTrainerID string
 	err := h.db.QueryRowContext(r.Context(), "SELECT trainer_id FROM workouts WHERE id = $1 AND trainer_id = $2", workoutID, trainerID).Scan(&ownerTrainerID)
 	if err != nil {
@@ -145,7 +145,7 @@ func (h *workoutExercisesHandler) handleListExercisesInWorkout(w http.ResponseWr
 		return
 	}
 
-	// Consulta SQL: Busca dados do exercício JOIN dados da biblioteca (nome, vídeo)
+	// JOIN com exercises para pegar o video_url da biblioteca
 	query := `
 		SELECT
 			we.id, we.exercise_id, e.name, COALESCE(e.video_url, ''), we.sets, we.reps, we.rest_period_seconds,
@@ -166,7 +166,6 @@ func (h *workoutExercisesHandler) handleListExercisesInWorkout(w http.ResponseWr
 	var exercises []types.WorkoutExerciseResponse
 	for rows.Next() {
 		var ex types.WorkoutExerciseResponse
-		// Scan mapeia as colunas do banco para a struct
 		if err := rows.Scan(&ex.ID, &ex.ExerciseID, &ex.ExerciseName, &ex.VideoURL, &ex.Sets, &ex.Reps, &ex.RestPeriodSeconds, &ex.Order, &ex.Notes, &ex.ExecutionDetails); err != nil {
 			log.Printf("Erro ao escanear linha de exercício do treino: %v", err)
 			http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
@@ -175,26 +174,20 @@ func (h *workoutExercisesHandler) handleListExercisesInWorkout(w http.ResponseWr
 
 		// --- LÓGICA DE URL ---
 		if ex.VideoURL != "" {
-			// Se começar com http (Vimeo/YouTube), não faz nada.
-			// Se NÃO começar com http (arquivo no R2), assina a URL.
 			if !strings.HasPrefix(ex.VideoURL, "http") {
+				// É um path do R2 (ex: "videos/agachamento.mp4")
 				signedURL, err := h.storage.GetSignedURL(ex.VideoURL)
 				if err == nil {
-					ex.VideoURL = signedURL // Substitui pela URL segura temporária
+					ex.VideoURL = signedURL
 				} else {
-					log.Printf("Erro ao assinar URL do video %s: %v", ex.ExerciseName, err)
+					log.Printf("ALERTA: Falha ao assinar URL do video '%s' (storage R2 configurado?): %v", ex.ExerciseName, err)
+					// Não limpamos a URL, enviamos a original caso o front consiga resolver de outra forma
 				}
 			}
 		}
 		// ---------------------
 
 		exercises = append(exercises, ex)
-	}
-
-	if err = rows.Err(); err != nil {
-		log.Printf("Erro após iteração de exercícios do treino: %v", err)
-		http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
-		return
 	}
 
 	if exercises == nil {
@@ -242,6 +235,8 @@ func (h *workoutExercisesHandler) handleAddExerciseToWorkout(w http.ResponseWrit
 		ExecutionDetails  string `json:"execution_details"`
 	}
 
+	// IMPORTANTE: Aqui só salvamos dados da tabela workout_exercises.
+	// O vídeo virá da tabela exercises no GET.
 	query := `
 		INSERT INTO workout_exercises (workout_id, exercise_id, sets, reps, rest_period_seconds, "order", notes, execution_details)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)

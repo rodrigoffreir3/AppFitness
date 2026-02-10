@@ -64,11 +64,10 @@ interface LibraryExercise {
   video_url?: string;
 }
 
-// Unificamos o estado do formulário (ADICIONADO video_url)
 interface ExerciseFormData {
   exercise_id: string;
   exercise_name?: string;
-  video_url?: string; // NOVO CAMPO
+  video_url?: string;
   sets: number;
   reps: string;
   rest_period_seconds: number;
@@ -89,11 +88,12 @@ const getVimeoEmbedUrl = (url: string) => {
   return url;
 };
 
-// --- Componente Mini Card para o Seletor (Otimizado) ---
+// --- Componente Mini Card para o Seletor ---
 const MiniExerciseCard = ({ exercise, onSelect, isSelected }: { exercise: LibraryExercise, onSelect: () => void, isSelected: boolean }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isVisible, setIsVisible] = useState(false);
+  const [videoError, setVideoError] = useState(false);
 
   useEffect(() => {
     const observer = new IntersectionObserver(([entry]) => {
@@ -108,12 +108,21 @@ const MiniExerciseCard = ({ exercise, onSelect, isSelected }: { exercise: Librar
     <Card 
       ref={containerRef}
       className={`overflow-hidden cursor-pointer transition-all group border shadow-sm ${isSelected ? 'ring-2 ring-primary border-primary' : 'hover:border-primary/50'}`}
-      onMouseEnter={() => { if(videoRef.current && isVisible) videoRef.current.play().catch(()=>{}) }}
-      onMouseLeave={() => { if(videoRef.current) { videoRef.current.pause(); videoRef.current.currentTime = 0; } }}
+      onMouseEnter={() => { 
+        if(videoRef.current && isVisible && !videoError) {
+          videoRef.current.play().catch(() => {}); // Catch silent errors
+        }
+      }}
+      onMouseLeave={() => { 
+        if(videoRef.current) { 
+          videoRef.current.pause(); 
+          videoRef.current.currentTime = 0; 
+        } 
+      }}
       onClick={onSelect}
     >
       <div className="relative aspect-video bg-black/5 overflow-hidden">
-        {exercise.video_url && isVisible ? (
+        {exercise.video_url && isVisible && !videoError ? (
           <video
             ref={videoRef}
             src={exercise.video_url}
@@ -122,6 +131,7 @@ const MiniExerciseCard = ({ exercise, onSelect, isSelected }: { exercise: Librar
             playsInline
             className="w-full h-full object-cover"
             preload="metadata"
+            onError={() => setVideoError(true)}
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400">
@@ -141,8 +151,7 @@ const MiniExerciseCard = ({ exercise, onSelect, isSelected }: { exercise: Librar
   );
 };
 
-// --- NOVO COMPONENTE: ITEM DA LISTA (Otimizado para iOS) ---
-// Extraído para permitir Lazy Loading individual
+// --- COMPONENTE ITEM DA LISTA (Otimizado e com Tratamento de Erro) ---
 const TrainerExerciseItem = ({ 
   exercise, 
   onEdit, 
@@ -154,6 +163,7 @@ const TrainerExerciseItem = ({
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isVisible, setIsVisible] = useState(false);
+  const [videoError, setVideoError] = useState(false);
 
   useEffect(() => {
     const observer = new IntersectionObserver(([entry]) => {
@@ -165,7 +175,8 @@ const TrainerExerciseItem = ({
   }, []);
 
   const renderVideo = () => {
-    if (!exercise.video_url) {
+    // Se não tem URL ou deu erro no carregamento, mostra o número
+    if (!exercise.video_url || videoError) {
       return (
         <span className="font-mono text-2xl font-bold text-muted-foreground/50">
           #{exercise.order}
@@ -194,8 +205,9 @@ const TrainerExerciseItem = ({
         muted 
         playsInline
         loop
-        onMouseOver={e => e.currentTarget.play().catch(()=>{})}
+        onMouseOver={e => e.currentTarget.play().catch(() => {})}
         onMouseOut={e => { e.currentTarget.pause(); e.currentTarget.currentTime = 0; }}
+        onError={() => setVideoError(true)} // Se o link R2 falhar, fallback para o número
       />
     );
   };
@@ -205,7 +217,8 @@ const TrainerExerciseItem = ({
       <div className="flex flex-col sm:flex-row h-full">
         <div ref={containerRef} className="relative w-full sm:w-32 bg-black/5 flex items-center justify-center border-r border-border/50 min-h-[100px] sm:min-h-full">
           {renderVideo()}
-          {exercise.video_url && (
+          {/* Se tem vídeo e não deu erro, mostra o badge de ordem */}
+          {exercise.video_url && !videoError && (
             <div className="absolute top-1 left-1 bg-black/60 text-white text-xs px-1.5 py-0.5 rounded font-mono">
               #{exercise.order}
             </div>
@@ -272,7 +285,7 @@ const TrainerWorkoutDetails = () => {
   // Estados de UI
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isSelectorOpen, setIsSelectorOpen] = useState(false); // Modal do Seletor
+  const [isSelectorOpen, setIsSelectorOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -285,7 +298,7 @@ const TrainerWorkoutDetails = () => {
   const [formData, setFormData] = useState<ExerciseFormData>({
     exercise_id: "",
     exercise_name: "",
-    video_url: "", // Inicia vazio
+    video_url: "",
     sets: 3,
     reps: "10-12",
     rest_period_seconds: 60,
@@ -310,7 +323,6 @@ const TrainerWorkoutDetails = () => {
         setExercises(exercisesRes.data);
         setLibrary(libraryRes.data);
 
-        // Extrair categorias para o seletor
         const uniqueCategories = Array.from(
           new Set(libraryRes.data.map((e) => e.muscle_group).filter(Boolean))
         ).sort();
@@ -327,7 +339,7 @@ const TrainerWorkoutDetails = () => {
     fetchAllData();
   }, [workoutId]);
 
-  // Função auxiliar para resetar o form (Modo Criar)
+  // Função auxiliar para resetar o form
   const openCreateDialog = () => {
     setEditingId(null);
     const nextOrder = exercises.length > 0 
@@ -348,7 +360,7 @@ const TrainerWorkoutDetails = () => {
     setIsDialogOpen(true);
   };
 
-  // Função para preencher o form (Modo Editar)
+  // Função para preencher o form
   const openEditDialog = (exercise: WorkoutExercise) => {
     setEditingId(exercise.id);
     setFormData({
@@ -375,8 +387,10 @@ const TrainerWorkoutDetails = () => {
     setSaving(true);
     try {
       const payload = {
-        exercise_id: formData.exercise_id, // Importante mandar o ID
-        video_url: formData.video_url, // Salva o link Custom (Vimeo) ou original
+        exercise_id: formData.exercise_id,
+        // Atenção: O backend atual usa o vídeo da biblioteca (exercises table). 
+        // O campo video_url aqui enviado será ignorado a menos que o backend seja atualizado.
+        video_url: formData.video_url, 
         sets: Number(formData.sets),
         reps: formData.reps,
         rest_period_seconds: Number(formData.rest_period_seconds),
@@ -393,7 +407,6 @@ const TrainerWorkoutDetails = () => {
         toast.success("Exercício adicionado!");
       }
       
-      // Recarregar a lista
       const updatedList = await api.get<WorkoutExercise[]>(`/workouts/${workoutId}/exercises`);
       setExercises(updatedList.data);
       setIsDialogOpen(false);
@@ -485,14 +498,12 @@ const TrainerWorkoutDetails = () => {
               <div className="grid gap-2">
                 <Label>Exercício</Label>
                 
-                {/* Se estiver editando, apenas mostra o nome */}
                 {editingId ? (
                    <div className="p-3 bg-muted rounded-md font-medium text-sm border flex items-center gap-2">
                       <Dumbbell className="h-4 w-4 text-primary" />
                       {formData.exercise_name}
                    </div>
                 ) : (
-                  // Botão que abre o Modal da Biblioteca
                   <Dialog open={isSelectorOpen} onOpenChange={setIsSelectorOpen}>
                     <DialogTrigger asChild>
                       <Button variant="outline" className="w-full justify-between font-normal text-muted-foreground hover:text-foreground">
@@ -500,8 +511,13 @@ const TrainerWorkoutDetails = () => {
                         <Search className="h-4 w-4 ml-2 opacity-50" />
                       </Button>
                     </DialogTrigger>
+                    {/* ADICIONADO HEADER E TITLE PARA CORRIGIR ERRO DO RADIX */}
                     <DialogContent className="max-w-4xl h-[80vh] flex flex-col p-0 gap-0">
-                      
+                      <DialogHeader className="px-4 py-2 border-b hidden">
+                        <DialogTitle>Biblioteca</DialogTitle>
+                        <DialogDescription>Selecione um exercício</DialogDescription>
+                      </DialogHeader>
+
                       {/* Header do Seletor */}
                       <div className="p-4 border-b space-y-4">
                         <div className="flex items-center justify-between">
@@ -519,7 +535,6 @@ const TrainerWorkoutDetails = () => {
                           />
                         </div>
 
-                        {/* Abas de Categoria (Scroll Horizontal) */}
                         {!searchTerm && (
                           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                             <ScrollArea className="w-full whitespace-nowrap pb-2">
@@ -546,7 +561,6 @@ const TrainerWorkoutDetails = () => {
                         )}
                       </div>
 
-                      {/* Grid de Exercícios (Scroll Vertical) */}
                       <ScrollArea className="flex-1 p-4 bg-muted/10">
                         {filteredLibrary.length === 0 ? (
                           <div className="flex flex-col items-center justify-center h-40 text-muted-foreground">
@@ -567,7 +581,7 @@ const TrainerWorkoutDetails = () => {
                                     exercise_name: ex.name,
                                     video_url: ex.video_url // Pega o vídeo padrão ao selecionar
                                   });
-                                  setIsSelectorOpen(false); // Fecha o seletor após escolher
+                                  setIsSelectorOpen(false);
                                 }}
                               />
                             ))}
@@ -579,21 +593,23 @@ const TrainerWorkoutDetails = () => {
                 )}
               </div>
 
-              {/* INPUT DE VÍDEO PERSONALIZADO (NOVO) */}
+              {/* INPUT DE VÍDEO PERSONALIZADO */}
               <div className="grid gap-2">
                 <Label className="flex items-center gap-2">
                   <LinkIcon className="h-3.5 w-3.5 text-blue-500" /> 
-                  Link de Vídeo Personalizado <span className="text-xs font-normal text-muted-foreground">(Vimeo ou MP4)</span>
+                  Link de Vídeo Personalizado <span className="text-xs font-normal text-muted-foreground">(Opcional)</span>
                 </Label>
                 <Input 
                   placeholder="https://vimeo.com/..." 
                   value={formData.video_url || ""}
                   onChange={(e) => setFormData({...formData, video_url: e.target.value})}
                 />
-                <p className="text-[10px] text-muted-foreground">Deixe em branco para usar o vídeo padrão da biblioteca.</p>
+                <p className="text-[10px] text-muted-foreground">
+                  Nota: Se este exercício já tiver vídeo na biblioteca, ele será priorizado pelo servidor atualmente.
+                </p>
               </div>
 
-              {/* Restante do Formulário (Séries, Reps...) */}
+              {/* Restante do Formulário */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label>Séries</Label>
@@ -654,7 +670,7 @@ const TrainerWorkoutDetails = () => {
         </Dialog>
       </div>
 
-      {/* Lista de Exercícios Adicionados à Ficha (USANDO NOVO COMPONENTE) */}
+      {/* Lista de Exercícios */}
       <div className="grid gap-4">
         {exercises.length === 0 ? (
           <div className="text-center py-12 border-2 border-dashed rounded-xl bg-muted/20">
