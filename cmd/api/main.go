@@ -28,16 +28,14 @@ func main() {
 	defer db.Close()
 	log.Println("Conexão com o banco de dados estabelecida com sucesso!")
 
-	// 3. Inicializar Storage (Cloudflare R2) - NOVO
-	// Passamos as variáveis explicitamente para garantir a leitura correta
-	storageService := services.NewStorageService(
-		os.Getenv("R2_ACCOUNT_ID"),
-		os.Getenv("R2_ACCESS_KEY"),
-		os.Getenv("R2_SECRET_KEY"),
-		os.Getenv("R2_BUCKET_NAME"),
-		os.Getenv("R2_PUBLIC_DOMAIN"),
-	)
-	log.Println("Serviço de Storage R2 inicializado.")
+	// 3. Inicializar Storage (Cloudflare R2) - ALTERADO
+	// Agora o serviço lê as variáveis de ambiente internamente, não precisa passar argumentos.
+	storageService := services.NewStorageService()
+	if storageService != nil {
+		log.Println("Serviço de Storage R2 inicializado.")
+	} else {
+		log.Println("AVISO: Serviço de Storage R2 não foi inicializado (verifique logs anteriores).")
+	}
 
 	// 4. Inicializar Chat Hub
 	hub := chat.NewHub(db)
@@ -50,7 +48,7 @@ func main() {
 	// Estes handlers instanciam seus próprios serviços (Asaas, Email) internamente
 	handlers.RegisterTrainersRoutes(mux, db)
 	handlers.RegisterStudentsRoutes(mux, db)
-	handlers.RegisterWorkoutsRoutes(mux, db) // Alteramos o handler, mas não a injeção dele
+	handlers.RegisterWorkoutsRoutes(mux, db)
 	handlers.RegisterAnnouncementsRoutes(mux, db)
 	handlers.RegisterDietsRoutes(mux, db)
 	handlers.RegisterSubscriptionRoutes(mux, db)
