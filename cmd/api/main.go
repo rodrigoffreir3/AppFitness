@@ -28,11 +28,12 @@ func main() {
 	defer db.Close()
 	log.Println("Conexão com o banco de dados estabelecida com sucesso!")
 
-	// 3. Inicializar Storage (Cloudflare R2) - ALTERADO
-	// Agora o serviço lê as variáveis de ambiente internamente, não precisa passar argumentos.
+	// 3. Inicializar Storage (Cloudflare R2) - CORRIGIDO
+	// Agora chamamos sem argumentos, pois ele lê as variáveis de ambiente sozinho (Truque do Mestre)
 	storageService := services.NewStorageService()
+
 	if storageService != nil {
-		log.Println("Serviço de Storage R2 inicializado.")
+		log.Println("Serviço de Storage R2 inicializado com sucesso.")
 	} else {
 		log.Println("AVISO: Serviço de Storage R2 não foi inicializado (verifique logs anteriores).")
 	}
@@ -44,8 +45,7 @@ func main() {
 	// 5. Configurar Rotas
 	mux := http.NewServeMux()
 
-	// --- Rotas Padrão (Mantidas como estavam) ---
-	// Estes handlers instanciam seus próprios serviços (Asaas, Email) internamente
+	// --- Rotas Padrão ---
 	handlers.RegisterTrainersRoutes(mux, db)
 	handlers.RegisterStudentsRoutes(mux, db)
 	handlers.RegisterWorkoutsRoutes(mux, db)
@@ -55,14 +55,13 @@ func main() {
 	handlers.RegisterWebhookRoutes(mux, db)
 	handlers.RegisterAuthRoutes(mux, db)
 
-	// --- Rotas de Exercícios (MODIFICADAS) ---
-	// Estas duas agora exigem o storageService para assinar os vídeos
+	// --- Rotas de Exercícios (COM STORAGE) ---
+	// Agora passando o storageService corretamente para assinar os vídeos
 	handlers.RegisterWorkoutExercisesRoutes(mux, db, storageService)
 	handlers.RegisterExercisesRoutes(mux, db, storageService)
 
 	// --- Chat e Upload ---
 	handlers.RegisterChatRoutes(mux, hub, db)
-	// Mantendo o padrão do seu repo para upload simples
 	mux.HandleFunc("POST /api/upload", handlers.HandleUpload)
 
 	// --- Arquivos Estáticos ---
@@ -74,13 +73,13 @@ func main() {
 		w.Write([]byte("API Metsuke Fitness Online! 🚀"))
 	})
 
-	// 6. Configurar CORS
+	// 6. Configurar CORS (Sua porta 5173 está aqui!)
 	c := cors.New(cors.Options{
 		AllowedOrigins: []string{
-			"http://localhost:5173",      // Dev Local
-			"https://metsuke.com",        // Produção
-			"https://www.metsuke.com",    // Produção
-			"https://app.metsuke.com.br", // Variação comum
+			"http://localhost:5173", // <--- SEU FRONTEND LOCAL
+			"https://metsuke.com",   // Produção
+			"https://www.metsuke.com",
+			"https://app.metsuke.com.br",
 		},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
 		AllowedHeaders:   []string{"Authorization", "Content-Type", "X-Requested-With"},
