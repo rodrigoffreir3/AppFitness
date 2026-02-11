@@ -50,7 +50,7 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_NAME}
     volumes:
-      - ./postgres/data:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql/data
       - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
       - "5433:5432"
@@ -70,3 +70,6 @@ services:
 networks:
   metsuke-network:
     driver: bridge
+
+volumes:
+  pgdata:
