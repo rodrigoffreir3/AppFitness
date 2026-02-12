@@ -59,7 +59,7 @@ func (h *exercisesHandler) handleListExercises(w http.ResponseWriter, r *http.Re
 		page = 1
 	}
 
-	// ALTERADO: Aumentado o limite padrão de 20 para 1000 para carregar toda a biblioteca
+	// CORREÇÃO: Respeita o limite do Front (20) se enviado, senão usa 1000
 	limit, _ := strconv.Atoi(limitStr)
 	if limit < 1 {
 		limit = 1000
@@ -116,7 +116,6 @@ func (h *exercisesHandler) handleListExercises(w http.ResponseWriter, r *http.Re
 
 		// --- LÓGICA DE ASSINATURA DE URL (R2) ---
 		if ex.VideoURL != nil && *ex.VideoURL != "" {
-			// Só assina se NÃO for um link externo (como Vimeo/YouTube que começam com http)
 			if !strings.HasPrefix(*ex.VideoURL, "http") {
 				if h.storage != nil {
 					signed, err := h.storage.GetSignedURL(*ex.VideoURL)

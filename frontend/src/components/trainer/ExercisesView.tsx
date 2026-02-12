@@ -147,7 +147,6 @@ const ExercisesView = () => {
     };
 
     fetchCategories();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchExercises = async (pageNum: number, isNewSearch = false) => {
@@ -417,7 +416,10 @@ const ExercisesView = () => {
               key={selectedUrl} // força recriar quando muda de exercício
               src={selectedUrl}
               controls
-              playsInline
+              autoPlay
+              muted
+              playsInline           /* CORREÇÃO IPHONE */
+              webkit-playsinline="true" /* CORREÇÃO IPHONE */
               preload="metadata"
               className="w-full rounded-md bg-black"
             />
