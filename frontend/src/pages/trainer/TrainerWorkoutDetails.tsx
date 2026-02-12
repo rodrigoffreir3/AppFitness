@@ -316,7 +316,8 @@ const TrainerWorkoutDetails = () => {
         const [workoutRes, exercisesRes, libraryRes] = await Promise.all([
           api.get<Workout>(`/workouts/${workoutId}`),
           api.get<WorkoutExercise[]>(`/workouts/${workoutId}/exercises`),
-          api.get<LibraryExercise[]>('/exercises')
+          // CORREÇÃO: Mantendo o limit 1000 que consertou a pesquisa
+          api.get<LibraryExercise[]>('/exercises', { params: { limit: 1000 } })
         ]);
 
         setWorkout(workoutRes.data);
@@ -388,8 +389,7 @@ const TrainerWorkoutDetails = () => {
     try {
       const payload = {
         exercise_id: formData.exercise_id,
-        // Atenção: O backend atual usa o vídeo da biblioteca (exercises table). 
-        // O campo video_url aqui enviado será ignorado a menos que o backend seja atualizado.
+        // Envia o que estiver no campo. Se estiver vazio, o backend usará o vídeo da library.
         video_url: formData.video_url, 
         sets: Number(formData.sets),
         reps: formData.reps,
@@ -579,7 +579,8 @@ const TrainerWorkoutDetails = () => {
                                     ...formData, 
                                     exercise_id: ex.id, 
                                     exercise_name: ex.name,
-                                    video_url: ex.video_url // Pega o vídeo padrão ao selecionar
+                                    // CORRIGIDO AQUI: Define como vazio para NÃO preencher o input de link externo
+                                    video_url: "" 
                                   });
                                   setIsSelectorOpen(false);
                                 }}
@@ -605,7 +606,7 @@ const TrainerWorkoutDetails = () => {
                   onChange={(e) => setFormData({...formData, video_url: e.target.value})}
                 />
                 <p className="text-[10px] text-muted-foreground">
-                  Nota: Se este exercício já tiver vídeo na biblioteca, ele será priorizado pelo servidor atualmente.
+                  Nota: Preencha APENAS se quiser usar um vídeo externo (Vimeo/YouTube) em vez do vídeo da biblioteca.
                 </p>
               </div>
 

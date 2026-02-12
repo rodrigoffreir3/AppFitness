@@ -4,7 +4,7 @@ import (
 	"appfitness/internal/chat"
 	"appfitness/internal/database"
 	"appfitness/internal/handlers"
-	"appfitness/internal/services" // Importação necessária para o Storage
+	"appfitness/internal/services"
 	"log"
 	"net/http"
 	"os"
@@ -15,7 +15,6 @@ import (
 
 func main() {
 	// 1. Carregar variáveis de ambiente
-	// Overload garante que o .env local tenha prioridade, útil em dev
 	if err := godotenv.Overload(); err != nil {
 		log.Println("Aviso: .env não encontrado, usando variáveis de ambiente do sistema")
 	}
@@ -28,8 +27,7 @@ func main() {
 	defer db.Close()
 	log.Println("Conexão com o banco de dados estabelecida com sucesso!")
 
-	// 3. Inicializar Storage (Cloudflare R2) - CORRIGIDO
-	// Agora chamamos sem argumentos, pois ele lê as variáveis de ambiente sozinho (Truque do Mestre)
+	// 3. Inicializar Storage (Cloudflare R2)
 	storageService := services.NewStorageService()
 
 	if storageService != nil {
@@ -47,7 +45,8 @@ func main() {
 
 	// --- Rotas Padrão ---
 	handlers.RegisterTrainersRoutes(mux, db)
-	handlers.RegisterStudentsRoutes(mux, db)
+	// CORREÇÃO: Passando storageService para os estudantes também!
+	handlers.RegisterStudentsRoutes(mux, db, storageService)
 	handlers.RegisterWorkoutsRoutes(mux, db)
 	handlers.RegisterAnnouncementsRoutes(mux, db)
 	handlers.RegisterDietsRoutes(mux, db)
@@ -55,8 +54,7 @@ func main() {
 	handlers.RegisterWebhookRoutes(mux, db)
 	handlers.RegisterAuthRoutes(mux, db)
 
-	// --- Rotas de Exercícios (COM STORAGE) ---
-	// Agora passando o storageService corretamente para assinar os vídeos
+	// --- Rotas de Exercícios ---
 	handlers.RegisterWorkoutExercisesRoutes(mux, db, storageService)
 	handlers.RegisterExercisesRoutes(mux, db, storageService)
 
@@ -68,16 +66,16 @@ func main() {
 	fs := http.FileServer(http.Dir("./uploads"))
 	mux.Handle("GET /uploads/", http.StripPrefix("/uploads/", fs))
 
-	// Health Check simples
+	// Health Check
 	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("API Metsuke Fitness Online! 🚀"))
 	})
 
-	// 6. Configurar CORS (Sua porta 5173 está aqui!)
+	// 6. Configurar CORS
 	c := cors.New(cors.Options{
 		AllowedOrigins: []string{
-			"http://localhost:5173", // <--- SEU FRONTEND LOCAL
-			"https://metsuke.com",   // Produção
+			"http://localhost:5173",
+			"https://metsuke.com",
 			"https://www.metsuke.com",
 			"https://app.metsuke.com.br",
 		},

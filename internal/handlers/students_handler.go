@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"appfitness/internal/middleware"
+	"appfitness/internal/services"
 	"appfitness/internal/types"
 	"database/sql"
 	"encoding/json"
@@ -15,13 +16,12 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-func RegisterStudentsRoutes(mux *http.ServeMux, db *sql.DB) {
+func RegisterStudentsRoutes(mux *http.ServeMux, db *sql.DB, storage *services.StorageService) {
 	h := &studentsHandler{
-		db: db,
+		db:      db,
+		storage: storage,
 	}
 
-	// --- SEGURANÇA: RATE LIMITER ---
-	// Permite apenas 5 tentativas de cadastro por minuto por IP
 	registerLimiter := middleware.NewRateLimiter(5, time.Minute)
 
 	createStudentHandler := http.HandlerFunc(h.handleCreateStudent)
@@ -43,7 +43,6 @@ func RegisterStudentsRoutes(mux *http.ServeMux, db *sql.DB) {
 
 	mux.Handle("POST /api/students/login", loginStudentHandler)
 
-	// --- ROTA PROTEGIDA COM RATE LIMIT ---
 	mux.Handle("POST /api/public/students/register", registerLimiter.Limit(http.HandlerFunc(h.handlePublicSelfRegister)))
 
 	mux.Handle("GET /api/students/me/workouts", middleware.AuthMiddleware(getMyWorkoutsHandler))
@@ -51,16 +50,15 @@ func RegisterStudentsRoutes(mux *http.ServeMux, db *sql.DB) {
 	mux.Handle("GET /api/students/me/announcements", middleware.AuthMiddleware(getMyAnnouncementsHandler))
 	mux.Handle("GET /api/students/me/profile", middleware.AuthMiddleware(getMyProfileHandler))
 
-	// Rota: Aceitar Termos
 	mux.Handle("POST /api/students/terms", middleware.AuthMiddleware(http.HandlerFunc(h.handleAcceptTerms)))
 
-	// Rotas de Segurança
 	mux.Handle("PUT /api/students/me/password", middleware.AuthMiddleware(http.HandlerFunc(h.handleUpdatePassword)))
 	mux.Handle("DELETE /api/students/me", middleware.AuthMiddleware(http.HandlerFunc(h.handleDeleteAccount)))
 }
 
 type studentsHandler struct {
-	db *sql.DB
+	db      *sql.DB
+	storage *services.StorageService
 }
 
 type CreateStudentRequest struct {
@@ -282,14 +280,13 @@ func (h *studentsHandler) handleGetMyAnnouncements(w http.ResponseWriter, r *htt
 	json.NewEncoder(w).Encode(announcements)
 }
 
-// CORREÇÃO AQUI: handleGetMyWorkoutDetails agora busca o video_url
 func (h *studentsHandler) handleGetMyWorkoutDetails(w http.ResponseWriter, r *http.Request) {
 	studentID := r.Context().Value(middleware.TrainerIDKey).(string)
 	workoutID := r.PathValue("id")
 	var workout types.WorkoutResponse
 
-	queryWorkout := `SELECT id, student_id, name, description, is_active, COALESCE(diet_plan_url, '') FROM workouts WHERE id = $1 AND student_id = $2`
-	err := h.db.QueryRowContext(r.Context(), queryWorkout, workoutID, studentID).Scan(&workout.ID, &workout.StudentID, &workout.Name, &workout.Description, &workout.IsActive, &workout.FileURL)
+	queryWorkout := `SELECT id, student_id, name, description, is_active FROM workouts WHERE id = $1 AND student_id = $2`
+	err := h.db.QueryRowContext(r.Context(), queryWorkout, workoutID, studentID).Scan(&workout.ID, &workout.StudentID, &workout.Name, &workout.Description, &workout.IsActive)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			http.Error(w, "Treino não encontrado ou não pertence a este aluno", http.StatusNotFound)
@@ -300,9 +297,14 @@ func (h *studentsHandler) handleGetMyWorkoutDetails(w http.ResponseWriter, r *ht
 		return
 	}
 
-	// SQL ATUALIZADO: Inclui COALESCE(e.video_url, '')
+	// LÓGICA CORRETA:
+	// COALESCE(NULLIF(we.video_url, ''), COALESCE(e.video_url, ''))
+	// 1. Tenta pegar we.video_url (Link Personalizado).
+	// 2. Se for NULL ou vazio (''), pega e.video_url (Biblioteca).
 	queryExercises := `
-		SELECT we.id, we.exercise_id, e.name, COALESCE(e.video_url, ''), we.sets, we.reps, we.rest_period_seconds,
+		SELECT we.id, we.exercise_id, e.name, 
+		       COALESCE(NULLIF(we.video_url, ''), COALESCE(e.video_url, '')), 
+			   we.sets, we.reps, we.rest_period_seconds,
 			   we."order", we.notes, we.execution_details
 		FROM workout_exercises we
 		JOIN exercises e ON we.exercise_id = e.id
@@ -318,12 +320,23 @@ func (h *studentsHandler) handleGetMyWorkoutDetails(w http.ResponseWriter, r *ht
 	var exercises []types.WorkoutExerciseResponse
 	for rows.Next() {
 		var ex types.WorkoutExerciseResponse
-		// SCAN ATUALIZADO: Inclui &ex.VideoURL
 		if err := rows.Scan(&ex.ID, &ex.ExerciseID, &ex.ExerciseName, &ex.VideoURL, &ex.Sets, &ex.Reps, &ex.RestPeriodSeconds, &ex.Order, &ex.Notes, &ex.ExecutionDetails); err != nil {
 			log.Printf("Erro ao escanear exercício do treino para o aluno: %v", err)
 			http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
 			return
 		}
+
+		// ASSINATURA AUTOMÁTICA (CDN)
+		// Só assina se não for link externo (YouTube/Vimeo)
+		if ex.VideoURL != "" && !strings.HasPrefix(ex.VideoURL, "http") && h.storage != nil {
+			signedURL, err := h.storage.GetSignedURL(ex.VideoURL)
+			if err == nil {
+				ex.VideoURL = signedURL
+			} else {
+				log.Printf("Erro ao assinar URL para aluno (ex: %s): %v", ex.ExerciseName, err)
+			}
+		}
+
 		exercises = append(exercises, ex)
 	}
 	if exercises == nil {
@@ -343,7 +356,7 @@ func (h *studentsHandler) handleGetMyWorkouts(w http.ResponseWriter, r *http.Req
 		http.Error(w, "ID do aluno não encontrado no contexto", http.StatusInternalServerError)
 		return
 	}
-	query := `SELECT id, student_id, name, description, is_active, COALESCE(diet_plan_url, '') FROM workouts WHERE student_id = $1 AND is_active = true ORDER BY created_at DESC`
+	query := `SELECT id, student_id, name, description, is_active FROM workouts WHERE student_id = $1 AND is_active = true ORDER BY created_at DESC`
 	rows, err := h.db.QueryContext(r.Context(), query, studentID)
 	if err != nil {
 		log.Printf("Erro ao buscar treinos do aluno: %v", err)
@@ -354,7 +367,7 @@ func (h *studentsHandler) handleGetMyWorkouts(w http.ResponseWriter, r *http.Req
 	var workouts []types.WorkoutResponse
 	for rows.Next() {
 		var workout types.WorkoutResponse
-		if err := rows.Scan(&workout.ID, &workout.StudentID, &workout.Name, &workout.Description, &workout.IsActive, &workout.FileURL); err != nil {
+		if err := rows.Scan(&workout.ID, &workout.StudentID, &workout.Name, &workout.Description, &workout.IsActive); err != nil {
 			log.Printf("Erro ao escanear linha de treino: %v", err)
 			http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
 			return

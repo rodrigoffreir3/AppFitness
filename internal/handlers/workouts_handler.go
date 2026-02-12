@@ -35,14 +35,12 @@ type CreateWorkoutRequest struct {
 	StudentID   string `json:"student_id"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
-	FileURL     string `json:"file_url"` // Mapeado para diet_plan_url no banco se necessário
 }
 
 type UpdateWorkoutRequest struct {
 	Name        *string `json:"name"`
 	Description *string `json:"description"`
 	IsActive    *bool   `json:"is_active"`
-	FileURL     *string `json:"file_url"`
 }
 
 func (h *workoutsHandler) handleListWorkouts(w http.ResponseWriter, r *http.Request) {
@@ -63,7 +61,8 @@ func (h *workoutsHandler) handleListWorkouts(w http.ResponseWriter, r *http.Requ
 			return
 		}
 
-		query := `SELECT id, student_id, name, description, is_active, COALESCE(diet_plan_url, '') FROM workouts WHERE student_id = $1 ORDER BY created_at DESC`
+		// Removido diet_plan_url que causava erro 500
+		query := `SELECT id, student_id, name, description, is_active FROM workouts WHERE student_id = $1 ORDER BY created_at DESC`
 		rows, err := h.db.QueryContext(r.Context(), query, studentID)
 		if err != nil {
 			log.Printf("Erro ao buscar treinos: %v", err)
@@ -75,7 +74,8 @@ func (h *workoutsHandler) handleListWorkouts(w http.ResponseWriter, r *http.Requ
 		var workouts []types.WorkoutResponse
 		for rows.Next() {
 			var workout types.WorkoutResponse
-			if err := rows.Scan(&workout.ID, &workout.StudentID, &workout.Name, &workout.Description, &workout.IsActive, &workout.FileURL); err != nil {
+			// Removido scan do FileURL
+			if err := rows.Scan(&workout.ID, &workout.StudentID, &workout.Name, &workout.Description, &workout.IsActive); err != nil {
 				log.Printf("Erro ao escanear linha de treino: %v", err)
 				http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
 				return
@@ -106,13 +106,13 @@ func (h *workoutsHandler) handleListWorkouts(w http.ResponseWriter, r *http.Requ
 			Name        string `json:"name"`
 			Description string `json:"description"`
 			IsActive    bool   `json:"is_active"`
-			FileURL     string `json:"file_url"`
 		}
 
+		// Removido diet_plan_url que causava erro 500
 		query := `
 			SELECT 
 				w.id, w.student_id, s.name as student_name, 
-				w.name, w.description, w.is_active, COALESCE(w.diet_plan_url, '')
+				w.name, w.description, w.is_active
 			FROM workouts w
 			JOIN students s ON w.student_id = s.id
 			WHERE w.trainer_id = $1
@@ -129,7 +129,8 @@ func (h *workoutsHandler) handleListWorkouts(w http.ResponseWriter, r *http.Requ
 		var workouts []WorkoutWithStudentResponse
 		for rows.Next() {
 			var workout WorkoutWithStudentResponse
-			if err := rows.Scan(&workout.ID, &workout.StudentID, &workout.StudentName, &workout.Name, &workout.Description, &workout.IsActive, &workout.FileURL); err != nil {
+			// Removido scan do FileURL
+			if err := rows.Scan(&workout.ID, &workout.StudentID, &workout.StudentName, &workout.Name, &workout.Description, &workout.IsActive); err != nil {
 				log.Printf("Erro ao escanear linha de treino com aluno: %v", err)
 				http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
 				return
@@ -157,8 +158,9 @@ func (h *workoutsHandler) handleGetWorkout(w http.ResponseWriter, r *http.Reques
 	workoutID := r.PathValue("id")
 
 	var workout types.WorkoutResponse
-	query := `SELECT id, student_id, name, description, is_active, COALESCE(diet_plan_url, '') FROM workouts WHERE id = $1 AND trainer_id = $2`
-	err := h.db.QueryRowContext(r.Context(), query, workoutID, trainerID).Scan(&workout.ID, &workout.StudentID, &workout.Name, &workout.Description, &workout.IsActive, &workout.FileURL)
+	// Removido diet_plan_url que causava erro 500
+	query := `SELECT id, student_id, name, description, is_active FROM workouts WHERE id = $1 AND trainer_id = $2`
+	err := h.db.QueryRowContext(r.Context(), query, workoutID, trainerID).Scan(&workout.ID, &workout.StudentID, &workout.Name, &workout.Description, &workout.IsActive)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			http.Error(w, "Treino não encontrado ou não pertence a este trainer", http.StatusNotFound)
@@ -183,8 +185,9 @@ func (h *workoutsHandler) handleUpdateWorkout(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	query := `UPDATE workouts SET name = COALESCE($1, name), description = COALESCE($2, description), is_active = COALESCE($3, is_active), diet_plan_url = COALESCE($4, diet_plan_url) WHERE id = $5 AND trainer_id = $6`
-	result, err := h.db.ExecContext(r.Context(), query, req.Name, req.Description, req.IsActive, req.FileURL, workoutID, trainerID)
+	// Removido diet_plan_url que causava erro 500
+	query := `UPDATE workouts SET name = COALESCE($1, name), description = COALESCE($2, description), is_active = COALESCE($3, is_active) WHERE id = $4 AND trainer_id = $5`
+	result, err := h.db.ExecContext(r.Context(), query, req.Name, req.Description, req.IsActive, workoutID, trainerID)
 	if err != nil {
 		log.Printf("Erro ao atualizar treino: %v", err)
 		http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
@@ -249,13 +252,14 @@ func (h *workoutsHandler) handleCreateWorkout(w http.ResponseWriter, r *http.Req
 	}
 
 	var newWorkout types.WorkoutResponse
+	// Removido diet_plan_url que causava erro 500
 	query := `
-		INSERT INTO workouts (name, description, student_id, trainer_id, diet_plan_url)
-		VALUES ($1, $2, $3, $4, $5)
-		RETURNING id, student_id, name, description, is_active, COALESCE(diet_plan_url, '')
+		INSERT INTO workouts (name, description, student_id, trainer_id)
+		VALUES ($1, $2, $3, $4)
+		RETURNING id, student_id, name, description, is_active
 	`
-	err = h.db.QueryRowContext(r.Context(), query, req.Name, req.Description, req.StudentID, trainerID, req.FileURL).Scan(
-		&newWorkout.ID, &newWorkout.StudentID, &newWorkout.Name, &newWorkout.Description, &newWorkout.IsActive, &newWorkout.FileURL,
+	err = h.db.QueryRowContext(r.Context(), query, req.Name, req.Description, req.StudentID, trainerID).Scan(
+		&newWorkout.ID, &newWorkout.StudentID, &newWorkout.Name, &newWorkout.Description, &newWorkout.IsActive,
 	)
 	if err != nil {
 		log.Printf("Erro ao inserir treino no banco de dados: %v", err)
