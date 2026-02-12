@@ -22,6 +22,9 @@ func RegisterExercisesRoutes(mux *http.ServeMux, db *sql.DB, storage *services.S
 
 	// Rota POST (Criar exercício novo/personalizado)
 	mux.Handle("POST /api/exercises", middleware.AuthMiddleware(http.HandlerFunc(h.handleCreateExercise)))
+
+	// ✅ NOVA ROTA: Buscar categorias únicas
+	mux.Handle("GET /api/exercises/categories", middleware.AuthMiddleware(http.HandlerFunc(h.handleGetCategories)))
 }
 
 type exercisesHandler struct {
@@ -159,4 +162,30 @@ func (h *exercisesHandler) handleCreateExercise(w http.ResponseWriter, r *http.R
 
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(newEx)
+}
+
+// ✅ NOVA FUNÇÃO: handleGetCategories retorna os grupos musculares únicos
+func (h *exercisesHandler) handleGetCategories(w http.ResponseWriter, r *http.Request) {
+	query := `SELECT DISTINCT muscle_group FROM exercises WHERE muscle_group IS NOT NULL AND muscle_group != '' ORDER BY muscle_group ASC`
+
+	rows, err := h.db.QueryContext(r.Context(), query)
+	if err != nil {
+		log.Printf("Erro ao buscar categorias: %v", err)
+		http.Error(w, "Erro interno", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	categories := []string{}
+	for rows.Next() {
+		var category string
+		if err := rows.Scan(&category); err != nil {
+			log.Printf("Erro ao ler categoria: %v", err)
+			continue
+		}
+		categories = append(categories, category)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(categories)
 }

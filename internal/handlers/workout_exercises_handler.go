@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
-	"strings"
 )
 
 // RegisterWorkoutExercisesRoutes registra as rotas de exercícios dentro de um treino
@@ -42,7 +41,6 @@ type AddExerciseRequest struct {
 	Order             int    `json:"order"`
 	Notes             string `json:"notes"`
 	ExecutionDetails  string `json:"execution_details"`
-	// VideoURL ignorado propositalmente pois a tabela workout_exercises não tem essa coluna ainda
 }
 
 type UpdateWorkoutExerciseRequest struct {
@@ -128,7 +126,7 @@ func (h *workoutExercisesHandler) handleDeleteExerciseFromWorkout(w http.Respons
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// handleListExercisesInWorkout busca os exercícios e trata URLs de vídeo
+// handleListExercisesInWorkout busca os exercícios e trata URLs de vídeo CORRETAMENTE
 func (h *workoutExercisesHandler) handleListExercisesInWorkout(w http.ResponseWriter, r *http.Request) {
 	trainerID := r.Context().Value(middleware.TrainerIDKey).(string)
 	workoutID := r.PathValue("workout_id")
@@ -172,16 +170,19 @@ func (h *workoutExercisesHandler) handleListExercisesInWorkout(w http.ResponseWr
 			return
 		}
 
-		// --- LÓGICA DE URL ---
+		// --- LÓGICA CORRIGIDA DE URL ---
 		if ex.VideoURL != "" {
-			if !strings.HasPrefix(ex.VideoURL, "http") {
-				// É um path do R2 (ex: "videos/agachamento.mp4")
+			// Se for URL externa (Vimeo, YouTube, etc.), mantém como está
+			if isExternalURL(ex.VideoURL) {
+				// Não faz nada, mantém a URL original do Vimeo/YouTube
+			} else {
+				// É uma chave do R2, precisa assinar
 				signedURL, err := h.storage.GetSignedURL(ex.VideoURL)
 				if err == nil {
 					ex.VideoURL = signedURL
 				} else {
-					log.Printf("ALERTA: Falha ao assinar URL do video '%s' (storage R2 configurado?): %v", ex.ExerciseName, err)
-					// Não limpamos a URL, enviamos a original caso o front consiga resolver de outra forma
+					log.Printf("AVISO: Falha ao assinar URL do video '%s' (storage R2 configurado?): %v", ex.ExerciseName, err)
+					// Mantém a URL original caso o R2 não esteja configurado
 				}
 			}
 		}
