@@ -17,13 +17,13 @@ func RegisterExercisesRoutes(mux *http.ServeMux, db *sql.DB, storage *services.S
 		storage: storage,
 	}
 
-	// Rota GET (Listagem com paginação)
+	// Rota GET (Listagem de exercícios)
 	mux.Handle("GET /api/exercises", middleware.AuthMiddleware(http.HandlerFunc(h.handleListExercises)))
 
 	// Rota POST (Criar exercício novo/personalizado)
 	mux.Handle("POST /api/exercises", middleware.AuthMiddleware(http.HandlerFunc(h.handleCreateExercise)))
 
-	// ✅ NOVA ROTA: Buscar categorias únicas
+	// Rota GET: Buscar categorias únicas para os filtros
 	mux.Handle("GET /api/exercises/categories", middleware.AuthMiddleware(http.HandlerFunc(h.handleGetCategories)))
 }
 
@@ -44,11 +44,11 @@ type CreateExerciseRequest struct {
 	Name        string `json:"name"`
 	MuscleGroup string `json:"muscle_group"`
 	Equipment   string `json:"equipment"`
-	VideoURL    string `json:"video_url"` // Pode ser link do Vimeo ou R2
+	VideoURL    string `json:"video_url"`
 }
 
 func (h *exercisesHandler) handleListExercises(w http.ResponseWriter, r *http.Request) {
-	// 1. Paginação (Lazy Loading)
+	// 1. Parâmetros de busca e paginação
 	pageStr := r.URL.Query().Get("page")
 	limitStr := r.URL.Query().Get("limit")
 	search := r.URL.Query().Get("search")
@@ -58,9 +58,11 @@ func (h *exercisesHandler) handleListExercises(w http.ResponseWriter, r *http.Re
 	if page < 1 {
 		page = 1
 	}
+
+	// ALTERADO: Aumentado o limite padrão de 20 para 1000 para carregar toda a biblioteca
 	limit, _ := strconv.Atoi(limitStr)
 	if limit < 1 {
-		limit = 20 // Default carrega 20 por vez
+		limit = 1000
 	}
 	offset := (page - 1) * limit
 
@@ -78,25 +80,28 @@ func (h *exercisesHandler) handleListExercises(w http.ResponseWriter, r *http.Re
 	var args []interface{}
 	argCounter := 1
 
+	// Filtro de busca (nome ou grupo muscular)
 	if search != "" {
 		baseQuery += ` AND (name ILIKE $` + strconv.Itoa(argCounter) + ` OR muscle_group ILIKE $` + strconv.Itoa(argCounter) + `)`
 		args = append(args, "%"+search+"%")
 		argCounter++
 	}
 
+	// Filtro por categoria (Grupo Muscular)
 	if category != "" && category != "todos" {
 		baseQuery += ` AND muscle_group = $` + strconv.Itoa(argCounter)
 		args = append(args, category)
 		argCounter++
 	}
 
+	// Ordenação e limites
 	baseQuery += ` ORDER BY name ASC LIMIT $` + strconv.Itoa(argCounter) + ` OFFSET $` + strconv.Itoa(argCounter+1)
 	args = append(args, limit, offset)
 
 	rows, err := h.db.QueryContext(r.Context(), baseQuery, args...)
 	if err != nil {
 		log.Printf("Erro ao listar exercícios: %v", err)
-		http.Error(w, "Erro interno", http.StatusInternalServerError)
+		http.Error(w, "Erro interno ao buscar exercícios", http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
@@ -105,18 +110,21 @@ func (h *exercisesHandler) handleListExercises(w http.ResponseWriter, r *http.Re
 	for rows.Next() {
 		var ex ExerciseResponse
 		if err := rows.Scan(&ex.ID, &ex.Name, &ex.MuscleGroup, &ex.Equipment, &ex.VideoURL); err != nil {
-			log.Printf("Erro scan: %v", err)
+			log.Printf("Erro scan exercício: %v", err)
 			continue
 		}
 
-		// --- LÓGICA DE URL ---
+		// --- LÓGICA DE ASSINATURA DE URL (R2) ---
 		if ex.VideoURL != nil && *ex.VideoURL != "" {
-			// Se NÃO for link externo (http/https), assina com R2.
-			// Se for Vimeo/YouTube, deixa como está.
+			// Só assina se NÃO for um link externo (como Vimeo/YouTube que começam com http)
 			if !strings.HasPrefix(*ex.VideoURL, "http") {
-				signed, err := h.storage.GetSignedURL(*ex.VideoURL)
-				if err == nil {
-					ex.VideoURL = &signed
+				if h.storage != nil {
+					signed, err := h.storage.GetSignedURL(*ex.VideoURL)
+					if err == nil {
+						ex.VideoURL = &signed
+					} else {
+						log.Printf("Erro ao assinar URL para o exercício %s: %v", ex.Name, err)
+					}
 				}
 			}
 		}
@@ -134,12 +142,12 @@ func (h *exercisesHandler) handleListExercises(w http.ResponseWriter, r *http.Re
 func (h *exercisesHandler) handleCreateExercise(w http.ResponseWriter, r *http.Request) {
 	var req CreateExerciseRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Dados inválidos", http.StatusBadRequest)
+		http.Error(w, "JSON inválido", http.StatusBadRequest)
 		return
 	}
 
 	if req.Name == "" {
-		http.Error(w, "Nome é obrigatório", http.StatusBadRequest)
+		http.Error(w, "O nome do exercício é obrigatório", http.StatusBadRequest)
 		return
 	}
 
@@ -155,7 +163,7 @@ func (h *exercisesHandler) handleCreateExercise(w http.ResponseWriter, r *http.R
 	)
 
 	if err != nil {
-		log.Printf("Erro ao criar exercício: %v", err)
+		log.Printf("Erro ao inserir exercício no banco: %v", err)
 		http.Error(w, "Erro ao salvar exercício", http.StatusInternalServerError)
 		return
 	}
@@ -164,14 +172,18 @@ func (h *exercisesHandler) handleCreateExercise(w http.ResponseWriter, r *http.R
 	json.NewEncoder(w).Encode(newEx)
 }
 
-// ✅ NOVA FUNÇÃO: handleGetCategories retorna os grupos musculares únicos
 func (h *exercisesHandler) handleGetCategories(w http.ResponseWriter, r *http.Request) {
-	query := `SELECT DISTINCT muscle_group FROM exercises WHERE muscle_group IS NOT NULL AND muscle_group != '' ORDER BY muscle_group ASC`
+	query := `
+		SELECT DISTINCT muscle_group 
+		FROM exercises 
+		WHERE muscle_group IS NOT NULL AND muscle_group != '' 
+		ORDER BY muscle_group ASC
+	`
 
 	rows, err := h.db.QueryContext(r.Context(), query)
 	if err != nil {
-		log.Printf("Erro ao buscar categorias: %v", err)
-		http.Error(w, "Erro interno", http.StatusInternalServerError)
+		log.Printf("Erro ao buscar categorias únicas: %v", err)
+		http.Error(w, "Erro interno ao buscar categorias", http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
@@ -180,7 +192,7 @@ func (h *exercisesHandler) handleGetCategories(w http.ResponseWriter, r *http.Re
 	for rows.Next() {
 		var category string
 		if err := rows.Scan(&category); err != nil {
-			log.Printf("Erro ao ler categoria: %v", err)
+			log.Printf("Erro scan categoria: %v", err)
 			continue
 		}
 		categories = append(categories, category)
