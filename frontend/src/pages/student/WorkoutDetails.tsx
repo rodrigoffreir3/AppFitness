@@ -115,7 +115,7 @@ const StudentExerciseCard = ({ exercise }: { exercise: WorkoutExerciseResponse }
       return (
         <iframe 
           src={getVimeoEmbedUrl(exercise.video_url)} 
-          className="w-full h-full" 
+          className="w-full h-full object-contain bg-black" 
           frameBorder="0" 
           allow="autoplay; fullscreen; picture-in-picture" 
           allowFullScreen
@@ -129,7 +129,7 @@ const StudentExerciseCard = ({ exercise }: { exercise: WorkoutExerciseResponse }
         <video 
           ref={videoRef}
           src={exercise.video_url} 
-          className="w-full h-full object-cover"
+          className="w-full h-full object-contain bg-black"
           muted 
           loop 
           playsInline // Essencial para iPhone
@@ -156,7 +156,7 @@ const StudentExerciseCard = ({ exercise }: { exercise: WorkoutExerciseResponse }
       {exercise.video_url && (
         <div ref={containerRef} className="pt-6 pb-2 px-4 flex justify-center">
           <div 
-            className="relative w-full max-w-[85%] sm:max-w-[400px] aspect-video rounded-xl overflow-hidden bg-black/5 border cursor-pointer group"
+            className="relative w-full max-w-[280px] sm:max-w-[320px] aspect-square mx-auto rounded-xl overflow-hidden bg-black border cursor-pointer group flex items-center justify-center shadow-md"
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
             onClick={togglePlay}
@@ -171,7 +171,7 @@ const StudentExerciseCard = ({ exercise }: { exercise: WorkoutExerciseResponse }
            <CardTitle className="text-xl font-bold text-foreground">
              {exercise.exercise_name}
            </CardTitle>
-           <Badge variant="secondary" className="text-muted-foreground font-mono">
+           <Badge className="bg-primary/15 text-primary hover:bg-primary/25 border-none font-mono text-sm px-3">
              #{exercise.order}
            </Badge>
         </div>
@@ -284,7 +284,7 @@ const WorkoutDetails = () => {
 
   return (
     <div className="space-y-6 max-w-3xl mx-auto pb-10">
-      <Button asChild variant="ghost" size="sm" className="w-fit -ml-2 text-muted-foreground hover:text-foreground">
+      <Button asChild variant="ghost" size="sm" className="w-fit -ml-2 font-medium text-foreground hover:bg-primary/10 hover:text-primary transition-colors">
         <Link to="/student/dashboard">
           <ArrowLeft className="mr-2 h-4 w-4" />
           Voltar para Meus Treinos

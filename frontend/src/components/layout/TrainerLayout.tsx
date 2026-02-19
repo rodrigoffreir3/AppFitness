@@ -17,10 +17,9 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TermsModal } from "@/components/legal/TermsModal";
-import api from '@/services/api'; // ADICIONADO
+import api from '@/services/api';
 
 const TrainerLayout: React.FC = () => {
-  // ADICIONADO: updateUser
   const { branding, logout, user, updateUser } = useAuth();
   const location = useLocation();
   
@@ -35,13 +34,8 @@ const TrainerLayout: React.FC = () => {
 
   const handleAcceptTerms = async () => {
     try {
-      // 1. Salva no Banco
       await api.post('/trainers/terms');
-      
-      // 2. Atualiza o Local Storage/Contexto (Fundamental para o modal não voltar)
       updateUser({ terms_accepted_at: new Date().toISOString() });
-      
-      // 3. Fecha o Modal
       setShowTerms(false);
     } catch (error) {
       console.error("Erro ao salvar aceite", error);
@@ -90,7 +84,7 @@ const TrainerLayout: React.FC = () => {
             <img 
               src={branding.logo_url} 
               alt="Logo" 
-              className="h-12 w-auto object-contain bg-white/90 rounded-md p-1" 
+              className="h-12 w-auto object-contain" 
             />
           ) : (
             <>

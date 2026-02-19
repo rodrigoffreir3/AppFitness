@@ -129,7 +129,7 @@ const MiniExerciseCard = ({ exercise, onSelect, isSelected }: { exercise: Librar
             muted
             loop
             playsInline
-            className="w-full h-full object-cover"
+            className="w-full h-full object-contain bg-black"
             preload="metadata"
             onError={() => setVideoError(true)}
           />
@@ -201,7 +201,7 @@ const TrainerExerciseItem = ({
     return (
       <video 
         src={exercise.video_url} 
-        className="w-full h-full object-cover max-h-24 sm:max-h-full"
+        className="w-full h-full object-contain bg-black max-h-24 sm:max-h-full"
         muted 
         playsInline
         loop
@@ -215,7 +215,7 @@ const TrainerExerciseItem = ({
   return (
     <Card className="overflow-hidden group hover:border-primary/30 transition-all">
       <div className="flex flex-col sm:flex-row h-full">
-        <div ref={containerRef} className="relative w-full sm:w-32 bg-black/5 flex items-center justify-center border-r border-border/50 min-h-[100px] sm:min-h-full">
+        <div ref={containerRef} className="relative w-full sm:w-32 bg-black flex items-center justify-center border-r border-border/50 min-h-[100px] sm:min-h-full">
           {renderVideo()}
           {/* Se tem vídeo e não deu erro, mostra o badge de ordem */}
           {exercise.video_url && !videoError && (
@@ -470,7 +470,7 @@ const TrainerWorkoutDetails = () => {
           <div>
             <h1 className="text-3xl font-bold tracking-tight">{workout.name}</h1>
             <div className="flex items-center gap-2 text-muted-foreground mt-1">
-              <Badge variant={workout.is_active ? "default" : "secondary"}>
+              <Badge className={workout.is_active ? "bg-green-500 hover:bg-green-600 text-white" : "bg-gray-200 text-gray-600 border-none hover:bg-gray-300"}>
                 {workout.is_active ? "Ativo" : "Inativo"}
               </Badge>
               <span className="text-sm">{workout.description || "Sem descrição"}</span>

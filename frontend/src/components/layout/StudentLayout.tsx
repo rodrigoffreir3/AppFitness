@@ -27,17 +27,16 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { TermsModal } from "@/components/legal/TermsModal"; // NOVO
-import api from '@/services/api'; // NOVO
+import { TermsModal } from "@/components/legal/TermsModal";
+import api from '@/services/api';
 
 const StudentLayout: React.FC = () => {
-  // ADICIONADO: user e updateUser
   const { branding, logout, user, updateUser } = useAuth();
   const location = useLocation();
   
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
-  const [showTerms, setShowTerms] = useState(false); // NOVO
+  const [showTerms, setShowTerms] = useState(false);
 
   // Lógica do Modal de Termos
   useEffect(() => {
@@ -91,7 +90,6 @@ const StudentLayout: React.FC = () => {
   return (
     <div className="flex h-screen bg-background flex-col md:flex-row">
       
-      {/* NOVO: Modal de Termos (Bloqueante) */}
       <TermsModal isOpen={showTerms} onAccept={handleAcceptTerms} />
 
       {/* --- MOBILE HEADER --- */}
@@ -101,7 +99,7 @@ const StudentLayout: React.FC = () => {
             <img 
               src={branding.logo_url} 
               alt="Logo" 
-              className="h-12 w-auto object-contain bg-white/90 rounded-md p-1" 
+              className="h-12 w-auto object-contain" 
             />
           ) : (
             <>
@@ -127,12 +125,10 @@ const StudentLayout: React.FC = () => {
             </div>
 
             <div className="flex-1 overflow-y-auto py-4 px-4">
-              {/* Links de Navegação */}
               {navLinks.map((link) => (
                 <MobileLink key={link.to} {...link} />
               ))}
 
-              {/* Botão de Assinatura */}
               <Button
                 variant="ghost"
                 className="w-full justify-start gap-3 mb-1 text-muted-foreground"
