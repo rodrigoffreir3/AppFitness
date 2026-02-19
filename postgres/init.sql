@@ -117,6 +117,7 @@ CREATE TABLE announcements (
     trainer_id UUID NOT NULL REFERENCES trainers(id) ON DELETE CASCADE,
     title TEXT NOT NULL,
     content TEXT,
+    image_url TEXT,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
