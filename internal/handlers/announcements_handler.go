@@ -1,4 +1,3 @@
-// internal/handlers/announcements_handler.go
 package handlers
 
 import (
@@ -9,19 +8,16 @@ import (
 	"net/http"
 )
 
-// RegisterAnnouncementsRoutes regista as rotas para o mural de avisos.
 func RegisterAnnouncementsRoutes(mux *http.ServeMux, db *sql.DB) {
 	h := &announcementsHandler{db: db}
 
 	createHandler := http.HandlerFunc(h.handleCreateAnnouncement)
 	listHandler := http.HandlerFunc(h.handleListAnnouncements)
-	// MODIFICAÇÃO: Adicionamos os handlers de update e delete.
 	updateHandler := http.HandlerFunc(h.handleUpdateAnnouncement)
 	deleteHandler := http.HandlerFunc(h.handleDeleteAnnouncement)
 
 	mux.Handle("POST /api/announcements", middleware.AuthMiddleware(createHandler))
 	mux.Handle("GET /api/announcements", middleware.AuthMiddleware(listHandler))
-	// MODIFICAÇÃO: Novas rotas para um aviso específico.
 	mux.Handle("PUT /api/announcements/{id}", middleware.AuthMiddleware(updateHandler))
 	mux.Handle("DELETE /api/announcements/{id}", middleware.AuthMiddleware(deleteHandler))
 }
@@ -31,18 +27,19 @@ type announcementsHandler struct {
 }
 
 type AnnouncementRequest struct {
-	Title   string `json:"title"`
-	Content string `json:"content"`
+	Title    string `json:"title"`
+	Content  string `json:"content"`
+	ImageURL string `json:"image_url"`
 }
 
 type AnnouncementResponse struct {
 	ID        string `json:"id"`
 	Title     string `json:"title"`
 	Content   string `json:"content"`
+	ImageURL  string `json:"image_url"`
 	CreatedAt string `json:"created_at"`
 }
 
-// MODIFICAÇÃO: Nova função para atualizar um aviso.
 func (h *announcementsHandler) handleUpdateAnnouncement(w http.ResponseWriter, r *http.Request) {
 	trainerID := r.Context().Value(middleware.TrainerIDKey).(string)
 	announcementID := r.PathValue("id")
@@ -53,8 +50,8 @@ func (h *announcementsHandler) handleUpdateAnnouncement(w http.ResponseWriter, r
 		return
 	}
 
-	query := `UPDATE announcements SET title = $1, content = $2 WHERE id = $3 AND trainer_id = $4`
-	result, err := h.db.ExecContext(r.Context(), query, req.Title, req.Content, announcementID, trainerID)
+	query := `UPDATE announcements SET title = $1, content = $2, image_url = $3 WHERE id = $4 AND trainer_id = $5`
+	result, err := h.db.ExecContext(r.Context(), query, req.Title, req.Content, req.ImageURL, announcementID, trainerID)
 	if err != nil {
 		log.Printf("Erro ao atualizar aviso: %v", err)
 		http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
@@ -63,7 +60,7 @@ func (h *announcementsHandler) handleUpdateAnnouncement(w http.ResponseWriter, r
 
 	rowsAffected, _ := result.RowsAffected()
 	if rowsAffected == 0 {
-		http.Error(w, "Aviso não encontrado ou não pertence a este trainer", http.StatusNotFound)
+		http.Error(w, "Aviso não encontrado", http.StatusNotFound)
 		return
 	}
 
@@ -71,7 +68,6 @@ func (h *announcementsHandler) handleUpdateAnnouncement(w http.ResponseWriter, r
 	w.Write([]byte("Aviso atualizado com sucesso"))
 }
 
-// MODIFICAÇÃO: Nova função para deletar um aviso.
 func (h *announcementsHandler) handleDeleteAnnouncement(w http.ResponseWriter, r *http.Request) {
 	trainerID := r.Context().Value(middleware.TrainerIDKey).(string)
 	announcementID := r.PathValue("id")
@@ -86,14 +82,13 @@ func (h *announcementsHandler) handleDeleteAnnouncement(w http.ResponseWriter, r
 
 	rowsAffected, _ := result.RowsAffected()
 	if rowsAffected == 0 {
-		http.Error(w, "Aviso não encontrado ou não pertence a este trainer", http.StatusNotFound)
+		http.Error(w, "Aviso não encontrado", http.StatusNotFound)
 		return
 	}
 
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// As funções handleCreateAnnouncement e handleListAnnouncements permanecem as mesmas
 func (h *announcementsHandler) handleCreateAnnouncement(w http.ResponseWriter, r *http.Request) {
 	trainerID := r.Context().Value(middleware.TrainerIDKey).(string)
 
@@ -105,11 +100,12 @@ func (h *announcementsHandler) handleCreateAnnouncement(w http.ResponseWriter, r
 
 	var newAnnouncement AnnouncementResponse
 	query := `
-		INSERT INTO announcements (trainer_id, title, content)
-		VALUES ($1, $2, $3)
-		RETURNING id, title, content, created_at
+		INSERT INTO announcements (trainer_id, title, content, image_url)
+		VALUES ($1, $2, $3, $4)
+		RETURNING id, title, content, COALESCE(image_url, ''), created_at
 	`
-	err := h.db.QueryRowContext(r.Context(), query, trainerID, req.Title, req.Content).Scan(&newAnnouncement.ID, &newAnnouncement.Title, &newAnnouncement.Content, &newAnnouncement.CreatedAt)
+	err := h.db.QueryRowContext(r.Context(), query, trainerID, req.Title, req.Content, req.ImageURL).
+		Scan(&newAnnouncement.ID, &newAnnouncement.Title, &newAnnouncement.Content, &newAnnouncement.ImageURL, &newAnnouncement.CreatedAt)
 	if err != nil {
 		log.Printf("Erro ao criar aviso: %v", err)
 		http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
@@ -124,7 +120,7 @@ func (h *announcementsHandler) handleCreateAnnouncement(w http.ResponseWriter, r
 func (h *announcementsHandler) handleListAnnouncements(w http.ResponseWriter, r *http.Request) {
 	trainerID := r.Context().Value(middleware.TrainerIDKey).(string)
 
-	query := `SELECT id, title, content, created_at FROM announcements WHERE trainer_id = $1 ORDER BY created_at DESC`
+	query := `SELECT id, title, content, COALESCE(image_url, ''), created_at FROM announcements WHERE trainer_id = $1 ORDER BY created_at DESC`
 	rows, err := h.db.QueryContext(r.Context(), query, trainerID)
 	if err != nil {
 		log.Printf("Erro ao listar avisos: %v", err)
@@ -136,7 +132,7 @@ func (h *announcementsHandler) handleListAnnouncements(w http.ResponseWriter, r 
 	var announcements []AnnouncementResponse
 	for rows.Next() {
 		var a AnnouncementResponse
-		if err := rows.Scan(&a.ID, &a.Title, &a.Content, &a.CreatedAt); err != nil {
+		if err := rows.Scan(&a.ID, &a.Title, &a.Content, &a.ImageURL, &a.CreatedAt); err != nil {
 			log.Printf("Erro ao escanear aviso: %v", err)
 			http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
 			return

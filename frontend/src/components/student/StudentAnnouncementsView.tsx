@@ -9,6 +9,7 @@ interface Announcement {
   id: string;
   title: string;
   content: string;
+  image_url?: string;
   created_at: string; // Manter como string para exibição
 }
 // --- FIM NOVO ---
@@ -85,13 +86,18 @@ const StudentAnnouncementsView = () => {
     return (
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {announcements.map((announcement) => (
-          <Card key={announcement.id}>
-            <CardHeader>
+          <Card key={announcement.id} className="overflow-hidden">
+            {announcement.image_url && (
+              <div className="w-full bg-black/5 border-b flex items-center justify-center p-2">
+                <img src={announcement.image_url} alt="Panfleto" className="max-w-full max-h-64 object-contain rounded-md shadow-sm" />
+              </div>
+            )}
+            <CardHeader className={announcement.image_url ? "pt-4" : ""}>
               <CardTitle className="text-lg">{announcement.title}</CardTitle>
               <p className="text-sm text-muted-foreground">{formatDate(announcement.created_at)}</p>
             </CardHeader>
             <CardContent>
-              <p className="text-sm break-words">{announcement.content}</p>
+              <p className="text-sm break-words whitespace-pre-wrap">{announcement.content}</p>
             </CardContent>
           </Card>
         ))}
@@ -101,7 +107,7 @@ const StudentAnnouncementsView = () => {
   // --- FIM RENDERIZAÇÃO ---
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-10">
       <div>
         <h1 className="text-3xl font-bold">Avisos</h1>
         <p className="text-muted-foreground">Comunicados do seu treinador</p>

@@ -20,10 +20,10 @@ export interface ReceivedMessage {
 type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'error';
 // --- FIM DOS TIPOS ---
 
-
-// O URL base da nossa API (de api.ts)
-// Substituímos http por ws (ou https por wss em produção)
-const WS_URL = 'ws://localhost:8080/api/ws';
+// A MÁGICA: Detecta automaticamente se é localhost ou a sua VPS (metsuke.app.br)
+const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+const host = window.location.host;
+const WS_URL = `${protocol}//${host}/api/ws`;
 
 export const useChatWebSocket = () => {
   const [lastMessage, setLastMessage] = useState<ReceivedMessage | null>(null);
