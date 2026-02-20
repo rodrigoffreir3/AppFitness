@@ -3,35 +3,37 @@ package services
 import (
 	"fmt"
 	"log"
-	"net/smtp"
 	"os"
+
+	"github.com/resend/resend-go/v2"
 )
 
 type EmailService struct {
-	auth smtp.Auth
-	addr string
-	from string
+	client *resend.Client
+	from   string
 }
 
 func NewEmailService() *EmailService {
-	host := os.Getenv("SMTP_HOST")
-	port := os.Getenv("SMTP_PORT")
-	user := os.Getenv("SMTP_USER")
-	pass := os.Getenv("SMTP_PASS")
+	apiKey := os.Getenv("RESEND_API_KEY")
+	fromEmail := os.Getenv("EMAIL_FROM")
 
-	auth := smtp.PlainAuth("", user, pass, host)
+	if apiKey == "" || fromEmail == "" {
+		log.Println("AVISO: RESEND_API_KEY ou EMAIL_FROM ausentes. O envio de e-mails pode falhar.")
+	}
+
+	client := resend.NewClient(apiKey)
+
 	return &EmailService{
-		auth: auth,
-		addr: host + ":" + port,
-		from: user,
+		client: client,
+		from:   fmt.Sprintf("Metsuke Fitness <%s>", fromEmail),
 	}
 }
 
 func (s *EmailService) SendWelcomeEmail(toEmail, name, password string) error {
 	// AJUSTE: URL do Metsuke
-	link := "https://metsuke.app.br/login"
+	link := "https://metsuke.app.br/login/trainer"
 
-	subject := "Bem-vindo ao Metsuke"
+	subject := "Bem-vindo ao Metsuke Fitness! 🚀"
 	body := fmt.Sprintf(`Olá %s,
 Sua conta foi criada com sucesso!
 
@@ -46,9 +48,9 @@ Por favor, altere sua senha após o primeiro login.`, name, link, password)
 
 func (s *EmailService) SendPasswordResetEmail(toEmail, token string) error {
 	// AJUSTE: URL do Metsuke
-	link := fmt.Sprintf("https://metsuke.app.br/reset-password?token=%s", token)
+	link := fmt.Sprintf("https://metsuke.app.br/redefinir-senha?token=%s", token)
 
-	subject := "Recuperação de Senha - Metsuke"
+	subject := "Recuperação de Senha - Metsuke Fitness 🟢"
 	body := fmt.Sprintf(`Você solicitou a recuperação de senha.
 Clique no link abaixo para criar uma nova senha:
 
@@ -60,15 +62,19 @@ Se você não solicitou isso, ignore este e-mail.`, link)
 }
 
 func (s *EmailService) send(to, subject, body string) error {
-	msg := []byte(fmt.Sprintf("To: %s\r\n"+
-		"Subject: %s\r\n"+
-		"\r\n"+
-		"%s\r\n", to, subject, body))
+	params := &resend.SendEmailRequest{
+		From:    s.from,
+		To:      []string{to},
+		Subject: subject,
+		Text:    body, // Mantido como texto simples para garantir a compatibilidade cirúrgica
+	}
 
-	err := smtp.SendMail(s.addr, s.auth, s.from, []string{to}, msg)
+	sent, err := s.client.Emails.Send(params)
 	if err != nil {
 		log.Printf("Erro ao enviar email para %s: %v", to, err)
 		return err
 	}
+
+	log.Printf("E-mail transacional enviado com sucesso! ID: %s", sent.Id)
 	return nil
 }
