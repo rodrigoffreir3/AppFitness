@@ -105,6 +105,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const checkAuth = async () => {
+      // --- CLÁUSULA DE IMUNIDADE (GOD MODE) ---
+      if (localStorage.getItem('adminAuthToken')) {
+        setIsLoading(false);
+        return; // Sai da função para não limpar o token nem tentar fazer login normal
+      }
+
       try {
         const storedType = localStorage.getItem('userType') as 'trainer' | 'student' | null;
         let token = null;

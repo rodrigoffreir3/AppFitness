@@ -33,6 +33,10 @@ services:
       - R2_BUCKET_NAME=${R2_BUCKET_NAME}
       - R2_PUBLIC_DOMAIN=${R2_PUBLIC_DOMAIN}
 
+      # --- GOD MODE (NOVO) ---
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - ADMIN_TOTP_SECRET=${ADMIN_TOTP_SECRET}
+
     depends_on:
       - postgres
     volumes:

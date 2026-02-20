@@ -23,6 +23,10 @@ import NotFound from './pages/NotFound.tsx';
 import ForgotPassword from './pages/auth/ForgotPassword.tsx';
 import ResetPassword from './pages/auth/ResetPassword.tsx';
 
+// --- PÁGINA GOD MODE (Super Admin) ---
+import GodModeLogin from './pages/auth/GodModeLogin.tsx';
+import GodModeDashboard from './pages/admin/GodModeDashboard.tsx';
+
 // Páginas e Views do Treinador
 import TrainerDashboard from './pages/trainer/Dashboard.tsx';
 import TrainerWorkoutDetails from './pages/trainer/TrainerWorkoutDetails.tsx';
@@ -66,6 +70,15 @@ const router = createBrowserRouter([
           { path: 'esqueci-senha', element: <ForgotPassword /> },
           { path: 'redefinir-senha', element: <ResetPassword /> },
         ]
+      },
+      // --- ROTA GOD MODE ---
+      {
+        path: 'master',
+        element: <GodModeLogin />,
+      },
+      {
+        path: 'master/dashboard',
+        element: <GodModeDashboard />,
       },
       // Rotas do Treinador
       {

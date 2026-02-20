@@ -8,6 +8,14 @@ const api = axios.create({
 // Interceptor de Requisição: Adiciona o token automaticamente
 api.interceptors.request.use(
   (config) => {
+    // 1. PRIORIDADE MÁXIMA: Token do God Mode (Super Admin)
+    const adminToken = localStorage.getItem('adminAuthToken');
+    if (adminToken) {
+      config.headers['Authorization'] = `Bearer ${adminToken}`;
+      return config;
+    }
+
+    // 2. Fallback: Tokens normais (Treinador ou Aluno)
     const userType = localStorage.getItem('userType');
     let token = null;
 
@@ -35,16 +43,27 @@ api.interceptors.response.use(
       const { status, config } = error.response;
       
       // Verifica se é uma rota de autenticação (Login/Registro) para não redirecionar em caso de erro de senha
-      const isAuthRoute = config.url?.includes('/login') || config.url?.includes('/register') || config.url?.includes('/public');
+      const isAuthRoute = config.url?.includes('/login') || config.url?.includes('/register') || config.url?.includes('/public') || config.url?.includes('/admin/login');
       
       // Verifica se o usuário já está na página de login ou root
       const isAtPublicPage = window.location.pathname === '/' || window.location.pathname.includes('/login');
+
+      // --- GOD MODE BYPASS ---
+      // Se estiver na rota do painel master e der 401, manda para o login do master, não para o início!
+      const isGodMode = window.location.pathname.includes('/master');
+      if (isGodMode && status === 401 && !isAuthRoute) {
+         console.warn("God Mode: Token inválido ou expirado.");
+         localStorage.removeItem('adminAuthToken');
+         window.location.href = '/master';
+         return Promise.reject(error);
+      }
 
       // Logout forçado APENAS se:
       // 1. Não for rota de auth (erro de senha)
       // 2. Usuário não estiver já na tela de login
       // 3. For erro 401 ou 404 em rotas de perfil (/me)
-      if (!isAuthRoute && !isAtPublicPage && (status === 401 || (status === 404 && config.url?.includes('/me')))) {
+      // 4. Não for o God Mode (já tratado acima)
+      if (!isAuthRoute && !isAtPublicPage && !isGodMode && (status === 401 || (status === 404 && config.url?.includes('/me')))) {
         console.warn("Sessão inválida detectada. Realizando logout forçado...");
         localStorage.clear();
         document.documentElement.style.removeProperty('--primary');

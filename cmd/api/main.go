@@ -1,3 +1,4 @@
+// cmd/api/main.go
 package main
 
 import (
@@ -45,7 +46,6 @@ func main() {
 
 	// --- Rotas Padrão ---
 	handlers.RegisterTrainersRoutes(mux, db)
-	// CORREÇÃO: Passando storageService para os estudantes também!
 	handlers.RegisterStudentsRoutes(mux, db, storageService)
 	handlers.RegisterWorkoutsRoutes(mux, db)
 	handlers.RegisterAnnouncementsRoutes(mux, db)
@@ -53,6 +53,9 @@ func main() {
 	handlers.RegisterSubscriptionRoutes(mux, db)
 	handlers.RegisterWebhookRoutes(mux, db)
 	handlers.RegisterAuthRoutes(mux, db)
+
+	// --- Rotas do God Mode (Super Admin) ---
+	handlers.RegisterAdminRoutes(mux, db)
 
 	// --- Rotas de Exercícios ---
 	handlers.RegisterWorkoutExercisesRoutes(mux, db, storageService)
