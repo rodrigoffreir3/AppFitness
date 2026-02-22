@@ -10,7 +10,9 @@ api.interceptors.request.use(
   (config) => {
     // 1. PRIORIDADE MÁXIMA: Token do God Mode (Super Admin)
     const adminToken = localStorage.getItem('adminAuthToken');
-    if (adminToken) {
+    
+    // CORREÇÃO CIRÚRGICA: Só injeta o crachá de super admin SE a rota for de super admin
+    if (adminToken && config.url?.includes('/admin')) {
       config.headers['Authorization'] = `Bearer ${adminToken}`;
       return config;
     }

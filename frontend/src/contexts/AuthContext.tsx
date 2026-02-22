@@ -105,10 +105,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const checkAuth = async () => {
-      // --- CLÁUSULA DE IMUNIDADE (GOD MODE) ---
-      if (localStorage.getItem('adminAuthToken')) {
+      // --- CORREÇÃO CIRÚRGICA DO GOD MODE ---
+      // O God Mode SÓ tem prioridade se o usuário estiver na rota /master!
+      const isMasterRoute = window.location.pathname.includes('/master');
+      if (isMasterRoute && localStorage.getItem('adminAuthToken')) {
         setIsLoading(false);
-        return; // Sai da função para não limpar o token nem tentar fazer login normal
+        return; 
       }
 
       try {
