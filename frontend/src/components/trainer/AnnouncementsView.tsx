@@ -143,11 +143,11 @@ const AnnouncementsView = () => {
     try {
       if (isEditing) {
         // --- LÓGICA DE UPDATE ---
-        await api.put(`/api/announcements/${editingAnnouncement.id}`, dataToSave);
+        await api.put(`/announcements/${editingAnnouncement.id}`, dataToSave);
         toast({ title: "Aviso atualizado!", description: "O aviso foi salvo com sucesso." });
       } else {
         // --- LÓGICA DE CREATE ---
-        await api.post('/api/announcements', dataToSave);
+        await api.post('/announcements', dataToSave);
         toast({ title: "Aviso publicado!", description: "Todos os alunos foram notificados." });
       }
 
@@ -170,7 +170,7 @@ const AnnouncementsView = () => {
     if (!announcementToDelete) return;
 
     try {
-      await api.delete(`/api/announcements/${announcementToDelete.id}`);
+      await api.delete(`/announcements/${announcementToDelete.id}`);
       toast({ title: "Aviso excluído!", description: "O aviso foi removido com sucesso." });
       setAnnouncementToDelete(null);
       fetchAnnouncements(); // Atualizar a lista
