@@ -146,10 +146,10 @@ func (h *studentsHandler) handlePublicSelfRegister(w http.ResponseWriter, r *htt
 
 	var newStudent StudentResponse
 	query := `
-		INSERT INTO students (name, email, password_hash, trainer_id)
-		VALUES ($1, $2, $3, $4)
-		RETURNING id, name, email, COALESCE(anamnesis_url, '')
-	`
+        INSERT INTO students (name, email, password_hash, trainer_id)
+        VALUES ($1, $2, $3, $4)
+        RETURNING id, name, email, COALESCE(anamnesis_url, '')
+    `
 	err = h.db.QueryRowContext(r.Context(), query, req.Name, req.Email, string(hashedPassword), req.TrainerID).Scan(&newStudent.ID, &newStudent.Name, &newStudent.Email, &newStudent.FileURL)
 
 	if err != nil {
@@ -170,15 +170,15 @@ func (h *studentsHandler) handlePublicSelfRegister(w http.ResponseWriter, r *htt
 
 	var branding types.BrandingResponse
 	brandingQuery := `
-		SELECT 
-			COALESCE(brand_logo_url, ''), 
-			COALESCE(brand_primary_color, '#3b82f6'), 
-			COALESCE(brand_secondary_color, '#000000'),
-			COALESCE(payment_pix_key, ''),
-			COALESCE(payment_link_url, ''),
-			COALESCE(payment_instructions, '')
-		FROM trainers WHERE id = $1
-	`
+        SELECT 
+            COALESCE(brand_logo_url, ''), 
+            COALESCE(brand_primary_color, '#3b82f6'), 
+            COALESCE(brand_secondary_color, '#000000'),
+            COALESCE(payment_pix_key, ''),
+            COALESCE(payment_link_url, ''),
+            COALESCE(payment_instructions, '')
+        FROM trainers WHERE id = $1
+    `
 	err = h.db.QueryRowContext(r.Context(), brandingQuery, req.TrainerID).Scan(
 		&branding.LogoURL, &branding.PrimaryColor, &branding.SecondaryColor,
 		&branding.PaymentPixKey, &branding.PaymentLinkURL, &branding.PaymentInstructions,
@@ -195,27 +195,30 @@ func (h *studentsHandler) handleGetMyProfile(w http.ResponseWriter, r *http.Requ
 	studentID := r.Context().Value(middleware.TrainerIDKey).(string)
 	var profile StudentProfileResponse
 
+	// CORREÇÃO CIRÚRGICA: Variável segura contra NULL do banco
+	var termsAccepted sql.NullTime
+
 	query := `
-		SELECT 
-			s.id, s.name, s.email, COALESCE(s.anamnesis_url, ''), 
-			s.trainer_id, COALESCE(t.name, ''),
-			COALESCE(t.brand_logo_url, ''), 
-			COALESCE(t.brand_primary_color, '#3b82f6'), 
-			COALESCE(t.brand_secondary_color, '#000000'),
-			COALESCE(t.payment_pix_key, ''),
-			COALESCE(t.payment_link_url, ''),
-			COALESCE(t.payment_instructions, ''),
-			s.terms_accepted_at
-		FROM students s
-		LEFT JOIN trainers t ON s.trainer_id = t.id
-		WHERE s.id = $1
-	`
+        SELECT 
+            s.id, s.name, s.email, COALESCE(s.anamnesis_url, ''), 
+            s.trainer_id, COALESCE(t.name, ''),
+            COALESCE(t.brand_logo_url, ''), 
+            COALESCE(t.brand_primary_color, '#3b82f6'), 
+            COALESCE(t.brand_secondary_color, '#000000'),
+            COALESCE(t.payment_pix_key, ''),
+            COALESCE(t.payment_link_url, ''),
+            COALESCE(t.payment_instructions, ''),
+            s.terms_accepted_at
+        FROM students s
+        LEFT JOIN trainers t ON s.trainer_id = t.id
+        WHERE s.id = $1
+    `
 	err := h.db.QueryRowContext(r.Context(), query, studentID).Scan(
 		&profile.ID, &profile.Name, &profile.Email, &profile.FileURL,
 		&profile.TrainerID, &profile.TrainerName,
 		&profile.BrandLogoURL, &profile.BrandPrimaryColor, &profile.BrandSecondaryColor,
 		&profile.PaymentPixKey, &profile.PaymentLinkURL, &profile.PaymentInstructions,
-		&profile.TermsAcceptedAt,
+		&termsAccepted, // Scan blindado
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -226,6 +229,12 @@ func (h *studentsHandler) handleGetMyProfile(w http.ResponseWriter, r *http.Requ
 		http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
 		return
 	}
+
+	// Transfere o valor apenas se for válido
+	if termsAccepted.Valid {
+		profile.TermsAcceptedAt = &termsAccepted.Time
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(profile)
 }
@@ -251,11 +260,11 @@ func (h *studentsHandler) handleGetMyAnnouncements(w http.ResponseWriter, r *htt
 		CreatedAt string `json:"created_at"`
 	}
 	queryAnnouncements := `
-		SELECT id, title, content, created_at 
-		FROM announcements 
-		WHERE trainer_id = $1 
-		ORDER BY created_at DESC
-	`
+        SELECT id, title, content, created_at 
+        FROM announcements 
+        WHERE trainer_id = $1 
+        ORDER BY created_at DESC
+    `
 	rows, err := h.db.QueryContext(r.Context(), queryAnnouncements, trainerID)
 	if err != nil {
 		log.Printf("Erro ao listar avisos para o aluno: %v", err)
@@ -297,19 +306,15 @@ func (h *studentsHandler) handleGetMyWorkoutDetails(w http.ResponseWriter, r *ht
 		return
 	}
 
-	// LÓGICA CORRETA:
-	// COALESCE(NULLIF(we.video_url, ''), COALESCE(e.video_url, ''))
-	// 1. Tenta pegar we.video_url (Link Personalizado).
-	// 2. Se for NULL ou vazio (''), pega e.video_url (Biblioteca).
 	queryExercises := `
-		SELECT we.id, we.exercise_id, e.name, 
-		       COALESCE(NULLIF(we.video_url, ''), COALESCE(e.video_url, '')), 
-			   we.sets, we.reps, we.rest_period_seconds,
-			   we."order", we.notes, we.execution_details
-		FROM workout_exercises we
-		JOIN exercises e ON we.exercise_id = e.id
-		WHERE we.workout_id = $1 ORDER BY we."order" ASC
-	`
+        SELECT we.id, we.exercise_id, e.name, 
+               COALESCE(NULLIF(we.video_url, ''), COALESCE(e.video_url, '')), 
+               we.sets, we.reps, we.rest_period_seconds,
+               we."order", we.notes, we.execution_details
+        FROM workout_exercises we
+        JOIN exercises e ON we.exercise_id = e.id
+        WHERE we.workout_id = $1 ORDER BY we."order" ASC
+    `
 	rows, err := h.db.QueryContext(r.Context(), queryExercises, workoutID)
 	if err != nil {
 		log.Printf("Erro ao buscar exercícios do treino para o aluno: %v", err)
@@ -326,8 +331,6 @@ func (h *studentsHandler) handleGetMyWorkoutDetails(w http.ResponseWriter, r *ht
 			return
 		}
 
-		// ASSINATURA AUTOMÁTICA (CDN)
-		// Só assina se não for link externo (YouTube/Vimeo)
 		if ex.VideoURL != "" && !strings.HasPrefix(ex.VideoURL, "http") && h.storage != nil {
 			signedURL, err := h.storage.GetSignedURL(ex.VideoURL)
 			if err == nil {
@@ -552,10 +555,10 @@ func (h *studentsHandler) handleCreateStudent(w http.ResponseWriter, r *http.Req
 	}
 	var newStudent StudentResponse
 	query := `
-		INSERT INTO students (name, email, password_hash, trainer_id, anamnesis_url)
-		VALUES ($1, $2, $3, $4, $5)
-		RETURNING id, name, email, COALESCE(anamnesis_url, '')
-	`
+        INSERT INTO students (name, email, password_hash, trainer_id, anamnesis_url)
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING id, name, email, COALESCE(anamnesis_url, '')
+    `
 	err = h.db.QueryRowContext(r.Context(), query, req.Name, req.Email, string(hashedPassword), trainerID, req.FileURL).Scan(&newStudent.ID, &newStudent.Name, &newStudent.Email, &newStudent.FileURL)
 	if err != nil {
 		if strings.Contains(err.Error(), "violates unique constraint") {

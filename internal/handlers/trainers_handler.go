@@ -192,7 +192,10 @@ func (h *trainersHandler) handleGetTrainerMe(w http.ResponseWriter, r *http.Requ
 	}
 	var resp TrainerProfileResponse
 
-	// ATUALIZADO: Inclui terms_accepted_at
+	// CORREÇÃO CIRÚRGICA: Escudos contra NULL do banco de dados
+	var subExp sql.NullTime
+	var termsAccepted sql.NullTime
+
 	query := `
 		SELECT 
 			id, name, email, 
@@ -211,8 +214,7 @@ func (h *trainersHandler) handleGetTrainerMe(w http.ResponseWriter, r *http.Requ
 		&resp.ID, &resp.Name, &resp.Email,
 		&resp.BrandLogoURL, &resp.BrandPrimaryColor, &resp.BrandSecondaryColor,
 		&resp.PaymentPixKey, &resp.PaymentLinkURL, &resp.PaymentInstructions,
-		&resp.SubscriptionStatus, &resp.SubscriptionExp,
-		&resp.TermsAcceptedAt, // Scan do novo campo
+		&resp.SubscriptionStatus, &subExp, &termsAccepted, // Usando os escudos
 	)
 
 	if err != nil {
@@ -224,6 +226,15 @@ func (h *trainersHandler) handleGetTrainerMe(w http.ResponseWriter, r *http.Requ
 		http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
 		return
 	}
+
+	// Repassando os valores para a resposta final apenas se existirem datas válidas
+	if subExp.Valid {
+		resp.SubscriptionExp = &subExp.Time
+	}
+	if termsAccepted.Valid {
+		resp.TermsAcceptedAt = &termsAccepted.Time
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
 }
